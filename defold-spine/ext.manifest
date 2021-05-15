@@ -1,2 +1,8 @@
 name: SpineExt
 
+platforms:
+    common:
+        context:
+            symbols: ["ResourceTypeSpineModel", "ComponentTypeSpineModel"]
+
+
