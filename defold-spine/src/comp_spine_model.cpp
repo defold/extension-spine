@@ -1035,4 +1035,4 @@ namespace dmSpine
     }
 }
 
-DM_DECLARE_COMPONENT_TYPE(ComponentTypeSpineModel, "spinemodelc", dmSpine::CompSpineModelRegister);
+DM_DECLARE_COMPONENT_TYPE(ComponentTypeSpineModelExt, "spinemodelc", dmSpine::CompSpineModelRegister);

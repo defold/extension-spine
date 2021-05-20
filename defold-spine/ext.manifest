@@ -3,6 +3,7 @@ name: SpineExt
 platforms:
     common:
         context:
-            symbols: ["ResourceTypeSpineModel", "ComponentTypeSpineModel"]
+            symbols: ["ResourceTypeSpineModelExt", "ComponentTypeSpineModelExt"]
+            excludeSymbols: ["ResourceTypeSpineModel", "ComponentTypeSpineModel"]
 
 

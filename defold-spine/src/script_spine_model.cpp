@@ -27,17 +27,7 @@
 
 #include "comp_spine_model.h"
 
-
-//#include "gamesys.h"
-//#include "../gamesys_private.h" // dmScript::CheckGOInstance
-
-//#include "../resources/res_spine_model.h"
-extern "C"
-{
-#include <lua/lauxlib.h>
-#include <lua/lualib.h>
-}
-
+#include <dmsdk/sdk.h>
 
 namespace dmSpine
 {

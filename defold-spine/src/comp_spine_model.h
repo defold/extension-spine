@@ -19,12 +19,10 @@
 #include <dmsdk/dlib/vmath.h>
 #include <dmsdk/gameobject/gameobject.h>
 #include <dmsdk/gamesys/render_constants.h>
-#include <dlib/object_pool.h>
-//#include <graphics/graphics.h>
+#include <dmsdk/dlib/object_pool.h>
 #include <dmsdk/resource/resource.h>
 #include <dmsdk/render/render.h>
 #include <dmsdk/rig/rig.h>
-//#include "comp_private.h"
 
 #include "res_spine_model.h"
 
@@ -44,10 +42,8 @@ namespace dmSpine
         dmArray<dmGameObject::HInstance>        m_NodeInstances;
         uint32_t                                m_MixedHash;
         uint16_t                                m_ComponentIndex;
-        /// Component enablement
         uint8_t                                 m_Enabled : 1;
         uint8_t                                 m_DoRender : 1;
-        /// Added to update or not
         uint8_t                                 m_AddedToUpdate : 1;
         uint8_t                                 m_ReHash : 1;
     };

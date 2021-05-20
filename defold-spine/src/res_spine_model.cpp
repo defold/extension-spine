@@ -114,4 +114,4 @@ namespace dmSpine
     }
 }
 
-DM_DECLARE_RESOURCE_TYPE(ResourceTypeSpineModel, "spinemodelc", dmSpine::RegisterResourceType, 0);
+DM_DECLARE_RESOURCE_TYPE(ResourceTypeSpineModelExt, "spinemodelc", dmSpine::RegisterResourceType, 0);
