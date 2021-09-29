@@ -4,6 +4,3 @@ platforms:
     common:
         context:
             symbols: ["ResourceTypeSpineModelExt", "ComponentTypeSpineModelExt"]
-            excludeSymbols: ["ResourceTypeSpineModel", "ComponentTypeSpineModel"]
-
-
