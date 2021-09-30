@@ -1,5 +1,8 @@
 /.internal
 /build
+/utils/runtime/build
+/utils/runtime/spine-runtimes*
+/utils/runtime/*.zip
 .externalToolBuilders
 .DS_Store
 Thumbs.db
