@@ -8,3 +8,5 @@ Thumbs.db
 .project
 .cproject
 builtins
+/utils/runtime/build
+/utils/runtime/*.zip
