@@ -55,9 +55,9 @@
 
 (set! *warn-on-reflection* true)
 
-(def spine-scene-icon "icons/32/Icons_16-Spine-scene.png")
-(def spine-model-icon "icons/32/Icons_15-Spine-model.png")
-(def spine-bone-icon "icons/32/Icons_S_13_radiocircle.png")
+(def spine-scene-icon "/defold-spine/editor/resources/icons/32/Icons_16-Spine-scene.png")
+(def spine-model-icon "/defold-spine/editor/resources/icons/32/Icons_15-Spine-model.png")
+(def spine-bone-icon "/defold-spine/editor/resources/icons/32/Icons_18-Rive-bone.png")
 
 (def spine-scene-ext "spinescene")
 (def spine-model-ext "spinemodel")
