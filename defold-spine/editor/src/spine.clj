@@ -58,6 +58,7 @@
 (def spine-scene-icon "/defold-spine/editor/resources/icons/32/Icons_16-Spine-scene.png")
 (def spine-model-icon "/defold-spine/editor/resources/icons/32/Icons_15-Spine-model.png")
 (def spine-bone-icon "/defold-spine/editor/resources/icons/32/Icons_18-Rive-bone.png")
+(def spine-material-path "/defold-spine/assets/spine.material")
 
 (def spine-scene-ext "spinescene")
 (def spine-model-ext "spinemodel")
@@ -826,7 +827,7 @@
         (let [user-data (:user-data (first renderables))
               blend-mode (:blend-mode user-data)
               gpu-texture (:gpu-texture user-data)
-              shader (get user-data :shader render/shader-tex-tint)
+              shader (:shader user-data)
               vertex-binding (vtx/use-with ::spine-trans vb shader)]
           (gl/with-gl-bindings gl render-args [gpu-texture shader vertex-binding]
             (gl/set-blend-mode gl blend-mode)
@@ -851,7 +852,7 @@
   (assert (= (:pass render-args) pass/outline))
   (render/render-aabb-outline gl render-args ::spine-outline renderables rcount))
 
-(g/defnk produce-main-scene [_node-id aabb gpu-texture default-tex-params spine-scene-pb scene-structure]
+(g/defnk produce-main-scene [_node-id aabb gpu-texture default-tex-params material-shader spine-scene-pb scene-structure]
   (when (and gpu-texture scene-structure)
     (let [blend-mode :blend-mode-alpha]
       (assoc {:node-id _node-id :aabb aabb}
@@ -863,6 +864,7 @@
                                       :scene-structure scene-structure
                                       :gpu-texture gpu-texture
                                       :tex-params default-tex-params
+                                      :shader material-shader
                                       :blend-mode blend-mode}
                           :passes [pass/transparent pass/selection]}))))
 
@@ -944,6 +946,16 @@
             (dynamic error (g/fnk [_node-id atlas]
                              (validate-scene-atlas _node-id atlas))))
 
+  ; hidden, used for mapping the default spine.material resource for the .spinescene rendering
+  (property material resource/Resource
+            (value (gu/passthrough material-resource))
+            (set (fn [evaluation-context self old-value new-value]
+                   (project/resource-setter evaluation-context self old-value new-value
+                                            [:shader :material-shader]
+                                            [:samplers :material-samplers])))
+            (dynamic edit-type (g/constantly {:type resource/Resource :ext "material"}))
+            (dynamic visible (g/constantly false)))
+
   (property sample-rate g/Num)
 
   (input spine-json-resource resource/Resource)
@@ -955,12 +967,16 @@
   (input dep-build-targets g/Any :array)
   (input spine-scene g/Any)
   (input scene-structure g/Any)
+  (input material-resource resource/Resource) ; Just for being able to preview the asset
+  (input material-shader ShaderLifecycle)
+  (input material-samplers g/Any)
 
   (output save-value g/Any produce-save-value)
   (output own-build-errors g/Any produce-scene-own-build-errors)
   (output build-targets g/Any :cached produce-scene-build-targets)
   (output spine-scene-pb g/Any :cached produce-spine-scene-pb)
   (output main-scene g/Any :cached produce-main-scene)
+  (output material-shader ShaderLifecycle (gu/passthrough material-shader))
   (output scene g/Any :cached produce-scene)
   (output aabb AABB :cached (g/fnk [spine-scene-pb] (reduce mesh->aabb geom/null-aabb (get-in spine-scene-pb [:mesh-set :mesh-attachments]))))
   (output skin-aabbs g/Any :cached produce-skin-aabbs)
@@ -970,12 +986,14 @@
 
 (defn load-spine-scene [project self resource spine]
   (let [spine-resource (workspace/resolve-resource resource (:spine-json spine))
-        atlas          (workspace/resolve-resource resource (:atlas spine))]
+        atlas          (workspace/resolve-resource resource (:atlas spine))
+        material       (workspace/resolve-resource resource spine-material-path)]
     (concat
       (g/connect project :default-tex-params self :default-tex-params)
       (g/set-property self
                       :spine-json spine-resource
                       :atlas atlas
+                      :material material
                       :sample-rate (:sample-rate spine)))))
 
 (g/defnk produce-model-pb [spine-scene-resource default-animation skin material-resource blend-mode]
