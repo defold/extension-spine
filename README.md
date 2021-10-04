@@ -1,13 +1,9 @@
-# Welcome to Defold
+# Defold Spine extension
 
-This project was created from the "empty" project template.
+## Installation
+To use this library in your Defold project, add the following URL to your `game.project` dependencies:
 
-The settings in ["game.project"](defold://open?path=/game.project) are all the default. A bootstrap empty ["main.collection"](defold://open?path=/main/main.collection) is included.
+https://github.com/defold/extension-spine/archive/master.zip
 
-Check out [the documentation pages](https://defold.com/learn) for examples, tutorials, manuals and API docs.
+We recommend using a link to a zip file of a [specific release](https://github.com/defold/extension-spine/releases).
 
-If you run into trouble, help is available in [our forum](https://forum.defold.com).
-
-Happy Defolding!
-
----
