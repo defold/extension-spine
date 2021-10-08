@@ -88,9 +88,6 @@ public class SpineSceneBuilder extends Builder<Void> {
             BuilderUtil.checkResource(this.project, input, "atlas", builder.getAtlas());
             taskBuilder.addInput(project.getResource(project.getBuildDirectory() + BuilderUtil.replaceExt( builder.getAtlas(), "atlas", "texturesetc")));
         }
-        else {
-            System.out.printf("MAWE Found template file: %s", input.getPath());
-        }
 
         taskBuilder.addOutput(input.changeExt(".skeletonc"));
         taskBuilder.addOutput(input.changeExt(".meshsetc"));
@@ -383,8 +380,6 @@ public class SpineSceneBuilder extends Builder<Void> {
 
         IResource input = task.input(0);
         if (isTemplateFile(input.getPath())) {
-
-            System.out.printf("MAWE Found template file: %s  skipping.", input.getPath());
             byte[] emptyArray = new byte[0];
             task.output(0).setContent(emptyArray);
             task.output(1).setContent(emptyArray);
