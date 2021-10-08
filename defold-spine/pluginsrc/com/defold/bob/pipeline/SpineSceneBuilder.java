@@ -67,6 +67,10 @@ import com.google.protobuf.Message;
 @BuilderParams(name="SpineScene", inExts=".spinescene", outExt=".rigscenec")
 public class SpineSceneBuilder extends Builder<Void> {
 
+    private boolean isTemplateFile(String path) {
+        return path.endsWith("template.spinescene");
+    }
+
     @Override
     public Task<Void> create(IResource input) throws IOException, CompileExceptionError {
         Task.TaskBuilder<Void> taskBuilder = Task.<Void>newBuilder(this)
@@ -74,17 +78,23 @@ public class SpineSceneBuilder extends Builder<Void> {
                 .addInput(input)
                 .addOutput(input.changeExt(params.outExt()));
 
-        SpineSceneDesc.Builder builder = SpineSceneDesc.newBuilder();
-        ProtoUtil.merge(input, builder);
-        BuilderUtil.checkResource(this.project, input, "spine_json", builder.getSpineJson());
-        BuilderUtil.checkResource(this.project, input, "atlas", builder.getAtlas());
+        if (!isTemplateFile(input.getPath())) {
+            SpineSceneDesc.Builder builder = SpineSceneDesc.newBuilder();
+            ProtoUtil.merge(input, builder);
+
+            BuilderUtil.checkResource(this.project, input, "spine_json", builder.getSpineJson());
+            taskBuilder.addInput(input.getResource(builder.getSpineJson()));
+
+            BuilderUtil.checkResource(this.project, input, "atlas", builder.getAtlas());
+            taskBuilder.addInput(project.getResource(project.getBuildDirectory() + BuilderUtil.replaceExt( builder.getAtlas(), "atlas", "texturesetc")));
+        }
+        else {
+            System.out.printf("MAWE Found template file: %s", input.getPath());
+        }
 
         taskBuilder.addOutput(input.changeExt(".skeletonc"));
         taskBuilder.addOutput(input.changeExt(".meshsetc"));
         taskBuilder.addOutput(input.changeExt(".animationsetc"));
-
-        taskBuilder.addInput(input.getResource(builder.getSpineJson()));
-        taskBuilder.addInput(project.getResource(project.getBuildDirectory() + BuilderUtil.replaceExt( builder.getAtlas(), "atlas", "texturesetc")));
         return taskBuilder.build();
     }
 
@@ -365,12 +375,23 @@ public class SpineSceneBuilder extends Builder<Void> {
     }
 
     @Override
-    public void build(Task<Void> task) throws CompileExceptionError,
-            IOException {
+    public void build(Task<Void> task) throws CompileExceptionError, IOException {
 
-        System.out.printf("MAWE: OUTPUT FROM EXTENSION SpineSceneBuilder!\n");
+        System.out.printf("MAWE: OUTPUT FROM EXTENSION SpineSceneBuilder: %s\n", task.getName());
 
         SpineSceneDesc.Builder builder = SpineSceneDesc.newBuilder();
+
+        IResource input = task.input(0);
+        if (isTemplateFile(input.getPath())) {
+
+            System.out.printf("MAWE Found template file: %s  skipping.", input.getPath());
+            byte[] emptyArray = new byte[0];
+            task.output(0).setContent(emptyArray);
+            task.output(1).setContent(emptyArray);
+            task.output(2).setContent(emptyArray);
+            task.output(3).setContent(emptyArray);
+            return;
+        }
         ProtoUtil.merge(task.input(0), builder);
 
         // Load previously created atlas textureset

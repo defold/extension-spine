@@ -27,9 +27,15 @@ public class SpineModelBuilder extends ProtoBuilder<SpineModelDesc.Builder> {
 
     @Override
     protected SpineModelDesc.Builder transform(Task<Void> task, IResource resource, SpineModelDesc.Builder messageBuilder) throws CompileExceptionError {
-        BuilderUtil.checkResource(this.project, resource, "spineScene", messageBuilder.getSpineScene());
+
+        if (!messageBuilder.getSpineScene().equals("")) {
+            BuilderUtil.checkResource(this.project, resource, "spineScene", messageBuilder.getSpineScene());
+        }
         messageBuilder.setSpineScene(BuilderUtil.replaceExt(messageBuilder.getSpineScene(), ".spinescene", ".rigscenec"));
-        BuilderUtil.checkResource(this.project, resource, "material", messageBuilder.getMaterial());
+
+        if (!messageBuilder.getMaterial().equals("")) {
+            BuilderUtil.checkResource(this.project, resource, "material", messageBuilder.getMaterial());
+        }
         messageBuilder.setMaterial(BuilderUtil.replaceExt(messageBuilder.getMaterial(), ".material", ".materialc"));
 
         System.out.printf("MAWE: OUTPUT FROM EXTENSION SpineModelBuilder!\n");
