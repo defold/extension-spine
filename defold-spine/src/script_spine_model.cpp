@@ -1,15 +1,3 @@
-// Copyright 2020 The Defold Foundation
-// Licensed under the Defold License version 1.0 (the "License"); you may not use
-// this file except in compliance with the License.
-//
-// You may obtain a copy of the License, together with FAQs at
-// https://www.defold.com/license
-//
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
-
 #include <assert.h>
 
 #include <dmsdk/dlib/hash.h>
@@ -401,6 +389,10 @@ namespace dmSpine
     static int SpineComp_GetGO(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 1);
+        return DM_LUA_ERROR("the bone '%s' could not be found", lua_tostring(L, 2));
+
+/*
+        DM_LUA_STACK_CHECK(L, 1);
 
         SpineModelComponent* component = 0;
         dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, 0);
@@ -440,6 +432,7 @@ namespace dmSpine
         }
         dmScript::PushHash(L, instance_id);
         return 1;
+        */
     }
 
     /*# sets the spine skin

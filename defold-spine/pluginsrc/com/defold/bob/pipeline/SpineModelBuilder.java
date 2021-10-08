@@ -26,13 +26,23 @@ import com.dynamo.spine.proto.Spine.SpineModelDesc;
 public class SpineModelBuilder extends ProtoBuilder<SpineModelDesc.Builder> {
 
     @Override
-    protected SpineModelDesc.Builder transform(Task<Void> task, IResource resource, SpineModelDesc.Builder messageBuilder) throws CompileExceptionError {
-        BuilderUtil.checkResource(this.project, resource, "spineScene", messageBuilder.getSpineScene());
-        messageBuilder.setSpineScene(BuilderUtil.replaceExt(messageBuilder.getSpineScene(), ".spinescene", ".rigscenec"));
-        BuilderUtil.checkResource(this.project, resource, "material", messageBuilder.getMaterial());
-        messageBuilder.setMaterial(BuilderUtil.replaceExt(messageBuilder.getMaterial(), ".material", ".materialc"));
+    protected SpineModelDesc.Builder transform(Task<Void> task, IResource resource, SpineModelDesc.Builder builder) throws CompileExceptionError {
+
+        String path;
+
+        path = builder.getSpineScene();
+        if (!path.equals("")) {
+            BuilderUtil.checkResource(this.project, resource, "spine_scene", path);
+        }
+        builder.setSpineScene(BuilderUtil.replaceExt(path, ".spinescene", ".spinescenec"));
+
+        path = builder.getMaterial();
+        if (!path.equals("")) {
+            BuilderUtil.checkResource(this.project, resource, "material", path);
+        }
+        builder.setMaterial(BuilderUtil.replaceExt(path, ".material", ".materialc"));
 
         System.out.printf("MAWE: OUTPUT FROM EXTENSION SpineModelBuilder!\n");
-        return messageBuilder;
+        return builder;
     }
 }

@@ -1,86 +1,207 @@
+
 images {
-  image: "/assets/images/spineboy/eye_indifferent.png"
+  image: "/assets/images/rear-thigh.png"
 }
 images {
-  image: "/assets/images/spineboy/eye_surprised.png"
+  image: "/assets/images/hoverglow-small.png"
 }
 images {
-  image: "/assets/images/spineboy/eyes.png"
+  image: "/assets/images/rear-upper-arm.png"
 }
 images {
-  image: "/assets/images/spineboy/front_bracer.png"
+  image: "/assets/images/rear-bracer.png"
 }
 images {
-  image: "/assets/images/spineboy/front_fist_closed.png"
+  image: "/assets/images/portal-streaks1.png"
 }
 images {
-  image: "/assets/images/spineboy/front_fist_open.png"
+  image: "/assets/images/front-fist-open.png"
 }
 images {
-  image: "/assets/images/spineboy/front_foot.png"
+  image: "/assets/images/portal-flare2.png"
 }
 images {
-  image: "/assets/images/spineboy/front_foot_bend1.png"
+  image: "/assets/images/portal-flare3.png"
 }
 images {
-  image: "/assets/images/spineboy/front_foot_bend2.png"
+  image: "/assets/images/portal-streaks2.png"
 }
 images {
-  image: "/assets/images/spineboy/front_shin.png"
+  image: "/assets/images/portal-flare1.png"
 }
 images {
-  image: "/assets/images/spineboy/front_thigh.png"
+  image: "/assets/images/muzzle-ring.png"
 }
 images {
-  image: "/assets/images/spineboy/front_upper_arm.png"
+  image: "/assets/images/front-thigh.png"
 }
 images {
-  image: "/assets/images/spineboy/goggles.png"
+  image: "/assets/images/eye-surprised.png"
 }
 images {
-  image: "/assets/images/spineboy/gun.png"
+  image: "/assets/images/gun.png"
 }
 images {
-  image: "/assets/images/spineboy/head.png"
+  image: "/assets/images/portal-shade.png"
 }
 images {
-  image: "/assets/images/spineboy/mouth_grind.png"
+  image: "/assets/images/crosshair.png"
+}
+images {
+  image: "/assets/images/portal-bg.png"
+}
+images {
+  image: "/assets/images/front-foot.png"
+}
+images {
+  image: "/assets/images/front-upper-arm.png"
+}
+images {
+  image: "/assets/images/mouth-oooo.png"
+}
+images {
+  image: "/assets/images/rear-shin.png"
+}
+images {
+  image: "/assets/images/head.png"
+}
+images {
+  image: "/assets/images/front-bracer.png"
+}
+images {
+  image: "/assets/images/eye-indifferent.png"
+}
+images {
+  image: "/assets/images/hoverboard-board.png"
+}
+images {
+  image: "/assets/images/torso.png"
+}
+images {
+  image: "/assets/images/muzzle05.png"
+}
+images {
+  image: "/assets/images/muzzle04.png"
+}
+images {
+  image: "/assets/images/front-shin.png"
+}
+images {
+  image: "/assets/images/neck.png"
+}
+images {
+  image: "/assets/images/mouth-smile.png"
+}
+images {
+  image: "/assets/images/muzzle-glow.png"
+}
+images {
+  image: "/assets/images/goggles.png"
+}
+images {
+  image: "/assets/images/muzzle03.png"
+}
+images {
+  image: "/assets/images/muzzle02.png"
+}
+images {
+  image: "/assets/images/mouth-grind.png"
+}
+images {
+  image: "/assets/images/rear-foot.png"
+}
+images {
+  image: "/assets/images/hoverboard-thruster.png"
+}
+images {
+  image: "/assets/images/front-fist-closed.png"
+}
+images {
+  image: "/assets/images/muzzle01.png"
 }
 images {
   image: "/assets/images/spineboy/mouth_oooo.png"
 }
 images {
-  image: "/assets/images/spineboy/mouth_smile.png"
-}
-images {
-  image: "/assets/images/spineboy/muzzle.png"
-}
-images {
-  image: "/assets/images/spineboy/neck.png"
-}
-images {
-  image: "/assets/images/spineboy/rear_bracer.png"
-}
-images {
-  image: "/assets/images/spineboy/rear_foot.png"
-}
-images {
-  image: "/assets/images/spineboy/rear_foot_bend1.png"
-}
-images {
-  image: "/assets/images/spineboy/rear_foot_bend2.png"
-}
-images {
-  image: "/assets/images/spineboy/rear_shin.png"
+  image: "/assets/images/spineboy/front_foot.png"
 }
 images {
   image: "/assets/images/spineboy/rear_thigh.png"
 }
 images {
+  image: "/assets/images/spineboy/rear_bracer.png"
+}
+images {
+  image: "/assets/images/spineboy/rear_shin.png"
+}
+images {
+  image: "/assets/images/spineboy/eye_indifferent.png"
+}
+images {
+  image: "/assets/images/spineboy/rear_foot_bend2.png"
+}
+images {
   image: "/assets/images/spineboy/rear_upper_arm.png"
 }
 images {
+  image: "/assets/images/spineboy/front_shin.png"
+}
+images {
+  image: "/assets/images/spineboy/rear_foot_bend1.png"
+}
+images {
+  image: "/assets/images/spineboy/front_thigh.png"
+}
+images {
+  image: "/assets/images/spineboy/gun.png"
+}
+images {
+  image: "/assets/images/spineboy/eye_surprised.png"
+}
+images {
+  image: "/assets/images/spineboy/front_fist_closed.png"
+}
+images {
+  image: "/assets/images/spineboy/rear_foot.png"
+}
+images {
+  image: "/assets/images/spineboy/front_fist_open.png"
+}
+images {
+  image: "/assets/images/spineboy/front_bracer.png"
+}
+images {
+  image: "/assets/images/spineboy/head.png"
+}
+images {
+  image: "/assets/images/spineboy/muzzle.png"
+}
+images {
+  image: "/assets/images/spineboy/front_foot_bend1.png"
+}
+images {
   image: "/assets/images/spineboy/torso.png"
+}
+images {
+  image: "/assets/images/spineboy/mouth_grind.png"
+}
+images {
+  image: "/assets/images/spineboy/front_upper_arm.png"
+}
+images {
+  image: "/assets/images/spineboy/neck.png"
+}
+images {
+  image: "/assets/images/spineboy/front_foot_bend2.png"
+}
+images {
+  image: "/assets/images/spineboy/goggles.png"
+}
+images {
+  image: "/assets/images/spineboy/eyes.png"
+}
+images {
+  image: "/assets/images/spineboy/mouth_smile.png"
 }
 margin: 0
 extrude_borders: 2
