@@ -37,8 +37,6 @@ public class SpineModelBuilder extends ProtoBuilder<SpineModelDesc.Builder> {
             BuilderUtil.checkResource(this.project, resource, "material", messageBuilder.getMaterial());
         }
         messageBuilder.setMaterial(BuilderUtil.replaceExt(messageBuilder.getMaterial(), ".material", ".materialc"));
-
-        System.out.printf("MAWE: OUTPUT FROM EXTENSION SpineModelBuilder!\n");
         return messageBuilder;
     }
 }
