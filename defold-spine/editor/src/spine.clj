@@ -1161,7 +1161,7 @@
   (concat
     (resource-node/register-ddf-resource-type workspace
       :ext spine-scene-ext
-      :build-ext "rigscenec"
+      :build-ext "spinescenec"
       :label "Spine Scene plugin"
       :node-type SpineSceneNode
       :ddf-type (workspace/load-class! "com.dynamo.spine.proto.Spine$SpineSceneDesc")
@@ -1317,7 +1317,6 @@
 
 ; The plugin
 (defn load-plugin-spine [workspace]
-  (prn "MAWE" "workspace" workspace)
   (g/transact (concat (register-resource-types workspace)))
   )
 

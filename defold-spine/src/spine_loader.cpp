@@ -130,11 +130,16 @@ namespace dmSpine
                 memset(region, 0, sizeof(spAtlasRegion));
 
                 region->u   = tc[0 * 2 + 0];
-                region->v   = tc[0 * 2 + 1];
+                region->v   = tc[2 * 2 + 1];
                 region->u2  = tc[2 * 2 + 0];
-                region->v2  = tc[2 * 2 + 1];
+                region->v2  = tc[0 * 2 + 1];
 
-                region->degrees = 0; // The uv's are already rotated
+                // From texture_set_ddf.proto
+                // For unrotated quads, the order is: [(minU,maxV),(minU,minV),(maxU,minV),(maxU,maxV)]
+                // For rotated quads, the order is: [(minU,minV),(maxU,minV),(maxU,maxV),(minU,maxV)]
+                bool unrotated = tc[0 * 2 + 1] == tc[3 * 2 + 1];
+
+                region->degrees = unrotated ? 0 : 90; // The uv's are already rotated
 
                 // We don't support packing yet
                 region->offsetX = 0;

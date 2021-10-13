@@ -19,12 +19,13 @@
 #include <dmsdk/dlib/vmath.h>
 #include <dmsdk/gameobject/gameobject.h>
 #include <dmsdk/gamesys/render_constants.h>
-#include <dmsdk/dlib/object_pool.h>
-#include <dmsdk/resource/resource.h>
 #include <dmsdk/render/render.h>
-#include <dmsdk/rig/rig.h>
 
 #include "res_spine_model.h"
+
+struct spSkeleton;
+struct spAnimationState;
+struct spTrackEntry;
 
 namespace dmSpine
 {
@@ -34,7 +35,9 @@ namespace dmSpine
         dmTransform::Transform                  m_Transform;
         dmVMath::Matrix4                        m_World;
         SpineModelResource*                     m_Resource;
-        dmRig::HRigInstance                     m_RigInstance;
+        spSkeleton*                             m_SkeletonInstance;
+        spAnimationState*                       m_AnimationStateInstance;
+        spTrackEntry*                           m_AnimationInstance;
         dmMessage::URL                          m_Listener;
         dmGameSystem::HComponentRenderConstants m_RenderConstants;
         dmRender::HMaterial                     m_Material;

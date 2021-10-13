@@ -4,11 +4,13 @@
 #include "spine_ddf.h" // generated from the spine_ddf.proto
 
 #include <dmsdk/dlib/log.h>
+#include <dmsdk/dlib/math.h>
 #include <dmsdk/resource/resource.h>
 
 #include <spine/SkeletonJson.h>
 #include <spine/AnimationStateData.h>
 
+// Also see the guide http://esotericsoftware.com/spine-c#Loading-skeleton-data
 
 namespace dmSpine
 {
@@ -58,10 +60,20 @@ namespace dmSpine
             return dmResource::RESULT_INVALID_DATA;
         }
 
-        //stateData->defaultMix = 0.2f; // force mixing
+        resource->m_AnimationStateData = spAnimationStateData_create(resource->m_Skeleton);
+        //spAnimationStateData_setDefaultMix(resource->m_AnimationStateData, 0.1f); // There's currently no such function!
+        resource->m_AnimationStateData->defaultMix = 0.1f; // force mixing
 
         // We can release this json data now
         dmResource::Release(factory, spine_json_resource);
+
+        resource->m_AnimationNameToIndex.SetCapacity(dmMath::Max(1, resource->m_Skeleton->animationsCount/3), resource->m_Skeleton->animationsCount);
+        for (int n = 0; n < resource->m_Skeleton->animationsCount; ++n)
+        {
+            dmhash_t name_hash = dmHashString64(resource->m_Skeleton->animations[n]->name);
+            resource->m_AnimationNameToIndex.Put(name_hash, n);
+            dmLogWarning("MAWE anim %u: %llx %s", n, name_hash, resource->m_Skeleton->animations[n]->name);
+        }
 
 
         // if(dmRender::GetMaterialVertexSpace(resource->m_Material) != dmRenderDDF::MaterialDesc::VERTEX_SPACE_WORLD)
@@ -79,8 +91,8 @@ namespace dmSpine
         if (resource->m_TextureSet)
             dmResource::Release(factory, resource->m_TextureSet);
 
-        if (resource->m_Animations)
-            spAnimationStateData_dispose(resource->m_Animations);
+        if (resource->m_AnimationStateData)
+            spAnimationStateData_dispose(resource->m_AnimationStateData);
         if (resource->m_Skeleton)
             spSkeletonData_dispose(resource->m_Skeleton);
         dmSpine::Dispose(resource->m_AttachmentLoader);
@@ -105,8 +117,6 @@ namespace dmSpine
 
     static dmResource::Result ResourceTypeScene_Create(const dmResource::ResourceCreateParams& params)
     {
-        dmLogWarning("MAWE %s: %s", __FUNCTION__, params.m_Filename);
-
         SpineSceneResource* scene_resource = new SpineSceneResource();
         scene_resource->m_Ddf = (dmGameSystemDDF::SpineSceneDesc*) params.m_PreloadData;
         dmResource::Result r = AcquireResources(params.m_Factory, scene_resource, params.m_Filename);
@@ -119,8 +129,6 @@ namespace dmSpine
             ReleaseResources(params.m_Factory, scene_resource);
             delete scene_resource;
         }
-
-        dmLogWarning("MAWE %s: %s: %d", __FUNCTION__, params.m_Filename, r);
         return r;
     }
 

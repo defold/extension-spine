@@ -2,6 +2,7 @@
 #define DM_RES_SPINE_SCENE_H
 
 #include <dmsdk/gamesys/resources/res_textureset.h>
+#include <dmsdk/dlib/hashtable.h>
 
 struct spAtlasRegion;
 struct spSkeletonData;
@@ -27,8 +28,9 @@ namespace dmSpine
         dmGameSystem::TextureSetResource*   m_TextureSet;   // The atlas
         spAtlasRegion*                      m_Regions;      // Maps 1:1 with the atlas animations array
         spSkeletonData*                     m_Skeleton;     // the .spinejson file
-        spAnimationStateData*               m_Animations;
+        spAnimationStateData*               m_AnimationStateData;
         spDefoldAtlasAttachmentLoader*      m_AttachmentLoader;
+        dmHashTable64<uint32_t>             m_AnimationNameToIndex;
     };
 }
 
