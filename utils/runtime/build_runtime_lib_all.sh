@@ -10,6 +10,7 @@ SCRIPT=${SCRIPTDIR}/build_runtime_lib.sh
 ${SCRIPT} x86_64-osx
 ${SCRIPT} x86_64-linux
 ${SCRIPT} x86_64-win32
+${SCRIPT} x86-win32
 ${SCRIPT} js-web
 ${SCRIPT} wasm-web
 ${SCRIPT} armv7-android
