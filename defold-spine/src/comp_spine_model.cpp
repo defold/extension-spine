@@ -79,6 +79,7 @@ namespace dmSpine
         dmGraphics::HVertexDeclaration      m_VertexDeclaration;
         dmGraphics::HVertexBuffer           m_VertexBuffer;
         dmArray<SpineVertex>                m_VertexBufferData;
+        dmResource::HFactory                m_Factory;
     };
 
     struct SpineModelContext
@@ -98,6 +99,7 @@ namespace dmSpine
         SpineModelContext* context = (SpineModelContext*)params.m_Context;
         dmRender::HRenderContext render_context = context->m_RenderContext;
         SpineModelWorld* world = new SpineModelWorld();
+        world->m_Factory = context->m_Factory;
 
         uint32_t comp_count = dmMath::Min(params.m_MaxComponentInstances, context->m_MaxSpineModelCount);
 
@@ -344,12 +346,17 @@ namespace dmSpine
         */
     }
 
-    // void* CompSpineGetComponent(const dmGameObject::ComponentGetParams& params)
-    // {
-    //     SpineModelWorld* world = (SpineModelWorld*)params.m_World;
-    //     uint32_t index = (uint32_t)*params.m_UserData;
-    //     return &world->m_Components.Get(index);
-    // }
+    static inline SpineModelComponent* GetComponentFromIndex(SpineModelWorld* world, int index)
+    {
+        return world->m_Components.Get(index);
+    }
+
+    static void* CompSpineModelGetComponent(const dmGameObject::ComponentGetParams& params)
+    {
+        SpineModelWorld* world = (SpineModelWorld*)params.m_World;
+        uint32_t index = (uint32_t)*params.m_UserData;
+        return GetComponentFromIndex(world, index);
+    }
 
 
     static const uint32_t INVALID_ANIMATION_INDEX = 0xFFFFFFFF;
@@ -505,9 +512,14 @@ namespace dmSpine
         dmGameObject::DeleteBones(component->m_Instance);
         // If we're going to use memset, then we should explicitly clear pose and instance arrays.
         component->m_NodeInstances.SetCapacity(0);
-
+        if (component->m_Material)
+        {
+            dmResource::Release(world->m_Factory, (void*)component->m_Material);
+        }
         if (component->m_RenderConstants)
+        {
             dmGameSystem::DestroyRenderConstants(component->m_RenderConstants);
+        }
 
         if (component->m_AnimationStateInstance)
             spAnimationState_dispose(component->m_AnimationStateInstance);
@@ -523,10 +535,6 @@ namespace dmSpine
         SpineModelContext* ctx = (SpineModelContext*)params.m_Context;
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
         uint32_t index = *params.m_UserData;
-        SpineModelComponent* component = world->m_Components.Get(index);
-        if (component->m_Material) {
-            dmResource::Release(ctx->m_Factory, (void*)component->m_Material);
-        }
         DestroyComponent(world, index);
         return dmGameObject::CREATE_RESULT_OK;
     }
@@ -568,7 +576,7 @@ namespace dmSpine
     {
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
         uint32_t index = (uint32_t)*params.m_UserData;
-        SpineModelComponent* component = world->m_Components.Get(index);
+        SpineModelComponent* component = GetComponentFromIndex(world, index);
         component->m_AddedToUpdate = true;
         return dmGameObject::CREATE_RESULT_OK;
     }
@@ -942,8 +950,7 @@ namespace dmSpine
     dmGameObject::UpdateResult CompSpineModelOnMessage(const dmGameObject::ComponentOnMessageParams& params)
     {
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
-        SpineModelComponent* component = world->m_Components.Get(*params.m_UserData);
-
+        SpineModelComponent* component = GetComponentFromIndex(world, *params.m_UserData);
         if (params.m_Message->m_Id == dmGameObjectDDF::Enable::m_DDFDescriptor->m_NameHash)
         {
             component->m_Enabled = 1;
@@ -1015,7 +1022,7 @@ namespace dmSpine
     {
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
         int index = *params.m_UserData;
-        SpineModelComponent* component = world->m_Components.Get(index);
+        SpineModelComponent* component = GetComponentFromIndex(world, index);
         component->m_Resource = (SpineModelResource*)params.m_Resource;
         (void)OnResourceReloaded(world, component, index);
     }
@@ -1024,7 +1031,7 @@ namespace dmSpine
     {
         SpineModelContext* context = (SpineModelContext*)params.m_Context;
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
-        SpineModelComponent* component = world->m_Components.Get(*params.m_UserData);
+        SpineModelComponent* component = GetComponentFromIndex(world, *params.m_UserData);
         // if (params.m_PropertyId == PROP_SKIN)
         // {
         //     out_value.m_Variant = dmGameObject::PropertyVar(dmRig::GetMesh(component->m_RigInstance));
@@ -1058,7 +1065,7 @@ namespace dmSpine
     {
         SpineModelContext* context = (SpineModelContext*)params.m_Context;
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
-        SpineModelComponent* component = world->m_Components.Get(*params.m_UserData);
+        SpineModelComponent* component = GetComponentFromIndex(world, *params.m_UserData);
         // if (params.m_PropertyId == PROP_SKIN)
         // {
         //     if (params.m_Value.m_Type != dmGameObject::PROPERTY_TYPE_HASH)
@@ -1158,6 +1165,7 @@ namespace dmSpine
         ComponentTypeSetGetPropertyFn(type, CompSpineModelGetProperty);
         ComponentTypeSetSetPropertyFn(type, CompSpineModelSetProperty);
             // ComponentTypeSetPropertyIteratorFn(type, CompSpineModelIterProperties);
+        ComponentTypeSetGetFn(type, CompSpineModelGetComponent);
 
         return dmGameObject::RESULT_OK;
     }
