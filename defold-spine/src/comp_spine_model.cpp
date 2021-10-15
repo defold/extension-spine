@@ -181,7 +181,7 @@ namespace dmSpine
 
                 uintptr_t descriptor = (uintptr_t)dmGameSystemDDF::SpineAnimationDone::m_DDFDescriptor;
                 uint32_t data_size = sizeof(dmGameSystemDDF::SpineAnimationDone);
-                dmMessage::Result result = dmMessage::Post(&sender, &receiver, message_id, 0, 0, descriptor, &message, data_size, 0);
+                dmMessage::Result result = dmMessage::Post(&sender, &receiver, message_id, 0, component->m_AnimationCallbackRef, descriptor, &message, data_size, 0);
                 dmMessage::ResetURL(&component->m_Listener);
                 if (result != dmMessage::RESULT_OK)
                 {
@@ -466,6 +466,7 @@ namespace dmSpine
         component->m_World = Matrix4::identity();
         component->m_DoRender = 0;
         component->m_RenderConstants = 0;
+        component->m_AnimationCallbackRef = 0;
 
         component->m_SkeletonInstance = spSkeleton_create(spine_scene->m_Skeleton);
         if (!component->m_SkeletonInstance)
@@ -966,6 +967,7 @@ namespace dmSpine
         //         dmGameSystemDDF::SpinePlayAnimation* ddf = (dmGameSystemDDF::SpinePlayAnimation*)params.m_Message->m_Data;
         //         if (dmRig::RESULT_OK == dmRig::PlayAnimation(component->m_RigInstance, ddf->m_AnimationId, ddf_playback_map.m_Table[ddf->m_Playback], ddf->m_BlendDuration, ddf->m_Offset, ddf->m_PlaybackRate))
         //         {
+        //             component->m_AnimationCallbackRef = params.m_Message->m_UserData2;
         //             component->m_Listener = params.m_Message->m_Sender;
         //         }
         //     }
