@@ -150,48 +150,6 @@ namespace dmSpine
      * ```
      */
 
-
-    static int SpineComp_Play(lua_State* L)
-    {
-        DM_LUA_STACK_CHECK(L, 0);
-        int top = lua_gettop(L);
-
-        // default values
-        float offset = 0.0f;
-        float playback_rate = 1.0f;
-
-        dmGameObject::HInstance instance = dmScript::CheckGOInstance(L);
-
-        dmhash_t anim_id = dmScript::CheckHashOrString(L, 2);
-        lua_Integer playback = luaL_checkinteger(L, 3);
-        lua_Number blend_duration = luaL_checknumber(L, 4);
-
-        dmMessage::URL receiver;
-        dmMessage::URL sender;
-        dmScript::ResolveURL(L, 1, &receiver, &sender);
-
-        int functionref = 0;
-        if (top > 4)
-        {
-            if (lua_isfunction(L, 5))
-            {
-                lua_pushvalue(L, 5);
-                // NOTE: By convention m_FunctionRef is offset by LUA_NOREF, see message.h in dlib
-                functionref = dmScript::RefInInstance(L) - LUA_NOREF;
-            }
-        }
-
-        dmGameSystemDDF::SpinePlayAnimation msg;
-        msg.m_AnimationId = anim_id;
-        msg.m_Playback = playback;
-        msg.m_BlendDuration = blend_duration;
-        msg.m_Offset = offset;
-        msg.m_PlaybackRate = playback_rate;
-
-        dmMessage::Post(&sender, &receiver, dmGameSystemDDF::SpinePlayAnimation::m_DDFDescriptor->m_NameHash, (uintptr_t)instance, (uintptr_t)functionref, (uintptr_t)dmGameSystemDDF::SpinePlayAnimation::m_DDFDescriptor, &msg, sizeof(msg), 0);
-        return 0;
-    }
-
     /*# play an animation on a spine model
      * Plays a specified animation on a spine model component with specified playback
      * mode and parameters.
@@ -237,14 +195,23 @@ namespace dmSpine
      * : [type:object] The current object.
      *
      * `message_id`
-     * : [type:hash] The name of the completion message, `"spine_animation_done"`.
+     * : [type:hash] The name of the completion message, `"spine_animation_done"` or `"spine_event"`.
      *
      * `message`
-     * : [type:table] Information about the completion:
+     * : [type:table] Information for spine_animation_done:
      *
      * - [type:hash] `animation_id` - the animation that was completed.
      * - [type:constant] `playback` - the playback mode for the animation.
      *
+     * : [type:table] Information for spine_event:
+     *
+     * - [type:hash]  `animation_id` - the animation that triggered the event.
+     * - [type:hash]  `event_id`     - the event that was triggered.
+     * - [type:float] `t`            - the time at which the event occurred (seconds)
+     * - [type:int]   `integer`      - a custom integer associated with the event (0 by default).
+     * - [type:float] `float`        - a custom float associated with the event (0 by default)
+     * - [type:hash]  `string`       - a custom string associated with the event (hash("") by default)
+
      * `sender`
      * : [type:url] The invoker of the callback: the spine model component.
      *
@@ -262,6 +229,8 @@ namespace dmSpine
      *       local properties = { blend_duration = 0.2 }
      *       spine.play_anim(sender, "run", go.PLAYBACK_LOOP_FORWARD, properties, anim_done)
      *     end
+     *   elif message_id == hash("spine_event") then
+     *       pprint("spine event", message)
      *   end
      * end
      *
@@ -706,7 +675,6 @@ namespace dmSpine
 
     static const luaL_reg SPINE_COMP_FUNCTIONS[] =
     {
-            {"play",    SpineComp_Play},
             {"play_anim", SpineComp_PlayAnim},
             {"cancel",  SpineComp_Cancel},
             {"get_go",  SpineComp_GetGO},

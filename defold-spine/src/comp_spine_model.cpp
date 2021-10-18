@@ -136,22 +136,6 @@ namespace dmSpine
         return dmGameObject::CREATE_RESULT_OK;
     }
 
-    static bool GetSender(SpineModelComponent* component, dmMessage::URL* out_sender)
-    {
-        dmMessage::URL sender;
-        sender.m_Socket = dmGameObject::GetMessageSocket(dmGameObject::GetCollection(component->m_Instance));
-        if (dmMessage::IsSocketValid(sender.m_Socket))
-        {
-            dmGameObject::Result go_result = dmGameObject::GetComponentId(component->m_Instance, component->m_ComponentIndex, &sender.m_Fragment);
-            if (go_result == dmGameObject::RESULT_OK)
-            {
-                sender.m_Path = dmGameObject::GetIdentifier(component->m_Instance);
-                *out_sender = sender;
-                return true;
-            }
-        }
-        return false;
-    }
 
     /*
 
@@ -371,18 +355,25 @@ namespace dmSpine
 
     static inline bool IsLooping(dmGameObject::Playback playback)
     {
-        switch(playback)
-        {
-            case dmGameObject::PLAYBACK_LOOP_BACKWARD:
-            case dmGameObject::PLAYBACK_LOOP_FORWARD:
-            case dmGameObject::PLAYBACK_LOOP_PINGPONG:
-                return true;
-            default:
-                return false;
-        }
+        return  playback == dmGameObject::PLAYBACK_LOOP_BACKWARD ||
+                playback == dmGameObject::PLAYBACK_LOOP_FORWARD ||
+                playback == dmGameObject::PLAYBACK_LOOP_PINGPONG;
     }
 
-    static bool PlayAnimation(SpineModelComponent* component, dmhash_t animation_id, dmGameObject::Playback playback)
+    static inline bool IsReverse(dmGameObject::Playback playback)
+    {
+        return  playback == dmGameObject::PLAYBACK_LOOP_BACKWARD ||
+                playback == dmGameObject::PLAYBACK_ONCE_BACKWARD;
+    }
+
+    static inline bool IsPingPong(dmGameObject::Playback playback)
+    {
+        return  playback == dmGameObject::PLAYBACK_LOOP_PINGPONG ||
+                playback == dmGameObject::PLAYBACK_ONCE_PINGPONG;
+    }
+
+    static bool PlayAnimation(SpineModelComponent* component, dmhash_t animation_id, dmGameObject::Playback playback,
+        float blend_duration, float offset, float playback_rate)
     {
         uint32_t index = FindAnimationIndex(component, animation_id);
         if (index == INVALID_ANIMATION_INDEX)
@@ -408,34 +399,136 @@ namespace dmSpine
 
         component->m_AnimationInstance = spAnimationState_setAnimation(component->m_AnimationStateInstance, trackIndex, animation, loop);
 
+        component->m_Playback = playback;
+        component->m_AnimationInstance->timeScale = playback_rate;
+        component->m_AnimationInstance->reverse = IsReverse(playback);
+        component->m_AnimationInstance->mixDuration = blend_duration;
+
         return true;
     }
 
-    static void EventListener(spAnimationState* state, spEventType type, spTrackEntry* entry, spEvent* event)
+    static void StopAnimations(SpineModelComponent* component)
     {
+        if (!component->m_AnimationInstance)
+        {
+            return;
+        }
+
+        int track_index = 0;
+        float mix_duration = 0.0f;
+        spAnimationState_setEmptyAnimation(component->m_AnimationStateInstance, track_index, mix_duration);
+    }
+
+    static bool GetSender(SpineModelComponent* component, dmMessage::URL* out_sender)
+    {
+        dmMessage::URL sender;
+        sender.m_Socket = dmGameObject::GetMessageSocket(dmGameObject::GetCollection(component->m_Instance));
+        if (dmMessage::IsSocketValid(sender.m_Socket))
+        {
+            dmGameObject::Result go_result = dmGameObject::GetComponentId(component->m_Instance, component->m_ComponentIndex, &sender.m_Fragment);
+            if (go_result == dmGameObject::RESULT_OK)
+            {
+                sender.m_Path = dmGameObject::GetIdentifier(component->m_Instance);
+                *out_sender = sender;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static void SendAnimationDone(SpineModelComponent* component, const spAnimationState* state, const spTrackEntry* entry, const spEvent* event)
+    {
+        dmMessage::URL sender;
+        dmMessage::URL receiver = component->m_Listener;
+
+        if (!GetSender(component, &sender))
+        {
+            dmLogError("Could not send animation_done to listener because of incomplete component.");
+            return;
+        }
+
+        dmGameSystemDDF::SpineAnimationDone message;
+        message.m_AnimationId = dmHashString64(entry->animation->name);
+        message.m_Playback    = component->m_Playback;
+        message.m_Track       = entry->trackIndex;
+
+        dmMessage::Result result = dmMessage::PostDDF(&message, &sender, &receiver, 0, component->m_AnimationCallbackRef, 0);
+        if (result != dmMessage::RESULT_OK)
+        {
+            dmLogError("Could not send animation_done to listener.");
+        }
+    }
+
+    static void SendSpineEvent(SpineModelComponent* component, const spAnimationState* state, const spTrackEntry* entry, const spEvent* event)
+    {
+        dmMessage::URL sender;
+        dmMessage::URL receiver = component->m_Listener;
+
+        if (!GetSender(component, &sender))
+        {
+            dmLogError("Could not send animation_done to listener because of incomplete component.");
+            return;
+        }
+
+        if (!dmMessage::IsSocketValid(receiver.m_Socket))
+        {
+            receiver = sender;
+            receiver.m_Fragment = 0;
+        }
+
+        dmGameSystemDDF::SpineEvent message;
+        message.m_AnimationId = dmHashString64(entry->animation->name);
+        message.m_EventId     = dmHashString64(event->data->name);
+        message.m_BlendWeight = 0.0f;//keyframe_event->m_BlendWeight;
+        message.m_T           = event->time;
+        message.m_Integer     = event->intValue;
+        message.m_Float       = event->floatValue;
+        message.m_String      = dmHashString64(event->stringValue?event->stringValue:"");
+        message.m_Node.m_Ref  = 0;
+        message.m_Node.m_ContextTableRef = 0;
+
+        dmMessage::Result result = dmMessage::PostDDF(&message, &sender, &receiver, 0, component->m_AnimationCallbackRef, 0);
+        if (result != dmMessage::RESULT_OK)
+        {
+            dmLogError("Could not send animation_done to listener.");
+        }
+    }
+
+    static void SpineEventListener(spAnimationState* state, spEventType type, spTrackEntry* entry, spEvent* event)
+    {
+        SpineModelComponent* component = (SpineModelComponent*)state->userData;
+
         switch (type)
         {
-        case SP_ANIMATION_START:
-            printf("Animation %s started on track %i\n", entry->animation->name, entry->trackIndex);
+        // case SP_ANIMATION_START:
+        //     printf("Animation %s started on track %i\n", entry->animation->name, entry->trackIndex);
+        //     break;
+        // case SP_ANIMATION_INTERRUPT:
+        //     printf("Animation %s interrupted on track %i\n", entry->animation->name, entry->trackIndex);
+        //     break;
+        // case SP_ANIMATION_END:
+        //     printf("Animation %s ended on track %i\n", entry->animation->name, entry->trackIndex);
+        //     break;
+            case SP_ANIMATION_COMPLETE:
+            {
+                // Should we look at the looping state?
+                if (!IsLooping(component->m_Playback))
+                {
+                    // We only send the event if it's not looping (same behavior as before)
+                    SendAnimationDone(component, state, entry, event);
+
+                    dmMessage::ResetURL(&component->m_Listener); // The animation has ended, so we won't send any more on this
+                }
+            }
             break;
-        case SP_ANIMATION_INTERRUPT:
-            printf("Animation %s interrupted on track %i\n", entry->animation->name, entry->trackIndex);
-            break;
-        case SP_ANIMATION_END:
-            printf("Animation %s ended on track %i\n", entry->animation->name, entry->trackIndex);
-            break;
-        case SP_ANIMATION_COMPLETE:
-            printf("Animation %s completed on track %i\n", entry->animation->name, entry->trackIndex);
-            break;
-        case SP_ANIMATION_DISPOSE:
-            printf("Track entry for animation %s disposed on track %i\n", entry->animation->name, entry->trackIndex);
-            break;
+        // case SP_ANIMATION_DISPOSE:
+        //     printf("Track entry for animation %s disposed on track %i\n", entry->animation->name, entry->trackIndex);
+        //     break;
         case SP_ANIMATION_EVENT:
-            printf("User defined event for animation %s on track %i\n", entry->animation->name, entry->trackIndex);
-            printf("Event: %s: %d, %f, %s\n", event->data->name, event->intValue, event->floatValue, event->stringValue);
+            SendSpineEvent(component, state, entry, event);
             break;
         default:
-            printf("Unknown event type: %i", type);
+            break;
         }
     }
 
@@ -484,7 +577,8 @@ namespace dmSpine
             return dmGameObject::CREATE_RESULT_UNKNOWN_ERROR;
         }
 
-        component->m_AnimationStateInstance->listener = EventListener;
+        component->m_AnimationStateInstance->userData = component;
+        component->m_AnimationStateInstance->listener = SpineEventListener;
 
         spSkeleton_setToSetupPose(component->m_SkeletonInstance);
         spSkeleton_updateWorldTransform(component->m_SkeletonInstance);
@@ -499,7 +593,7 @@ namespace dmSpine
         }
 
         dmhash_t animation_id = dmHashString64(component->m_Resource->m_Ddf->m_DefaultAnimation);
-        PlayAnimation(component, animation_id, dmGameObject::PLAYBACK_LOOP_FORWARD); // TODO: Is the default playmode specified anywhere?
+        PlayAnimation(component, animation_id, dmGameObject::PLAYBACK_LOOP_FORWARD, 0.0f, 0.0f, 1.0f); // TODO: Is the default playmode specified anywhere?
 
         component->m_ReHash = 1;
 
@@ -960,21 +1054,32 @@ namespace dmSpine
         {
             component->m_Enabled = 0;
         }
-        // else if (params.m_Message->m_Descriptor != 0x0)
-        // {
-        //     if (params.m_Message->m_Id == dmGameSystemDDF::SpinePlayAnimation::m_DDFDescriptor->m_NameHash)
-        //     {
-        //         dmGameSystemDDF::SpinePlayAnimation* ddf = (dmGameSystemDDF::SpinePlayAnimation*)params.m_Message->m_Data;
-        //         if (dmRig::RESULT_OK == dmRig::PlayAnimation(component->m_RigInstance, ddf->m_AnimationId, ddf_playback_map.m_Table[ddf->m_Playback], ddf->m_BlendDuration, ddf->m_Offset, ddf->m_PlaybackRate))
-        //         {
-        //             component->m_AnimationCallbackRef = params.m_Message->m_UserData2;
-        //             component->m_Listener = params.m_Message->m_Sender;
-        //         }
-        //     }
-        //     else if (params.m_Message->m_Id == dmGameSystemDDF::SpineCancelAnimation::m_DDFDescriptor->m_NameHash)
-        //     {
-        //         dmRig::CancelAnimation(component->m_RigInstance);
-        //     }
+        else if (params.m_Message->m_Descriptor != 0x0)
+        {
+            if (params.m_Message->m_Id == dmGameSystemDDF::SpinePlayAnimation::m_DDFDescriptor->m_NameHash)
+            {
+                dmGameSystemDDF::SpinePlayAnimation* ddf = (dmGameSystemDDF::SpinePlayAnimation*)params.m_Message->m_Data;
+                if (PlayAnimation(component, ddf->m_AnimationId, (dmGameObject::Playback)ddf->m_Playback, ddf->m_BlendDuration, ddf->m_Offset, ddf->m_PlaybackRate))
+                //if (dmRig::RESULT_OK == dmRig::PlayAnimation(component->m_RigInstance, ddf->m_AnimationId, ddf_playback_map.m_Table[ddf->m_Playback],
+                    //ddf->m_BlendDuration, ddf->m_Offset, ddf->m_PlaybackRate))
+                {
+                    component->m_Listener = params.m_Message->m_Sender;
+                    component->m_AnimationCallbackRef = params.m_Message->m_UserData2;
+
+                    if (component->m_AnimationCallbackRef)
+                    {
+                        component->m_AnimationCallbackRef |= dmSCript::KEEP_FUNCTION_REF_MASK;
+                    }
+                }
+            }
+            else if (params.m_Message->m_Id == dmGameSystemDDF::SpineCancelAnimation::m_DDFDescriptor->m_NameHash)
+            {
+                //dmRig::CancelAnimation(component->m_RigInstance);
+
+                // Currently, we only have one track and one animation
+                StopAnimations(component);
+            }
+        }
         //     else if (params.m_Message->m_Id == dmGameSystemDDF::SetConstantSpineModel::m_DDFDescriptor->m_NameHash)
         //     {
         //         dmGameSystemDDF::SetConstantSpineModel* ddf = (dmGameSystemDDF::SetConstantSpineModel*)params.m_Message->m_Data;

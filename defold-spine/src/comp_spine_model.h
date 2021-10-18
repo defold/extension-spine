@@ -43,7 +43,9 @@ namespace dmSpine
         dmRender::HMaterial                     m_Material;
         /// Node instances corresponding to the bones
         dmArray<dmGameObject::HInstance>        m_NodeInstances;
+        dmGameObject::Playback                  m_Playback;
         int                                     m_AnimationCallbackRef;
+        float                                   m_PlaybackRate;
         uint32_t                                m_MixedHash;
         uint16_t                                m_ComponentIndex;
         uint8_t                                 m_Enabled : 1;
