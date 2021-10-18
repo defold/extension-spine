@@ -1162,16 +1162,17 @@
     (resource-node/register-ddf-resource-type workspace
       :ext spine-scene-ext
       :build-ext "rigscenec"
-      :label "Spine Scene plugin"
+      :label "Spine Scene"
       :node-type SpineSceneNode
       :ddf-type (workspace/load-class! "com.dynamo.spine.proto.Spine$SpineSceneDesc")
       :load-fn load-spine-scene
       :icon spine-scene-icon
       :view-types [:scene :text]
-      :view-opts {:scene {:grid true}})
+      :view-opts {:scene {:grid true}}
+      :template "/defold-spine/assets/template/template.spinescene")
     (resource-node/register-ddf-resource-type workspace
       :ext spine-model-ext
-      :label "Spine Model plugin!"
+      :label "Spine Model"
       :node-type SpineModelNode
       :ddf-type (workspace/load-class! "com.dynamo.spine.proto.Spine$SpineModelDesc")
       :load-fn load-spine-model
@@ -1179,7 +1180,8 @@
       :view-types [:scene :text]
       :view-opts {:scene {:grid true}}
       :tags #{:component}
-      :tag-opts {:component {:transform-properties #{:position :rotation}}})))
+      :tag-opts {:component {:transform-properties #{:position :rotation}}}
+      :template "/defold-spine/assets/template/template.spinemodel")))
 
 (g/defnk produce-transform [position rotation scale]
   (math/->mat4-non-uniform (Vector3d. (double-array position))
