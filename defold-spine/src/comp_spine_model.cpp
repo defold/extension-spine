@@ -23,6 +23,7 @@
 
 #include <string.h> // memset
 
+#include <dmsdk/script.h>
 #include <dmsdk/dlib/array.h>
 #include <dmsdk/dlib/log.h>
 #include <dmsdk/dlib/math.h>
@@ -452,10 +453,10 @@ namespace dmSpine
         message.m_Playback    = component->m_Playback;
         message.m_Track       = entry->trackIndex;
 
-        dmMessage::Result result = dmMessage::PostDDF(&message, &sender, &receiver, 0, component->m_AnimationCallbackRef, 0);
-        if (result != dmMessage::RESULT_OK)
+        dmGameObject::Result result = dmGameObject::PostDDF(&message, &sender, &receiver, component->m_AnimationCallbackRef, false);
+        if (result != dmGameObject::RESULT_OK)
         {
-            dmLogError("Could not send animation_done to listener.");
+            dmLogError("Could not send animation_done to listener: %d", result);
         }
     }
 
@@ -487,10 +488,10 @@ namespace dmSpine
         message.m_Node.m_Ref  = 0;
         message.m_Node.m_ContextTableRef = 0;
 
-        dmMessage::Result result = dmMessage::PostDDF(&message, &sender, &receiver, 0, component->m_AnimationCallbackRef, 0);
-        if (result != dmMessage::RESULT_OK)
+        dmGameObject::Result result = dmGameObject::PostDDF(&message, &sender, &receiver, component->m_AnimationCallbackRef, false);
+        if (result != dmGameObject::RESULT_OK)
         {
-            dmLogError("Could not send animation_done to listener.");
+            dmLogError("Could not send animation event '%s' from animation '%s' to listener: %d", entry->animation->name, event->data->name, result);
         }
     }
 
@@ -1060,16 +1061,9 @@ namespace dmSpine
             {
                 dmGameSystemDDF::SpinePlayAnimation* ddf = (dmGameSystemDDF::SpinePlayAnimation*)params.m_Message->m_Data;
                 if (PlayAnimation(component, ddf->m_AnimationId, (dmGameObject::Playback)ddf->m_Playback, ddf->m_BlendDuration, ddf->m_Offset, ddf->m_PlaybackRate))
-                //if (dmRig::RESULT_OK == dmRig::PlayAnimation(component->m_RigInstance, ddf->m_AnimationId, ddf_playback_map.m_Table[ddf->m_Playback],
-                    //ddf->m_BlendDuration, ddf->m_Offset, ddf->m_PlaybackRate))
                 {
                     component->m_Listener = params.m_Message->m_Sender;
                     component->m_AnimationCallbackRef = params.m_Message->m_UserData2;
-
-                    if (component->m_AnimationCallbackRef)
-                    {
-                        component->m_AnimationCallbackRef |= dmSCript::KEEP_FUNCTION_REF_MASK;
-                    }
                 }
             }
             else if (params.m_Message->m_Id == dmGameSystemDDF::SpineCancelAnimation::m_DDFDescriptor->m_NameHash)
