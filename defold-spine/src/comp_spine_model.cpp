@@ -396,8 +396,6 @@ namespace dmSpine
 
         spAnimation* animation = spine_scene->m_Skeleton->animations[index];
 
-        dmLogWarning("MAWE: animationstateinstance: %p  animation: %p  index: %u", component->m_AnimationStateInstance, animation, index);
-
         component->m_AnimationInstance = spAnimationState_setAnimation(component->m_AnimationStateInstance, trackIndex, animation, loop);
 
         component->m_Playback = playback;
@@ -408,7 +406,7 @@ namespace dmSpine
         return true;
     }
 
-    static void StopAnimations(SpineModelComponent* component)
+    static void CancelAnimations(SpineModelComponent* component)
     {
         if (!component->m_AnimationInstance)
         {
@@ -1034,13 +1032,49 @@ namespace dmSpine
         return component->m_RenderConstants && dmGameSystem::GetRenderConstant(component->m_RenderConstants, name_hash, out_constant);
     }
 
-    static void CompSpineModelSetConstantCallback(void* user_data, dmhash_t name_hash, uint32_t* element_index, const dmGameObject::PropertyVar& var)
+    static void CompSpineModelSetConstantCallback(void* user_data, dmhash_t name_hash, int32_t value_index, uint32_t* element_index, const dmGameObject::PropertyVar& var)
     {
         SpineModelComponent* component = (SpineModelComponent*)user_data;
         if (!component->m_RenderConstants)
             component->m_RenderConstants = dmGameSystem::CreateRenderConstants();
-        dmGameSystem::SetRenderConstant(component->m_RenderConstants, GetMaterial(component, component->m_Resource), name_hash, element_index, var);
+        dmGameSystem::SetRenderConstant(component->m_RenderConstants, GetMaterial(component, component->m_Resource), name_hash, value_index, element_index, var);
         component->m_ReHash = 1;
+    }
+
+    bool CompSpineModelPlayAnimation(SpineModelComponent* component, dmGameSystemDDF::SpinePlayAnimation* message, dmMessage::URL* sender, int callback_ref)
+    {
+        bool result = PlayAnimation(component, message->m_AnimationId, (dmGameObject::Playback)message->m_Playback, message->m_BlendDuration,
+                                                message->m_Offset, message->m_PlaybackRate);
+        if (result)
+        {
+            component->m_Listener = *sender;
+            component->m_AnimationCallbackRef = callback_ref;
+        }
+        return result;
+    }
+
+    bool CompSpineModelCancelAnimation(SpineModelComponent* component, dmGameSystemDDF::SpineCancelAnimation* message)
+    {
+        // Currently, we only have one track and one animation
+        (void)message;
+        CancelAnimations(component);
+        return true;
+    }
+
+    bool CompSpineModelSetConstant(SpineModelComponent* component, dmGameSystemDDF::SetConstantSpineModel* message)
+    {
+        dmGameObject::PropertyResult result = dmGameSystem::SetMaterialConstant(GetMaterial(component, component->m_Resource), message->m_NameHash,
+                                                                dmGameObject::PropertyVar(message->m_Value), message->m_Index, CompSpineModelSetConstantCallback, component);
+        return result == dmGameObject::PROPERTY_RESULT_OK;
+    }
+
+    bool CompSpineModelResetConstant(SpineModelComponent* component, dmGameSystemDDF::ResetConstantSpineModel* message)
+    {
+        if (component->m_RenderConstants)
+        {
+            component->m_ReHash |= dmGameSystem::ClearRenderConstant(component->m_RenderConstants, message->m_NameHash);
+        }
+        return true;
     }
 
     dmGameObject::UpdateResult CompSpineModelOnMessage(const dmGameObject::ComponentOnMessageParams& params)
@@ -1057,22 +1091,22 @@ namespace dmSpine
         }
         else if (params.m_Message->m_Descriptor != 0x0)
         {
-            if (params.m_Message->m_Id == dmGameSystemDDF::SpinePlayAnimation::m_DDFDescriptor->m_NameHash)
-            {
-                dmGameSystemDDF::SpinePlayAnimation* ddf = (dmGameSystemDDF::SpinePlayAnimation*)params.m_Message->m_Data;
-                if (PlayAnimation(component, ddf->m_AnimationId, (dmGameObject::Playback)ddf->m_Playback, ddf->m_BlendDuration, ddf->m_Offset, ddf->m_PlaybackRate))
-                {
-                    component->m_Listener = params.m_Message->m_Sender;
-                    component->m_AnimationCallbackRef = params.m_Message->m_UserData2;
-                }
-            }
-            else if (params.m_Message->m_Id == dmGameSystemDDF::SpineCancelAnimation::m_DDFDescriptor->m_NameHash)
-            {
-                //dmRig::CancelAnimation(component->m_RigInstance);
+            // if (params.m_Message->m_Id == dmGameSystemDDF::SpinePlayAnimation::m_DDFDescriptor->m_NameHash)
+            // {
+            //     dmGameSystemDDF::SpinePlayAnimation* ddf = (dmGameSystemDDF::SpinePlayAnimation*)params.m_Message->m_Data;
+            //     if (PlayAnimation(component, ddf->m_AnimationId, (dmGameObject::Playback)ddf->m_Playback, ddf->m_BlendDuration, ddf->m_Offset, ddf->m_PlaybackRate))
+            //     {
+            //         component->m_Listener = params.m_Message->m_Sender;
+            //         component->m_AnimationCallbackRef = params.m_Message->m_UserData2;
+            //     }
+            // }
+            // else if (params.m_Message->m_Id == dmGameSystemDDF::SpineCancelAnimation::m_DDFDescriptor->m_NameHash)
+            // {
+            //     //dmRig::CancelAnimation(component->m_RigInstance);
 
-                // Currently, we only have one track and one animation
-                StopAnimations(component);
-            }
+            //     // Currently, we only have one track and one animation
+            //     CancelAnimations(component);
+            // }
         }
         //     else if (params.m_Message->m_Id == dmGameSystemDDF::SetConstantSpineModel::m_DDFDescriptor->m_NameHash)
         //     {
@@ -1159,7 +1193,7 @@ namespace dmSpine
             dmRender::HMaterial material = GetMaterial(component, component->m_Resource);
             return dmGameSystem::GetResourceProperty(context->m_Factory, material, out_value);
         }
-        return dmGameSystem::GetMaterialConstant(GetMaterial(component, component->m_Resource), params.m_PropertyId, out_value, true, CompSpineModelGetConstantCallback, component);
+        return dmGameSystem::GetMaterialConstant(GetMaterial(component, component->m_Resource), params.m_PropertyId, params.m_Options.m_Index, out_value, true, CompSpineModelGetConstantCallback, component);
     }
 
     dmGameObject::PropertyResult CompSpineModelSetProperty(const dmGameObject::ComponentSetPropertyParams& params)
@@ -1213,7 +1247,7 @@ namespace dmSpine
             component->m_ReHash |= res == dmGameObject::PROPERTY_RESULT_OK;
             return res;
         }
-        return dmGameSystem::SetMaterialConstant(GetMaterial(component, component->m_Resource), params.m_PropertyId, params.m_Value, CompSpineModelSetConstantCallback, component);
+        return dmGameSystem::SetMaterialConstant(GetMaterial(component, component->m_Resource), params.m_PropertyId, params.m_Value, params.m_Options.m_Index, CompSpineModelSetConstantCallback, component);
     }
 
     static void ResourceReloadedCallback(const dmResource::ResourceReloadedParams& params)

@@ -141,6 +141,7 @@ message SetConstantSpineModel
 {
     required uint64         name_hash   = 1;
     required dmMath.Vector4 value       = 2;
+    optional uint32         index       = 3 [default = 0]; // The array index
 }
 
 /* Function wrapper documented in gamesys_script.cpp */

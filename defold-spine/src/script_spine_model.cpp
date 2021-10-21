@@ -247,15 +247,13 @@ namespace dmSpine
         DM_LUA_STACK_CHECK(L, 0);
         int top = lua_gettop(L);
 
-        dmGameObject::HInstance instance = dmScript::CheckGOInstance(L);
+        SpineModelComponent* component = 0;
+        dmMessage::URL receiver; // needed for error output
+        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
 
         dmhash_t anim_id = dmScript::CheckHashOrString(L, 2);
         lua_Integer playback = luaL_checkinteger(L, 3);
         lua_Number blend_duration = 0.0, offset = 0.0, playback_rate = 1.0;
-
-        dmMessage::URL receiver;
-        dmMessage::URL sender;
-        dmScript::ResolveURL(L, 1, &receiver, &sender);
 
         if (top > 3) // table with args
         {
@@ -295,7 +293,13 @@ namespace dmSpine
         msg.m_Offset = offset;
         msg.m_PlaybackRate = playback_rate;
 
-        dmMessage::Post(&sender, &receiver, dmGameSystemDDF::SpinePlayAnimation::m_DDFDescriptor->m_NameHash, (uintptr_t)instance, (uintptr_t)functionref, (uintptr_t)dmGameSystemDDF::SpinePlayAnimation::m_DDFDescriptor, &msg, sizeof(msg), 0);
+        dmMessage::URL sender; // defaults to 0, which will resolve to this script instance, which is the context of the function callback
+        if (!CompSpineModelPlayAnimation(component, &msg, &sender, functionref))
+        {
+            char buffer[128];
+            return DM_LUA_ERROR("Failed to run animation '%s' on component '%s'", lua_tostring(L, 2), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
+        }
+
         return 0;
     }
 
@@ -320,15 +324,17 @@ namespace dmSpine
     {
         DM_LUA_STACK_CHECK(L, 0);
 
-        dmGameObject::HInstance instance = dmScript::CheckGOInstance(L);
-
+        SpineModelComponent* component = 0;
         dmMessage::URL receiver;
-        dmMessage::URL sender;
-        dmScript::ResolveURL(L, 1, &receiver, &sender);
+        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
 
-        dmGameSystemDDF::SpineCancelAnimation msg;
+        dmGameSystemDDF::SpineCancelAnimation msg; // currently empty but we'll keep it for later use if we wich to pass special options
+        if (!CompSpineModelCancelAnimation(component, &msg))
+        {
+            char buffer[128];
+            return DM_LUA_ERROR("Failed to cancel animations on component %s", dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
+        }
 
-        dmMessage::Post(&sender, &receiver, dmGameSystemDDF::SpineCancelAnimation::m_DDFDescriptor->m_NameHash, (uintptr_t)instance, 0, (uintptr_t)dmGameSystemDDF::SpineCancelAnimation::m_DDFDescriptor, &msg, sizeof(msg), 0);
         return 0;
     }
 
@@ -616,7 +622,9 @@ namespace dmSpine
     {
         DM_LUA_STACK_CHECK(L, 0);
 
-        dmGameObject::HInstance instance = dmScript::CheckGOInstance(L);
+        SpineModelComponent* component = 0;
+        dmMessage::URL receiver;
+        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
 
         dmhash_t name_hash = dmScript::CheckHashOrString(L, 2);
         Vectormath::Aos::Vector4* value = dmScript::CheckVector4(L, 3);
@@ -624,12 +632,13 @@ namespace dmSpine
         dmGameSystemDDF::SetConstantSpineModel msg;
         msg.m_NameHash = name_hash;
         msg.m_Value = *value;
+        msg.m_Index = 0; // TODO: Figure out new api to support this
 
-        dmMessage::URL receiver;
-        dmMessage::URL sender;
-        dmScript::ResolveURL(L, 1, &receiver, &sender);
-
-        dmMessage::Post(&sender, &receiver, dmGameSystemDDF::SetConstantSpineModel::m_DDFDescriptor->m_NameHash, (uintptr_t)instance, 0, (uintptr_t)dmGameSystemDDF::SetConstantSpineModel::m_DDFDescriptor, &msg, sizeof(msg), 0);
+        if (!CompSpineModelSetConstant(component, &msg))
+        {
+            char str[128];
+            return DM_LUA_ERROR("the material constant '%s' could not be found in component '%s'", dmHashReverseSafe64(name_hash), dmScript::UrlToString(&receiver, str, sizeof(str)));
+        }
         return 0;
     }
 
@@ -659,17 +668,20 @@ namespace dmSpine
     {
         DM_LUA_STACK_CHECK(L, 0);
 
-        dmGameObject::HInstance instance = dmScript::CheckGOInstance(L);
+        SpineModelComponent* component = 0;
+        dmMessage::URL receiver;
+        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
+
         dmhash_t name_hash = dmScript::CheckHashOrString(L, 2);
 
         dmGameSystemDDF::ResetConstantSpineModel msg;
         msg.m_NameHash = name_hash;
 
-        dmMessage::URL receiver;
-        dmMessage::URL sender;
-        dmScript::ResolveURL(L, 1, &receiver, &sender);
-
-        dmMessage::Post(&sender, &receiver, dmGameSystemDDF::ResetConstantSpineModel::m_DDFDescriptor->m_NameHash, (uintptr_t)instance, 0, (uintptr_t)dmGameSystemDDF::ResetConstantSpineModel::m_DDFDescriptor, &msg, sizeof(msg), 0);
+        if (!CompSpineModelResetConstant(component, &msg))
+        {
+            char str[128];
+            return DM_LUA_ERROR("the material constant '%s' could not be found in component '%s'", dmHashReverseSafe64(name_hash), dmScript::UrlToString(&receiver, str, sizeof(str)));
+        }
         return 0;
     }
 

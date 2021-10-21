@@ -55,6 +55,12 @@ namespace dmSpine
     };
 
     // For scripting
+    bool CompSpineModelPlayAnimation(SpineModelComponent* component, dmGameSystemDDF::SpinePlayAnimation* message, dmMessage::URL* sender, int callback_ref);
+    bool CompSpineModelCancelAnimation(SpineModelComponent* component, dmGameSystemDDF::SpineCancelAnimation* message);
+
+    bool CompSpineModelSetConstant(SpineModelComponent* component, dmGameSystemDDF::SetConstantSpineModel* message);
+    bool CompSpineModelResetConstant(SpineModelComponent* component, dmGameSystemDDF::ResetConstantSpineModel* message);
+
     bool CompSpineModelSetIKTargetInstance(SpineModelComponent* component, dmhash_t constraint_id, float mix, dmhash_t instance_id);
     bool CompSpineModelSetIKTargetPosition(SpineModelComponent* component, dmhash_t constraint_id, float mix, Vectormath::Aos::Point3 position);
     bool CompSpineModelResetIKTarget(SpineModelComponent* component, dmhash_t constraint_id);
