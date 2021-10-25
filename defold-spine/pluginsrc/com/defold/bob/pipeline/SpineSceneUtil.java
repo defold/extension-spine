@@ -962,6 +962,9 @@ public class SpineSceneUtil {
 
                     if (!skinName.equals("default"))
                     {
+                        if (attachments == null) {
+                            throw new LoadException(String.format("Skin without attachments found: '%s'", skinName));
+                        }
                         List<SkinSlot> skin = loadSkin(scene, skinName, attachments, uvTransformProvider);
                         scene.skins.put(skinName, skin);
                     }
@@ -975,6 +978,9 @@ public class SpineSceneUtil {
                     JsonNode skinNode = entry.getValue();
                     if (!skinName.equals("default"))
                     {
+                        if (skinNode == null) {
+                            throw new LoadException(String.format("Skin without attachments found: '%s'", skinName));
+                        }
                         List<SkinSlot> skin = loadSkin(scene, skinName, skinNode, uvTransformProvider);
                         scene.skins.put(skinName, skin);
                     }

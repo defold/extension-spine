@@ -10,7 +10,7 @@ if [ "" == "${BOB}" ]; then
     BOB=./bob.jar
 
     # comment out when you want to use the bob version instead!
-    DEFOLDSDK="--defoldsdk=eb061db73144081bd125b4a028a5ae9a180fc9b6"
+    DEFOLDSDK="--defoldsdk=6bfeea3b13d7b8920483ea2cba9c181a8650b84d"
 fi
 #BOB=~/work/defold/tmp/dynamo_home/share/java/bob.jar
 
