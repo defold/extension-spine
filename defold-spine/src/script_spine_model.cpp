@@ -629,7 +629,7 @@ namespace dmSpine
         dmhash_t name_hash = dmScript::CheckHashOrString(L, 2);
         Vectormath::Aos::Vector4* value = dmScript::CheckVector4(L, 3);
 
-        dmGameSystemDDF::SetConstantSpineModel msg;
+        dmGameSystemDDF::SetConstant msg;
         msg.m_NameHash = name_hash;
         msg.m_Value = *value;
         msg.m_Index = 0; // TODO: Figure out new api to support this
@@ -674,7 +674,7 @@ namespace dmSpine
 
         dmhash_t name_hash = dmScript::CheckHashOrString(L, 2);
 
-        dmGameSystemDDF::ResetConstantSpineModel msg;
+        dmGameSystemDDF::ResetConstant msg;
         msg.m_NameHash = name_hash;
 
         if (!CompSpineModelResetConstant(component, &msg))

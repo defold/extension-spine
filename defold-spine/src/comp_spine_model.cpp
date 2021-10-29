@@ -1037,7 +1037,7 @@ namespace dmSpine
         SpineModelComponent* component = (SpineModelComponent*)user_data;
         if (!component->m_RenderConstants)
             component->m_RenderConstants = dmGameSystem::CreateRenderConstants();
-        dmGameSystem::SetRenderConstant(component->m_RenderConstants, GetMaterial(component, component->m_Resource), name_hash, value_index, element_index, var);
+        dmGameSystem::SetRenderConstant(component->m_RenderConstants, name_hash, value_index, element_index, var);
         component->m_ReHash = 1;
     }
 
@@ -1061,14 +1061,14 @@ namespace dmSpine
         return true;
     }
 
-    bool CompSpineModelSetConstant(SpineModelComponent* component, dmGameSystemDDF::SetConstantSpineModel* message)
+    bool CompSpineModelSetConstant(SpineModelComponent* component, dmGameSystemDDF::SetConstant* message)
     {
         dmGameObject::PropertyResult result = dmGameSystem::SetMaterialConstant(GetMaterial(component, component->m_Resource), message->m_NameHash,
                                                                 dmGameObject::PropertyVar(message->m_Value), message->m_Index, CompSpineModelSetConstantCallback, component);
         return result == dmGameObject::PROPERTY_RESULT_OK;
     }
 
-    bool CompSpineModelResetConstant(SpineModelComponent* component, dmGameSystemDDF::ResetConstantSpineModel* message)
+    bool CompSpineModelResetConstant(SpineModelComponent* component, dmGameSystemDDF::ResetConstant* message)
     {
         if (component->m_RenderConstants)
         {
@@ -1123,9 +1123,9 @@ namespace dmSpine
         //                     dmHashReverseSafe64(ddf->m_NameHash));
         //         }
         //     }
-        //     else if (params.m_Message->m_Id == dmGameSystemDDF::ResetConstantSpineModel::m_DDFDescriptor->m_NameHash)
+        //     else if (params.m_Message->m_Id == dmGameSystemDDF::ResetConstant::m_DDFDescriptor->m_NameHash)
         //     {
-        //         dmGameSystemDDF::ResetConstantSpineModel* ddf = (dmGameSystemDDF::ResetConstantSpineModel*)params.m_Message->m_Data;
+        //         dmGameSystemDDF::ResetConstant* ddf = (dmGameSystemDDF::ResetConstant*)params.m_Message->m_Data;
         //         if (component->m_RenderConstants)
         //         {
         //             component->m_ReHash |= dmGameSystem::ClearRenderConstant(component->m_RenderConstants, ddf->m_NameHash);

@@ -20,6 +20,8 @@
 #include <dmsdk/gameobject/gameobject.h>
 #include <dmsdk/gamesys/render_constants.h>
 #include <dmsdk/render/render.h>
+// The engine ddf formats aren't stored in the "dmsdk" folder (yet)
+#include <gamesys/gamesys_ddf.h>
 
 #include "res_spine_model.h"
 
@@ -58,8 +60,8 @@ namespace dmSpine
     bool CompSpineModelPlayAnimation(SpineModelComponent* component, dmGameSystemDDF::SpinePlayAnimation* message, dmMessage::URL* sender, int callback_ref);
     bool CompSpineModelCancelAnimation(SpineModelComponent* component, dmGameSystemDDF::SpineCancelAnimation* message);
 
-    bool CompSpineModelSetConstant(SpineModelComponent* component, dmGameSystemDDF::SetConstantSpineModel* message);
-    bool CompSpineModelResetConstant(SpineModelComponent* component, dmGameSystemDDF::ResetConstantSpineModel* message);
+    bool CompSpineModelSetConstant(SpineModelComponent* component, dmGameSystemDDF::SetConstant* message);
+    bool CompSpineModelResetConstant(SpineModelComponent* component, dmGameSystemDDF::ResetConstant* message);
 
     bool CompSpineModelSetIKTargetInstance(SpineModelComponent* component, dmhash_t constraint_id, float mix, dmhash_t instance_id);
     bool CompSpineModelSetIKTargetPosition(SpineModelComponent* component, dmhash_t constraint_id, float mix, Vectormath::Aos::Point3 position);
