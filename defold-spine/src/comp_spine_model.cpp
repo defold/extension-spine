@@ -27,32 +27,12 @@
 #include <dmsdk/gamesys/resources/res_animationset.h>
 #include <dmsdk/gamesys/resources/res_textureset.h>
 
+// The engine ddf formats aren't stored in the "dmsdk" folder (yet)
+#include <gamesys/gamesys_ddf.h>
 
-// #include <dmsdk/dlib/array.h>
-// #include <dmsdk/dlib/hash.h>
 #include <dmsdk/dlib/log.h>
 #include <dmsdk/gamesys/property.h>
-// #include <dmsdk/dlib/message.h>
-// #include <dmsdk/dlib/profile.h>
-// #include <dmsdk/dlib/dstrings.h>
-// #include <dmsdk/dlib/object_pool.h>
-// #include <dmsdk/dlib/math.h>
-// #include <dmsdk/dlib/vmath.h>
-// #include <graphics/graphics.h>
-// #include <render/render.h>
-//#include <rig/rig.h>
 #include <gameobject/gameobject_ddf.h>
-
-// #include "../gamesys.h"
-// #include "../gamesys_private.h"
-// #include "../resources/res_spine_model.h"
-
-
-// #include "spine_ddf.h"
-// #include "sprite_ddf.h"
-// #include "tile_ddf.h"
-
-// using namespace Vectormath::Aos;
 
 namespace dmSpine
 {
@@ -708,12 +688,12 @@ namespace dmSpine
         return component->m_RenderConstants && dmGameSystem::GetRenderConstant(component->m_RenderConstants, name_hash, out_constant);
     }
 
-    static void CompSpineModelSetConstantCallback(void* user_data, dmhash_t name_hash, uint32_t* element_index, const dmGameObject::PropertyVar& var)
+    static void CompSpineModelSetConstantCallback(void* user_data, dmhash_t name_hash, int32_t value_index, uint32_t* element_index, const dmGameObject::PropertyVar& var)
     {
         SpineModelComponent* component = (SpineModelComponent*)user_data;
         if (!component->m_RenderConstants)
             component->m_RenderConstants = dmGameSystem::CreateRenderConstants();
-        dmGameSystem::SetRenderConstant(component->m_RenderConstants, GetMaterial(component, component->m_Resource), name_hash, element_index, var);
+        dmGameSystem::SetRenderConstant(component->m_RenderConstants, name_hash, value_index, element_index, var);
         component->m_ReHash = 1;
     }
 
@@ -746,11 +726,11 @@ namespace dmSpine
             {
                 dmRig::CancelAnimation(component->m_RigInstance);
             }
-            else if (params.m_Message->m_Id == dmGameSystemDDF::SetConstantSpineModel::m_DDFDescriptor->m_NameHash)
+            else if (params.m_Message->m_Id == dmGameSystemDDF::SetConstant::m_DDFDescriptor->m_NameHash)
             {
-                dmGameSystemDDF::SetConstantSpineModel* ddf = (dmGameSystemDDF::SetConstantSpineModel*)params.m_Message->m_Data;
+                dmGameSystemDDF::SetConstant* ddf = (dmGameSystemDDF::SetConstant*)params.m_Message->m_Data;
                 dmGameObject::PropertyResult result = dmGameSystem::SetMaterialConstant(GetMaterial(component, component->m_Resource), ddf->m_NameHash,
-                        dmGameObject::PropertyVar(ddf->m_Value), CompSpineModelSetConstantCallback, component);
+                        dmGameObject::PropertyVar(ddf->m_Value), ddf->m_Index, CompSpineModelSetConstantCallback, component);
                 if (result == dmGameObject::PROPERTY_RESULT_NOT_FOUND)
                 {
                     dmMessage::URL& receiver = params.m_Message->m_Receiver;
@@ -761,9 +741,9 @@ namespace dmSpine
                             dmHashReverseSafe64(ddf->m_NameHash));
                 }
             }
-            else if (params.m_Message->m_Id == dmGameSystemDDF::ResetConstantSpineModel::m_DDFDescriptor->m_NameHash)
+            else if (params.m_Message->m_Id == dmGameSystemDDF::ResetConstant::m_DDFDescriptor->m_NameHash)
             {
-                dmGameSystemDDF::ResetConstantSpineModel* ddf = (dmGameSystemDDF::ResetConstantSpineModel*)params.m_Message->m_Data;
+                dmGameSystemDDF::ResetConstant* ddf = (dmGameSystemDDF::ResetConstant*)params.m_Message->m_Data;
                 if (component->m_RenderConstants)
                 {
                     component->m_ReHash |= dmGameSystem::ClearRenderConstant(component->m_RenderConstants, ddf->m_NameHash);
@@ -870,7 +850,7 @@ namespace dmSpine
             dmRender::HMaterial material = GetMaterial(component, component->m_Resource);
             return dmGameSystem::GetResourceProperty(context->m_Factory, material, out_value);
         }
-        return dmGameSystem::GetMaterialConstant(GetMaterial(component, component->m_Resource), params.m_PropertyId, out_value, true, CompSpineModelGetConstantCallback, component);
+        return dmGameSystem::GetMaterialConstant(GetMaterial(component, component->m_Resource), params.m_PropertyId, params.m_Options.m_Index, out_value, true, CompSpineModelGetConstantCallback, component);
     }
 
     dmGameObject::PropertyResult CompSpineModelSetProperty(const dmGameObject::ComponentSetPropertyParams& params)
@@ -923,7 +903,7 @@ namespace dmSpine
             component->m_ReHash |= res == dmGameObject::PROPERTY_RESULT_OK;
             return res;
         }
-        return dmGameSystem::SetMaterialConstant(GetMaterial(component, component->m_Resource), params.m_PropertyId, params.m_Value, CompSpineModelSetConstantCallback, component);
+        return dmGameSystem::SetMaterialConstant(GetMaterial(component, component->m_Resource), params.m_PropertyId, params.m_Value, params.m_Options.m_Index, CompSpineModelSetConstantCallback, component);
     }
 
     static void ResourceReloadedCallback(const dmResource::ResourceReloadedParams& params)

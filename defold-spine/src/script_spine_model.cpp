@@ -659,15 +659,16 @@ namespace dmSpine
         dmhash_t name_hash = dmScript::CheckHashOrString(L, 2);
         Vectormath::Aos::Vector4* value = dmScript::CheckVector4(L, 3);
 
-        dmGameSystemDDF::SetConstantSpineModel msg;
+        dmGameSystemDDF::SetConstant msg;
         msg.m_NameHash = name_hash;
         msg.m_Value = *value;
+        msg.m_Index = 0;
 
         dmMessage::URL receiver;
         dmMessage::URL sender;
         dmScript::ResolveURL(L, 1, &receiver, &sender);
 
-        dmMessage::Post(&sender, &receiver, dmGameSystemDDF::SetConstantSpineModel::m_DDFDescriptor->m_NameHash, (uintptr_t)instance, 0, (uintptr_t)dmGameSystemDDF::SetConstantSpineModel::m_DDFDescriptor, &msg, sizeof(msg), 0);
+        dmMessage::Post(&sender, &receiver, dmGameSystemDDF::SetConstant::m_DDFDescriptor->m_NameHash, (uintptr_t)instance, 0, (uintptr_t)dmGameSystemDDF::SetConstant::m_DDFDescriptor, &msg, sizeof(msg), 0);
         return 0;
     }
 
@@ -700,14 +701,14 @@ namespace dmSpine
         dmGameObject::HInstance instance = dmScript::CheckGOInstance(L);
         dmhash_t name_hash = dmScript::CheckHashOrString(L, 2);
 
-        dmGameSystemDDF::ResetConstantSpineModel msg;
+        dmGameSystemDDF::ResetConstant msg;
         msg.m_NameHash = name_hash;
 
         dmMessage::URL receiver;
         dmMessage::URL sender;
         dmScript::ResolveURL(L, 1, &receiver, &sender);
 
-        dmMessage::Post(&sender, &receiver, dmGameSystemDDF::ResetConstantSpineModel::m_DDFDescriptor->m_NameHash, (uintptr_t)instance, 0, (uintptr_t)dmGameSystemDDF::ResetConstantSpineModel::m_DDFDescriptor, &msg, sizeof(msg), 0);
+        dmMessage::Post(&sender, &receiver, dmGameSystemDDF::ResetConstant::m_DDFDescriptor->m_NameHash, (uintptr_t)instance, 0, (uintptr_t)dmGameSystemDDF::ResetConstant::m_DDFDescriptor, &msg, sizeof(msg), 0);
         return 0;
     }
 
