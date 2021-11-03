@@ -52,7 +52,6 @@ namespace dmSpine
         dmHashTable64<uint32_t>                 m_BoneNameToNodeInstanceIndex;  // should really be in the spine_scene
         dmGameObject::Playback                  m_Playback;
         int                                     m_AnimationCallbackRef;
-        float                                   m_PlaybackRate;
         uint32_t                                m_MixedHash;
         uint16_t                                m_ComponentIndex;
         uint8_t                                 m_Enabled : 1;

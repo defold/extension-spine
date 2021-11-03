@@ -1094,13 +1094,16 @@ namespace dmSpine
         //     out_value.m_Variant = dmGameObject::PropertyVar(dmRig::GetCursor(component->m_RigInstance, true));
         //     return dmGameObject::PROPERTY_RESULT_OK;
         // }
-        // else if (params.m_PropertyId == PROP_PLAYBACK_RATE)
-        // {
-        //     out_value.m_Variant = dmGameObject::PropertyVar(dmRig::GetPlaybackRate(component->m_RigInstance));
-        //     return dmGameObject::PROPERTY_RESULT_OK;
-        // }
-        // else
-            if (params.m_PropertyId == PROP_MATERIAL)
+        else if (params.m_PropertyId == PROP_PLAYBACK_RATE)
+        {
+            float value = 0.0f;
+            if (component->m_AnimationInstance)
+                value = component->m_AnimationInstance->timeScale;
+
+            out_value.m_Variant = dmGameObject::PropertyVar(value);
+            return dmGameObject::PROPERTY_RESULT_OK;
+        }
+        else if (params.m_PropertyId == PROP_MATERIAL)
         {
             dmRender::HMaterial material = GetMaterial(component);
             return dmGameSystem::GetResourceProperty(context->m_Factory, material, out_value);
@@ -1140,21 +1143,15 @@ namespace dmSpine
         //     }
         //     return dmGameObject::PROPERTY_RESULT_OK;
         // }
-        // else if (params.m_PropertyId == PROP_PLAYBACK_RATE)
-        // {
-        //     if (params.m_Value.m_Type != dmGameObject::PROPERTY_TYPE_NUMBER)
-        //         return dmGameObject::PROPERTY_RESULT_TYPE_MISMATCH;
+        else if (params.m_PropertyId == PROP_PLAYBACK_RATE)
+        {
+            if (params.m_Value.m_Type != dmGameObject::PROPERTY_TYPE_NUMBER)
+                return dmGameObject::PROPERTY_RESULT_TYPE_MISMATCH;
 
-        //     dmRig::Result res = dmRig::SetPlaybackRate(component->m_RigInstance, params.m_Value.m_Number);
-        //     if (res == dmRig::RESULT_ERROR)
-        //     {
-        //         dmLogError("Could not set playback rate %f on the spine model.", params.m_Value.m_Number);
-        //         return dmGameObject::PROPERTY_RESULT_UNSUPPORTED_VALUE;
-        //     }
-        //     return dmGameObject::PROPERTY_RESULT_OK;
-        // }
-        // else
-            if (params.m_PropertyId == PROP_MATERIAL)
+            component->m_AnimationInstance->timeScale = params.m_Value.m_Number;
+            return dmGameObject::PROPERTY_RESULT_OK;
+        }
+        else if (params.m_PropertyId == PROP_MATERIAL)
         {
             dmGameObject::PropertyResult res = dmGameSystem::SetResourceProperty(context->m_Factory, params.m_Value, MATERIAL_EXT_HASH, (void**)&component->m_Material);
             component->m_ReHash |= res == dmGameObject::PROPERTY_RESULT_OK;

@@ -43,6 +43,12 @@ function init(self)
 	go.set(self.url, "skin", hash("default"))
 	go.set(self.url, "skin", hash(""))
 
+
+	print("current playback rate:", go.get(self.url, "playback_rate"))
+	go.set(self.url, "playback_rate", 3.0)
+
+	go.animate(self.url, "playback_rate", go.PLAYBACK_LOOP_PINGPONG, 0.1, go.EASING_LINEAR, 2)
+
 	-- attachments
 	spine.set_attachment(self.url, "mouth", "mouth-oooo")
 	--spine.set_attachment(self.url, "mouth", "mouth-smile")
