@@ -1,0 +1,82 @@
+
+local function callback(self, message_id, message, sender)
+	pprint("GO callback", message_id, message, sender)
+end
+
+function init(self)
+	msg.post(".", "acquire_input_focus")
+
+	self.countdown = 2
+	self.url = "#spinemodel"
+
+	--spine.set_skin("#spinemodel", "default")
+	--spine.play_anim("#spinemodel", "run", go.PLAYBACK_ONCE_FORWARD)
+
+	--spine.play_anim(self.url, "run", go.PLAYBACK_LOOP_FORWARD, {}, callback)
+	--spine.play_anim(self.url, "run", go.PLAYBACK_ONCE_FORWARD, {}, callback)
+	--spine.play_anim(self.url, "run", go.PLAYBACK_ONCE_FORWARD)
+
+	--constants
+	print("getting constants")
+
+	print("tint:", go.get(self.url, "tint"))
+	print("set tint", go.set(self.url, "tint", vmath.vector4(1,2,3,4)))
+	print("tint:", go.get(self.url, "tint"))
+	print("set tint", go.set(self.url, "tint.y", 0.5))
+	print("tint:", go.get(self.url, "tint"))
+
+	spine.reset_constant(self.url, "tint")
+
+	print("setting constants")
+	--spine.set_constant(self.url, "tint", vmath.vector4(1,0,0,1))
+	--spine.reset_constant(self.url, "tint")
+
+
+	-- errors
+	--spine.play_anim(self.url, "not_exist", go.PLAYBACK_ONCE_FORWARD, {})
+	--spine.play_anim("#not_exist", "run", go.PLAYBACK_ONCE_FORWARD, {})
+
+	-- bones
+	local bone = spine.get_go(self.url, "gun-tip")
+	--local bone = spine.get_go(self.url, "hip")
+	print("bone", bone)
+
+	go.set_parent("blob", bone)
+
+	self.bone = bone
+end
+
+function final(self)
+	-- Add finalization code here
+	-- Learn more: https://defold.com/manuals/script/
+	-- Remove this function if not needed
+end
+
+function update(self, dt)
+	self.countdown = self.countdown - 1
+	if self.countdown == 0 then
+		--spine.cancel("#spinemodel")
+	end
+end
+
+function on_message(self, message_id, message, sender)
+	pprint("message", message_id, message)
+end
+
+function on_input(self, action_id, action)
+	-- Add input-handling code here. The game object this script is attached to
+	-- must have acquired input focus:
+	--
+	--    msg.post(".", "acquire_input_focus")
+	--
+	-- All mapped input bindings will be received. Mouse and touch input will
+	-- be received regardless of where on the screen it happened.
+	-- Learn more: https://defold.com/manuals/input/
+	-- Remove this function if not needed
+end
+
+function on_reload(self)
+	-- Add reload-handling code here
+	-- Learn more: https://defold.com/manuals/hot-reload/
+	-- Remove this function if not needed
+end

@@ -364,50 +364,21 @@ namespace dmSpine
     static int SpineComp_GetGO(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 1);
-        return DM_LUA_ERROR("the bone '%s' could not be found", lua_tostring(L, 2));
-
-/*
-        DM_LUA_STACK_CHECK(L, 1);
 
         SpineModelComponent* component = 0;
-        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, 0);
+        dmMessage::URL receiver; // needed for error output
+        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
 
         dmhash_t bone_id = dmScript::CheckHashOrString(L, 2);
+        dmhash_t bone_gameobject_id;
+        if (!CompSpineModelGetBone(component, bone_id, &bone_gameobject_id))
+        {
+            char buffer[128];
+            return DM_LUA_ERROR("the bone '%s' could not be found in component %s", lua_tostring(L, 2), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
+        }
 
-        // TODO: Create a dmRig::GetSkeleton
-        dmRigDDF::Skeleton* skeleton = component->m_Resource->m_RigScene->m_SkeletonRes->m_Skeleton;
-
-        uint32_t bone_count = skeleton->m_Bones.m_Count;
-        uint32_t bone_index = ~0u;
-        for (uint32_t i = 0; i < bone_count; ++i)
-        {
-            if (skeleton->m_Bones[i].m_Id == bone_id)
-            {
-                bone_index = i;
-                break;
-            }
-        }
-        if (bone_index == ~0u)
-        {
-            return DM_LUA_ERROR("the bone '%s' could not be found", lua_tostring(L, 2));
-        }
-        if(bone_index >= component->m_NodeInstances.Size())
-        {
-            return DM_LUA_ERROR("no game object found for the bone '%s'", lua_tostring(L, 2));
-        }
-        dmGameObject::HInstance instance = component->m_NodeInstances[bone_index];
-        if (instance == 0x0)
-        {
-            return DM_LUA_ERROR("no game object found for the bone '%s'", lua_tostring(L, 2));
-        }
-        dmhash_t instance_id = dmGameObject::GetIdentifier(instance);
-        if (instance_id == 0x0)
-        {
-            return DM_LUA_ERROR("game object contains no identifier for the bone '%s'", lua_tostring(L, 2));
-        }
-        dmScript::PushHash(L, instance_id);
+        dmScript::PushHash(L, bone_gameobject_id);
         return 1;
-        */
     }
 
     /*# sets the spine skin

@@ -17,6 +17,7 @@
 #include <dmsdk/dlib/array.h>
 #include <dmsdk/dlib/hash.h>
 #include <dmsdk/dlib/vmath.h>
+#include <dmsdk/dlib/hashtable.h>
 #include <dmsdk/gameobject/gameobject.h>
 #include <dmsdk/gamesys/render_constants.h>
 #include <dmsdk/render/render.h>
@@ -25,8 +26,9 @@
 
 #include "res_spine_model.h"
 
-struct spSkeleton;
 struct spAnimationState;
+struct spBone;
+struct spSkeleton;
 struct spTrackEntry;
 
 namespace dmSpine
@@ -44,7 +46,9 @@ namespace dmSpine
         dmGameSystem::HComponentRenderConstants m_RenderConstants;
         dmRender::HMaterial                     m_Material;
         /// Node instances corresponding to the bones
-        dmArray<dmGameObject::HInstance>        m_NodeInstances;
+        dmArray<dmGameObject::HInstance>        m_BoneInstances;
+        dmArray<spBone*>                        m_Bones;                        // We shouldn't really have to have a duplicate array of these
+        dmHashTable64<uint32_t>                 m_BoneNameToNodeInstanceIndex;  // should really be in the spine_scene
         dmGameObject::Playback                  m_Playback;
         int                                     m_AnimationCallbackRef;
         float                                   m_PlaybackRate;
@@ -69,6 +73,9 @@ namespace dmSpine
 
     bool CompSpineModelSetSkin(SpineModelComponent* component, dmhash_t skin_id);
     bool CompSpineModelSetSkinSlot(SpineModelComponent* component, dmhash_t skin_id, dmhash_t slot_id);
+
+    bool CompSpineModelGetBone(SpineModelComponent* component, dmhash_t bone_name, dmhash_t* instance_id);
+
 }
 
 #endif // DM_GAMESYS_COMP_SPINE_MODEL_H

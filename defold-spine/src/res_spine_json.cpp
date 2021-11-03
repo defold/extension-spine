@@ -27,30 +27,17 @@ namespace dmSpine
 
     static void DestroyResource(SpineJsonResource* resource)
     {
-        dmLogWarning("MAWE %s:", __FUNCTION__);
         free((void*)resource->m_Json);
         delete resource;
     }
 
     static dmResource::Result ResourceTypeJson_Create(const dmResource::ResourceCreateParams& params)
     {
-        dmLogWarning("MAWE %s: %s", __FUNCTION__, params.m_Filename);
-
         SpineJsonResource* resource = CreateResource(params.m_Buffer, params.m_BufferSize);
         if (!resource)
         {
             return dmResource::RESULT_OUT_OF_RESOURCES;
         }
-
-        printf("length: %u\n", resource->m_Length);
-
-        for (int i = 0; i < 64 && i < resource->m_Length; ++i)
-        {
-            printf("%c", resource->m_Json[i]);
-        }
-        printf("\n");
-
-        dmLogWarning("MAWE %s: %p length: %u", __FUNCTION__, resource->m_Json, resource->m_Length);
 
         params.m_Resource->m_Resource = (void*)resource;
         params.m_Resource->m_ResourceSize = resource->m_Length;
@@ -59,7 +46,6 @@ namespace dmSpine
 
     static dmResource::Result ResourceTypeJson_Destroy(const dmResource::ResourceDestroyParams& params)
     {
-        dmLogWarning("MAWE %s", __FUNCTION__);
         SpineJsonResource* resource = (SpineJsonResource*)params.m_Resource->m_Resource;
         DestroyResource(resource);
         return dmResource::RESULT_OK;

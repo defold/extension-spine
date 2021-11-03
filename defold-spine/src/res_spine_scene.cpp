@@ -72,7 +72,6 @@ namespace dmSpine
         {
             dmhash_t name_hash = dmHashString64(resource->m_Skeleton->animations[n]->name);
             resource->m_AnimationNameToIndex.Put(name_hash, n);
-            dmLogWarning("MAWE anim %u: %llx %s", n, name_hash, resource->m_Skeleton->animations[n]->name);
         }
 
 
