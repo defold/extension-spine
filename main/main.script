@@ -31,10 +31,17 @@ function init(self)
 	--spine.set_constant(self.url, "tint", vmath.vector4(1,0,0,1))
 	--spine.reset_constant(self.url, "tint")
 
+	-- skins
+	--spine.set_skin(self.url, "default")
+	print("current skin:", go.get(self.url, "skin"))
+	go.set(self.url, "skin", hash("default"))
+	go.set(self.url, "skin", hash(""))
+	spine.set_skin(self.url, "default")
 
-	-- errors
-	--spine.play_anim(self.url, "not_exist", go.PLAYBACK_ONCE_FORWARD, {})
-	--spine.play_anim("#not_exist", "run", go.PLAYBACK_ONCE_FORWARD, {})
+	-- attachments
+	spine.set_attachment(self.url, "mouth", "mouth-oooo")
+	--spine.set_attachment(self.url, "mouth", "mouth-smile")
+	--spine.set_attachment(self.url, "mouth", "mouth-grind")
 
 	-- bones
 	local bone = spine.get_go(self.url, "gun-tip")
@@ -42,6 +49,14 @@ function init(self)
 	print("bone", bone)
 
 	go.set_parent("blob", bone)
+
+
+	-- errors
+	--spine.play_anim(self.url, "not_exist", go.PLAYBACK_ONCE_FORWARD, {})
+	--spine.play_anim("#not_exist", "run", go.PLAYBACK_ONCE_FORWARD, {})
+
+	--spine.set_skin(self.url, "not_exist")
+
 
 	self.bone = bone
 end

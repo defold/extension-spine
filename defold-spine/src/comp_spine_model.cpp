@@ -455,6 +455,7 @@ namespace dmSpine
             DestroyComponent(world, index);
             return dmGameObject::CREATE_RESULT_UNKNOWN_ERROR;
         }
+        spSkeleton_setSkin(component->m_SkeletonInstance, spine_scene->m_Skeleton->defaultSkin);
 
         component->m_AnimationStateInstance = spAnimationState_create(spine_scene->m_AnimationStateData);
         if (!component->m_AnimationStateInstance)
@@ -1076,11 +1077,12 @@ namespace dmSpine
         SpineModelContext* context = (SpineModelContext*)params.m_Context;
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
         SpineModelComponent* component = GetComponentFromIndex(world, *params.m_UserData);
-        // if (params.m_PropertyId == PROP_SKIN)
-        // {
-        //     out_value.m_Variant = dmGameObject::PropertyVar(dmRig::GetMesh(component->m_RigInstance));
-        //     return dmGameObject::PROPERTY_RESULT_OK;
-        // }
+        if (params.m_PropertyId == PROP_SKIN)
+        {
+            spSkin* skin = component->m_SkeletonInstance->skin;// ? component->m_SkeletonInstance->skin : component->m_SkeletonInstance->defaultSkin;
+            out_value.m_Variant = dmGameObject::PropertyVar(dmHashString64(skin->name));
+            return dmGameObject::PROPERTY_RESULT_OK;
+        }
         // else if (params.m_PropertyId == PROP_ANIMATION)
         // {
         //     out_value.m_Variant = dmGameObject::PropertyVar(dmRig::GetAnimation(component->m_RigInstance));
@@ -1110,19 +1112,20 @@ namespace dmSpine
         SpineModelContext* context = (SpineModelContext*)params.m_Context;
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
         SpineModelComponent* component = GetComponentFromIndex(world, *params.m_UserData);
-        // if (params.m_PropertyId == PROP_SKIN)
-        // {
-        //     if (params.m_Value.m_Type != dmGameObject::PROPERTY_TYPE_HASH)
-        //         return dmGameObject::PROPERTY_RESULT_TYPE_MISMATCH;
+        if (params.m_PropertyId == PROP_SKIN)
+        {
+            if (params.m_Value.m_Type != dmGameObject::PROPERTY_TYPE_HASH)
+                return dmGameObject::PROPERTY_RESULT_TYPE_MISMATCH;
 
-        //     dmRig::Result res = dmRig::SetMesh(component->m_RigInstance, params.m_Value.m_Hash);
-        //     if (res == dmRig::RESULT_ERROR)
-        //     {
-        //         dmLogError("Could not find skin '%s' on the spine model.", dmHashReverseSafe64(params.m_Value.m_Hash));
-        //         return dmGameObject::PROPERTY_RESULT_UNSUPPORTED_VALUE;
-        //     }
-        //     return dmGameObject::PROPERTY_RESULT_OK;
-        // }
+            dmhash_t skin_id = params.m_Value.m_Hash;
+            if (skin_id == dmHashString64(""))
+                skin_id = 0;
+            if (!CompSpineModelSetSkin(component, skin_id))
+            {
+                return dmGameObject::PROPERTY_RESULT_UNSUPPORTED_VALUE;
+            }
+            return dmGameObject::PROPERTY_RESULT_OK;
+        }
         // else if (params.m_PropertyId == PROP_CURSOR)
         // {
         //     if (params.m_Value.m_Type != dmGameObject::PROPERTY_TYPE_NUMBER)
