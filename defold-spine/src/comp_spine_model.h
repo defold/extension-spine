@@ -72,7 +72,7 @@ namespace dmSpine
     bool CompSpineModelResetIKTarget(SpineModelComponent* component, dmhash_t constraint_id);
 
     bool CompSpineModelSetSkin(SpineModelComponent* component, dmhash_t skin_id);
-    bool CompSpineModelSetSkinSlot(SpineModelComponent* component, dmhash_t skin_id, dmhash_t slot_id);
+    bool CompSpineModelSetAttachment(SpineModelComponent* component, dmhash_t slot_id, dmhash_t attachment_id);
 
     bool CompSpineModelGetBone(SpineModelComponent* component, dmhash_t bone_name, dmhash_t* instance_id);
 

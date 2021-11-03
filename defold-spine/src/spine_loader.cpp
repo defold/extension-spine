@@ -8,6 +8,12 @@
 
 #include "spine_loader.h"
 
+#if 0
+#define DEBUGLOG(...) dmLogWarning("DEBUG: " __VA_ARGS__)
+#else
+#define DEBUGLOG(...)
+#endif
+
 // Heavily borrowing from AtlasAttachmentLoader.c
 
 // These functions are part of the api that the developer must fulfill
@@ -96,7 +102,7 @@ namespace dmSpine
         {
                 dmGameSystemDDF::TextureSetAnimation* animation_ddf = &animations[i];
 
-                dmLogWarning("Animation: %d %s", i, animation_ddf->m_Id);
+                DEBUGLOG("region: %d %s", i, animation_ddf->m_Id);
 
     // required string id              = 1;
     // required uint32 width           = 2;
@@ -150,6 +156,7 @@ namespace dmSpine
 
         return regions;
     }
+
 
     // Create an array or regions given the atlas. Maps 1:1 with the animation count
     spAtlasRegion* CreateRegions(dmGameSystem::TextureSetResource* atlas)

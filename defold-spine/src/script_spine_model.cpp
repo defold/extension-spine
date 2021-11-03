@@ -387,7 +387,6 @@ namespace dmSpine
      * @name spine.set_skin
      * @param url [type:string|hash|url] the spine model for which to set skin
      * @param spine_skin [type:string|hash] spine skin id
-     * @param [spine_slot] [type:string|hash] optional slot id to only change a specific slot
      * @examples
      *
      * The following examples assumes that the spine model has id "spinemodel".
@@ -400,12 +399,11 @@ namespace dmSpine
      * end
      * ```
      *
-     * Change only part of the Spine model to a different skin.
+     * Change back to default skin of a Spine model
      *
      * ```lua
-     * function monster_transform_arm(self)
-     *   -- The player is transforming into a monster, begin with changing the arm.
-     *   spine.set_skin("#spinemodel", "monster", "left_arm_slot")
+     * function init(self)
+     *   spine.set_skin("#spinemodel", nil)
      * end
      * ```
      */
@@ -415,19 +413,71 @@ namespace dmSpine
         int top = lua_gettop(L);
 
         SpineModelComponent* component = 0;
-        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, 0);
+        dmMessage::URL receiver; // needed for error output
+        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
 
-        dmhash_t skin_id = dmScript::CheckHashOrString(L, 2);
-        if (top > 2) {
-            dmhash_t slot_id = dmScript::CheckHashOrString(L, 3);
-            if (!CompSpineModelSetSkinSlot(component, skin_id, slot_id))
-            {
-                return DM_LUA_ERROR("failed to set spine skin ('%s') slot '%s' for spine component", dmHashReverseSafe64(skin_id), dmHashReverseSafe64(slot_id));
-            }
-        } else {
-            if (!CompSpineModelSetSkin(component, skin_id))
-            {
-                return DM_LUA_ERROR("failed to set spine skin '%s' for spine component", dmHashReverseSafe64(skin_id));
+        dmhash_t skin_id = 0;
+        if (!lua_isnil(L, 2))
+            skin_id = dmScript::CheckHashOrString(L, 2);
+
+        if (!CompSpineModelSetSkin(component, skin_id))
+        {
+            char buffer[128];
+            return DM_LUA_ERROR("failed to set spine skin '%s' in component %s", dmHashReverseSafe64(skin_id), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
+        }
+        return 0;
+    }
+
+    /*# sets an attachment to a slot
+     * Sets an attachment to a slot
+     *
+     * @name spine.set_attachment
+     * @param url [type:string|hash|url] the spine model for which to set skin
+     * @param slot [type:string|hash] slot name
+     * @param attachment [type:string|hash] attachment name. May be nil.
+     * @examples
+     *
+     * The following examples assumes that the spine model has id "spinemodel".
+     *
+     * Change only part of the Spine model to a different skin.
+     *
+     * ```lua
+     * function character_smile(self)
+     *   spine.set_attachment("#spinemodel", "mouth", "mouth-smile")
+     * end
+     * ```
+     *
+     * Change back to default attachment
+     *
+     * ```lua
+     * function character_smile(self)
+     *   spine.set_attachment("#spinemodel", "mouth", nil)
+     * end
+     * ```
+     */
+    static int SpineComp_SetAttachment(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+        int top = lua_gettop(L);
+
+        SpineModelComponent* component = 0;
+        dmMessage::URL receiver; // needed for error output
+        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
+
+        dmhash_t slot_id = dmScript::CheckHashOrString(L, 2);
+
+        dmhash_t attachment_id = 0;
+        if (!lua_isnil(L, 3))
+            attachment_id = dmScript::CheckHashOrString(L, 3);
+
+        if (!CompSpineModelSetAttachment(component, slot_id, attachment_id))
+        {
+            char buffer[128];
+            dmScript::UrlToString(&receiver, buffer, sizeof(buffer));
+            if (attachment_id) {
+                return DM_LUA_ERROR("failed to set attachment '%s' to slot '%s' in component %s", dmHashReverseSafe64(attachment_id), dmHashReverseSafe64(slot_id), buffer);
+            } else {
+                return DM_LUA_ERROR("failed to reset attachment in slot '%s' in component %s", dmHashReverseSafe64(slot_id), buffer);
             }
         }
         return 0;
@@ -662,6 +712,7 @@ namespace dmSpine
             {"cancel",  SpineComp_Cancel},
             {"get_go",  SpineComp_GetGO},
             {"set_skin",  SpineComp_SetSkin},
+            {"set_attachment",  SpineComp_SetAttachment},
             {"set_ik_target_position", SpineComp_SetIKTargetPosition},
             {"set_ik_target",   SpineComp_SetIKTarget},
             {"reset_ik_target",        SpineComp_ResetIK},

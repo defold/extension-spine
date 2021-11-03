@@ -12,6 +12,12 @@
 
 // Also see the guide http://esotericsoftware.com/spine-c#Loading-skeleton-data
 
+#if 0
+#define DEBUGLOG(...) dmLogWarning("DEBUG: " __VA_ARGS__)
+#else
+#define DEBUGLOG(...)
+#endif
+
 namespace dmSpine
 {
     static spSkeletonData* ReadSkeletonJsonData(spAttachmentLoader* loader, const char* path, void* json_data)
@@ -22,7 +28,7 @@ namespace dmSpine
             return 0;
         }
 
-        dmLogWarning("%s: %p   json: %p", __FUNCTION__, skeleton_json, json_data);
+        DEBUGLOG("%s: %p   json: %p", __FUNCTION__, skeleton_json, json_data);
 
         spSkeletonData* skeletonData = spSkeletonJson_readSkeletonData(skeleton_json, (const char *)json_data);
         if (!skeletonData)
@@ -67,13 +73,53 @@ namespace dmSpine
         // We can release this json data now
         dmResource::Release(factory, spine_json_resource);
 
-        resource->m_AnimationNameToIndex.SetCapacity(dmMath::Max(1, resource->m_Skeleton->animationsCount/3), resource->m_Skeleton->animationsCount);
-        for (int n = 0; n < resource->m_Skeleton->animationsCount; ++n)
         {
-            dmhash_t name_hash = dmHashString64(resource->m_Skeleton->animations[n]->name);
-            resource->m_AnimationNameToIndex.Put(name_hash, n);
+            uint32_t count = resource->m_Skeleton->animationsCount;
+            resource->m_AnimationNameToIndex.SetCapacity(dmMath::Max(1U, count/3), count);
+            for (int n = 0; n < count; ++n)
+            {
+                dmhash_t name_hash = dmHashString64(resource->m_Skeleton->animations[n]->name);
+                resource->m_AnimationNameToIndex.Put(name_hash, n);
+                DEBUGLOG("anim: %d %s", n, resource->m_Skeleton->animations[n]->name);
+            }
         }
 
+        {
+            uint32_t count = resource->m_Skeleton->skinsCount;
+            resource->m_SkinNameToIndex.SetCapacity(dmMath::Max(1U, count/3), count);
+            resource->m_AttachmentHashToName.SetCapacity(17,32);
+            for (int n = 0; n < count; ++n)
+            {
+                spSkin* skin = resource->m_Skeleton->skins[n];
+                dmhash_t name_hash = dmHashString64(skin->name);
+                resource->m_SkinNameToIndex.Put(name_hash, n);
+
+                DEBUGLOG("skin: %d %s", n, skin->name);
+                spSkinEntry* entry = spSkin_getAttachments(skin);
+                while(entry)
+                {
+                    DEBUGLOG("attachment: %s  slot: %d", entry->name, entry->slotIndex);
+                    if (resource->m_AttachmentHashToName.Full())
+                    {
+                        uint32_t capacity = resource->m_AttachmentHashToName.Capacity() + 16;
+                        resource->m_AttachmentHashToName.SetCapacity(capacity/2+1, capacity);
+                    }
+                    resource->m_AttachmentHashToName.Put(dmHashString64(entry->name), entry->name);
+                    entry = entry->next;
+                }
+            }
+        }
+
+        {
+            uint32_t count = resource->m_Skeleton->slotsCount;
+            resource->m_SlotNameToIndex.SetCapacity(dmMath::Max(1U, count/3), count);
+            for (int n = 0; n < count; ++n)
+            {
+                dmhash_t name_hash = dmHashString64(resource->m_Skeleton->slots[n]->name);
+                resource->m_SlotNameToIndex.Put(name_hash, n);
+                DEBUGLOG("slot: %d %s", n, resource->m_Skeleton->slots[n]->name);
+            }
+        }
 
         // if(dmRender::GetMaterialVertexSpace(resource->m_Material) != dmRenderDDF::MaterialDesc::VERTEX_SPACE_WORLD)
         // {

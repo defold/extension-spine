@@ -31,6 +31,9 @@ namespace dmSpine
         spAnimationStateData*               m_AnimationStateData;
         spDefoldAtlasAttachmentLoader*      m_AttachmentLoader;
         dmHashTable64<uint32_t>             m_AnimationNameToIndex;
+        dmHashTable64<uint32_t>             m_SkinNameToIndex;
+        dmHashTable64<uint32_t>             m_SlotNameToIndex;
+        dmHashTable64<const char*>          m_AttachmentHashToName; // makes it easy for us to do a reverse hash for attachments
     };
 }
 

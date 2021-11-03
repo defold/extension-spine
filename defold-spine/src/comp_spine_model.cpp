@@ -1281,16 +1281,57 @@ namespace dmSpine
 
     bool CompSpineModelSetSkin(SpineModelComponent* component, dmhash_t skin_id)
     {
-        return false;
-        // dmRig::Result r = dmRig::SetMesh(component->m_RigInstance, skin_id);
-        // return r == dmRig::RESULT_OK;
+        SpineModelResource* spine_model = component->m_Resource;
+        SpineSceneResource* spine_scene = spine_model->m_SpineScene;
+
+        spSkin* skin = spine_scene->m_Skeleton->defaultSkin;
+        if (skin_id)
+        {
+            uint32_t* index = spine_scene->m_SkinNameToIndex.Get(skin_id);
+            if (!index)
+            {
+                dmLogError("No skin named '%s'", dmHashReverseSafe64(skin_id));
+                return false;
+            }
+
+            skin = spine_scene->m_Skeleton->skins[*index];
+        }
+
+        spSkeleton_setSkin(component->m_SkeletonInstance, skin);
+
+        return true;
     }
 
-    bool CompSpineModelSetSkinSlot(SpineModelComponent* component, dmhash_t skin_id, dmhash_t slot_id)
+    bool CompSpineModelSetAttachment(SpineModelComponent* component, dmhash_t slot_id, dmhash_t attachment_id)
     {
-        return false;
-        // dmRig::Result r = dmRig::SetMeshSlot(component->m_RigInstance, skin_id, slot_id);
-        // return r == dmRig::RESULT_OK;
+        SpineModelResource* spine_model = component->m_Resource;
+        SpineSceneResource* spine_scene = spine_model->m_SpineScene;
+
+        uint32_t* index = spine_scene->m_SlotNameToIndex.Get(slot_id);
+        if (!index)
+        {
+            dmLogError("No slot named '%s'", dmHashReverseSafe64(slot_id));
+            return false;
+        }
+
+        //SP_API int spSkeleton_setAttachment(spSkeleton *self, const char *slotName, const char *attachmentName);
+
+        const char* attachment_name = 0;
+        if (attachment_id)
+        {
+            const char** p_attachment_name = spine_scene->m_AttachmentHashToName.Get(attachment_id);
+            if (!p_attachment_name)
+            {
+                dmLogError("No attachment named '%s'", dmHashReverseSafe64(attachment_id));
+                return false;
+            }
+            attachment_name = *p_attachment_name;
+        }
+
+        spSlot* slot = component->m_SkeletonInstance->slots[*index];
+
+        // it's a bit weird to use strings here, but we'd rather not use too much knowledge about the internals
+        return 1 == spSkeleton_setAttachment(component->m_SkeletonInstance, slot->data->name, attachment_name);
     }
 
     bool CompSpineModelGetBone(SpineModelComponent* component, dmhash_t bone_name, dmhash_t* instance_id)
