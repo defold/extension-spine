@@ -42,6 +42,7 @@ namespace dmSpine
         spSkeleton*                             m_SkeletonInstance;
         spAnimationState*                       m_AnimationStateInstance;
         spTrackEntry*                           m_AnimationInstance;
+        dmhash_t                                m_AnimationId;
         dmMessage::URL                          m_Listener;
         dmGameSystem::HComponentRenderConstants m_RenderConstants;
         dmRender::HMaterial                     m_Material;

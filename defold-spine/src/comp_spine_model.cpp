@@ -284,6 +284,7 @@ namespace dmSpine
 
         spAnimation* animation = spine_scene->m_Skeleton->animations[index];
 
+        component->m_AnimationId = animation_id;
         component->m_AnimationInstance = spAnimationState_setAnimation(component->m_AnimationStateInstance, trackIndex, animation, loop);
 
         component->m_Playback = playback;
@@ -1083,11 +1084,11 @@ namespace dmSpine
             out_value.m_Variant = dmGameObject::PropertyVar(dmHashString64(skin->name));
             return dmGameObject::PROPERTY_RESULT_OK;
         }
-        // else if (params.m_PropertyId == PROP_ANIMATION)
-        // {
-        //     out_value.m_Variant = dmGameObject::PropertyVar(dmRig::GetAnimation(component->m_RigInstance));
-        //     return dmGameObject::PROPERTY_RESULT_OK;
-        // }
+        else if (params.m_PropertyId == PROP_ANIMATION)
+        {
+            out_value.m_Variant = dmGameObject::PropertyVar(component->m_AnimationId);
+            return dmGameObject::PROPERTY_RESULT_OK;
+        }
         // else if (params.m_PropertyId == PROP_CURSOR)
         // {
         //     out_value.m_Variant = dmGameObject::PropertyVar(dmRig::GetCursor(component->m_RigInstance, true));

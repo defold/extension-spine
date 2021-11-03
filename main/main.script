@@ -33,10 +33,15 @@ function init(self)
 
 	-- skins
 	--spine.set_skin(self.url, "default")
+	spine.set_skin(self.url, "default")
+
+	-- properties
+	print("Properties")
+	print("current animation:", go.get(self.url, "animation"))
+
 	print("current skin:", go.get(self.url, "skin"))
 	go.set(self.url, "skin", hash("default"))
 	go.set(self.url, "skin", hash(""))
-	spine.set_skin(self.url, "default")
 
 	-- attachments
 	spine.set_attachment(self.url, "mouth", "mouth-oooo")
