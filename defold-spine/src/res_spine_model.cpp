@@ -13,8 +13,6 @@ namespace dmSpine
             return result;
         }
 
-        dmLogInfo("Retrieved the spine scene resource: %s", resource->m_Ddf->m_SpineScene);
-
         result = dmResource::Get(factory, resource->m_Ddf->m_Material, (void**) &resource->m_Material);
         if (result != dmResource::RESULT_OK)
         {
@@ -47,9 +45,6 @@ namespace dmSpine
             return dmResource::RESULT_DDF_ERROR;
         }
 
-        dmLogInfo("%s %s: %s", __FILE__, __FUNCTION__, ddf->m_SpineScene);
-        dmLogInfo("%s %s: %s", __FILE__, __FUNCTION__, ddf->m_Material);
-
         dmResource::PreloadHint(params.m_HintInfo, ddf->m_SpineScene);
         dmResource::PreloadHint(params.m_HintInfo, ddf->m_Material);
 
@@ -59,8 +54,6 @@ namespace dmSpine
 
     static dmResource::Result ResourceTypeModel_Create(const dmResource::ResourceCreateParams& params)
     {
-        dmLogWarning("MAWE %s: %s", __FUNCTION__, params.m_Filename);
-
         SpineModelResource* model_resource = new SpineModelResource();
         model_resource->m_Ddf = (dmGameSystemDDF::SpineModelDesc*) params.m_PreloadData;
         dmResource::Result r = AcquireResources(params.m_Factory, model_resource, params.m_Filename);

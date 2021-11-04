@@ -119,6 +119,9 @@ namespace dmSpine
                 uint32_t frame_index = animation_ddf->m_Start;
                 const float* tc = &tex_coords[frame_index * 4 * 2];
 
+                DEBUGLOG("  frame_index: %d", frame_index);
+                DEBUGLOG("  tc: %.2f, %.2f,  %.2f, %.2f,  %.2f, %.2f,  %.2f, %.2f,", tc[0], tc[1], tc[2], tc[3], tc[4], tc[5], tc[6], tc[7]);
+
                 // From comp_sprite.cpp
                 // vertices[0].u = tc[tex_lookup[0] * 2];
                 // vertices[0].v = tc[tex_lookup[0] * 2 + 1];
@@ -129,23 +132,54 @@ namespace dmSpine
                 // vertices[3].u = tc[tex_lookup[4] * 2];
                 // vertices[3].v = tc[tex_lookup[4] * 2 + 1];
 
+                // From texture_set_ddf.proto
+                // For unrotated quads, the order is: [(minU,maxV),(minU,minV),(maxU,minV),(maxU,maxV)]
+                // For rotated quads, the order is: [(minU,maxV),(maxU,maxV),(maxU,minV),(minU,minV)]
+                // so we compare the Y from vertex 0 and 3
+                bool unrotated = tc[0 * 2 + 1] == tc[3 * 2 + 1];
+
+                float minU, minV, maxU, maxV;
+
                 // Since this struct is only used as a placeholder to show which values are needed
                 // we only set the ones we care about
 
                 spAtlasRegion* region = &regions[i];
                 memset(region, 0, sizeof(spAtlasRegion));
 
-                region->u   = tc[0 * 2 + 0];
-                region->v   = tc[2 * 2 + 1];
-                region->u2  = tc[2 * 2 + 0];
-                region->v2  = tc[0 * 2 + 1];
+                if (unrotated)
+                {
+                    // E.g. tc: 0.00, 0.71,  0.00, 1.00,  0.27, 1.00,  0.27, 0.71,
+                    //          (minU, minV),(minU, maxV),(maxU,maxV),(maxU,minV)
+                    minU = tc[0 * 2 + 0];
+                    minV = tc[0 * 2 + 1];
+                    maxU = tc[2 * 2 + 0];
+                    maxV = tc[2 * 2 + 1];
 
-                // From texture_set_ddf.proto
-                // For unrotated quads, the order is: [(minU,maxV),(minU,minV),(maxU,minV),(maxU,maxV)]
-                // For rotated quads, the order is: [(minU,minV),(maxU,minV),(maxU,maxV),(minU,maxV)]
-                bool unrotated = tc[0 * 2 + 1] == tc[3 * 2 + 1];
+                    region->u   = minU;
+                    region->v   = maxV;
+                    region->u2  = maxU;
+                    region->v2  = minV;
+                }
+                else
+                {
+                    // E.g. tc: 0.78, 0.73,  0.84, 0.73,  0.84, 0.64,  0.78, 0.64
+                    // tc: (minU, maxV), (maxU, maxV), (maxU, minV), (minU, minV)
+                    minU = tc[3 * 2 + 0];
+                    minV = tc[3 * 2 + 1];
+                    maxU = tc[1 * 2 + 0];
+                    maxV = tc[1 * 2 + 1];
+
+                    region->u   = maxU;
+                    region->v   = minV;
+                    region->u2  = minU;
+                    region->v2  = maxV;
+                }
+
+                DEBUGLOG("  minU/V: %.2f, %.2f  maxU/V: %.2f, %.2f", minU, minV, maxU, maxV);
 
                 region->degrees = unrotated ? 0 : 90; // The uv's are already rotated
+
+                DEBUGLOG("  degrees: %d", region->degrees);
 
                 // We don't support packing yet
                 region->offsetX = 0;
