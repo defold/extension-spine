@@ -407,6 +407,11 @@ namespace dmSpine
 
                     dmMessage::ResetURL(&component->m_Listener); // The animation has ended, so we won't send any more on this
                 }
+
+                if (IsPingPong(component->m_Playback))
+                {
+                    component->m_AnimationInstance->reverse = !component->m_AnimationInstance->reverse;
+                }
             }
             break;
         // case SP_ANIMATION_DISPOSE:
