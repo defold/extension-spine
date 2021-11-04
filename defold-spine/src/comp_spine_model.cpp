@@ -453,6 +453,7 @@ namespace dmSpine
         component->m_DoRender = 0;
         component->m_RenderConstants = 0;
         component->m_AnimationCallbackRef = 0;
+        component->m_UseCursor = 0;
 
         component->m_SkeletonInstance = spSkeleton_create(spine_scene->m_Skeleton);
         if (!component->m_SkeletonInstance)
@@ -624,9 +625,14 @@ namespace dmSpine
 
             ++num_active;
 
-            spAnimationState_update(component.m_AnimationStateInstance, dt);
+            float anim_dt = component.m_UseCursor ? 0.0f : dt;
+            component.m_UseCursor = 0;
+
+            spAnimationState_update(component.m_AnimationStateInstance, anim_dt);
             spAnimationState_apply(component.m_AnimationStateInstance, component.m_SkeletonInstance);
             spSkeleton_updateWorldTransform(component.m_SkeletonInstance);
+
+            component.m_UseCursor = 0;
 
             UpdateBones(&component);
 
@@ -1094,11 +1100,22 @@ namespace dmSpine
             out_value.m_Variant = dmGameObject::PropertyVar(component->m_AnimationId);
             return dmGameObject::PROPERTY_RESULT_OK;
         }
-        // else if (params.m_PropertyId == PROP_CURSOR)
-        // {
-        //     out_value.m_Variant = dmGameObject::PropertyVar(dmRig::GetCursor(component->m_RigInstance, true));
-        //     return dmGameObject::PROPERTY_RESULT_OK;
-        // }
+        else if (params.m_PropertyId == PROP_CURSOR)
+        {
+            float unit = 0.0f;
+            spTrackEntry* entry = component->m_AnimationInstance;
+            if (entry)
+            {
+                float duration = entry->animationEnd - entry->animationStart;
+                if (duration != 0)
+                {
+                    unit = fmodf(entry->trackTime, duration) / duration;
+                }
+            }
+
+            out_value.m_Variant = dmGameObject::PropertyVar(unit);
+            return dmGameObject::PROPERTY_RESULT_OK;
+        }
         else if (params.m_PropertyId == PROP_PLAYBACK_RATE)
         {
             float value = 0.0f;
@@ -1135,19 +1152,26 @@ namespace dmSpine
             }
             return dmGameObject::PROPERTY_RESULT_OK;
         }
-        // else if (params.m_PropertyId == PROP_CURSOR)
-        // {
-        //     if (params.m_Value.m_Type != dmGameObject::PROPERTY_TYPE_NUMBER)
-        //         return dmGameObject::PROPERTY_RESULT_TYPE_MISMATCH;
+        else if (params.m_PropertyId == PROP_CURSOR)
+        {
+            if (params.m_Value.m_Type != dmGameObject::PROPERTY_TYPE_NUMBER)
+                return dmGameObject::PROPERTY_RESULT_TYPE_MISMATCH;
 
-        //     dmRig::Result res = dmRig::SetCursor(component->m_RigInstance, params.m_Value.m_Number, true);
-        //     if (res == dmRig::RESULT_ERROR)
-        //     {
-        //         dmLogError("Could not set cursor %f on the spine model.", params.m_Value.m_Number);
-        //         return dmGameObject::PROPERTY_RESULT_UNSUPPORTED_VALUE;
-        //     }
-        //     return dmGameObject::PROPERTY_RESULT_OK;
-        // }
+            if (!component->m_AnimationInstance)
+            {
+                dmLogError("Could not set cursor since no animation is playing");
+                return dmGameObject::PROPERTY_RESULT_UNSUPPORTED_VALUE;
+            }
+
+            float unit_0_1 = fmodf(params.m_Value.m_Number + 1.0f, 1.0f);
+
+            float duration = component->m_AnimationInstance->animationEnd - component->m_AnimationInstance->animationStart;
+            float t = unit_0_1 * duration;
+
+            component->m_AnimationInstance->trackTime = t;
+            component->m_UseCursor = 1;
+            return dmGameObject::PROPERTY_RESULT_OK;
+        }
         else if (params.m_PropertyId == PROP_PLAYBACK_RATE)
         {
             if (params.m_Value.m_Type != dmGameObject::PROPERTY_TYPE_NUMBER)

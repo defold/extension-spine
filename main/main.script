@@ -45,13 +45,17 @@ function init(self)
 
 
 	print("current playback rate:", go.get(self.url, "playback_rate"))
-	go.set(self.url, "playback_rate", 3.0)
+	--go.set(self.url, "playback_rate", 3.0)
+	--go.animate(self.url, "playback_rate", go.PLAYBACK_LOOP_PINGPONG, 0.1, go.EASING_LINEAR, 2)
 
-	go.animate(self.url, "playback_rate", go.PLAYBACK_LOOP_PINGPONG, 0.1, go.EASING_LINEAR, 2)
+	-- cursor property
+	--go.animate(self.url, "cursor", go.PLAYBACK_LOOP_PINGPONG, 1.0, go.EASING_LINEAR, 2)
+	--go.set(self.url, "cursor", 0.5)
+	--go.set(self.url, "cursor", 0.90)
 
 	-- attachments
-	spine.set_attachment(self.url, "mouth", "mouth-oooo")
-	--spine.set_attachment(self.url, "mouth", "mouth-smile")
+	--spine.set_attachment(self.url, "mouth", "mouth-oooo")
+	spine.set_attachment(self.url, "mouth", "mouth-smile")
 	--spine.set_attachment(self.url, "mouth", "mouth-grind")
 
 	-- bones
