@@ -11,3 +11,21 @@ If you run into trouble, help is available in [our forum](https://forum.defold.c
 Happy Defolding!
 
 ---
+
+
+# Migration guide
+
+* The new file suffix is `.spinejson`
+    - Set this as the output suffix in the Spine Editor
+
+* Resave the files
+    - The new runtime is based on Spine 4.0+
+
+* `spine.set_skin(name)` now only takes one argument
+
+    - The new `spine.set_attachment(slot, attachment)` allows you to set an attachment to a slot
+
+* `spine.play_animation()` etc are now synchronous.
+
+* If a callback is set to `spine.play_animation()` it will now receive _all_ spine events (e.g. foot steps etc)
+
