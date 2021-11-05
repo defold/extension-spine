@@ -674,12 +674,9 @@ namespace dmSpine
         return prev_size;
     }
 
-    static uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const SpineModelComponent* component)
+    static uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleton* skeleton, const dmVMath::Matrix4& world)
     {
         dmArray<float> scratch; // scratch buffer
-
-        //void drawSkeleton(spSkeleton* skeleton) {
-        spSkeleton* skeleton = component->m_SkeletonInstance;
 
         int vindex = vertex_buffer.Size();
         int vindex_start = vindex;
@@ -803,7 +800,7 @@ namespace dmSpine
             }
         }
 
-        const Matrix4& w = component->m_World;
+        const dmVMath::Matrix4& w = world;
 
         uint32_t vcount = vertex_buffer.Size() - vindex_start;
         SpineVertex* vb = &vertex_buffer[vindex_start];
@@ -827,11 +824,15 @@ namespace dmSpine
         const SpineModelResource* resource = first->m_Resource;
 
         uint32_t vertex_start = world->m_VertexBufferData.Size();
-        uint32_t vertex_count = GenerateVertexData(world->m_VertexBufferData, first);
+        uint32_t vertex_count = 0;
+        for (uint32_t *i = begin; i != end; ++i)
+        {
+            const SpineModelComponent* component = (SpineModelComponent*) buf[*i].m_UserData;
+            vertex_count += GenerateVertexData(world->m_VertexBufferData, component->m_SkeletonInstance, component->m_World);
+        }
 
-        // Ninja in-place writing of render object.
-        dmRender::RenderObject& ro = *world->m_RenderObjects.End();
         world->m_RenderObjects.SetSize(world->m_RenderObjects.Size()+1);
+        dmRender::RenderObject& ro = world->m_RenderObjects.Back();
 
         ro.Init();
         ro.m_VertexDeclaration = world->m_VertexDeclaration;
