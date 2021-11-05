@@ -34,7 +34,7 @@
 #include <dmsdk/resource/resource.h>
 #include <gameobject/gameobject_ddf.h>
 
-#include <vertices.h>
+#include <common/vertices.h>
 
 namespace dmSpine
 {

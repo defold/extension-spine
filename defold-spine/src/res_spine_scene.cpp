@@ -1,7 +1,8 @@
 #include "res_spine_scene.h"
 #include "res_spine_json.h"
-#include "spine_loader.h"
 #include "spine_ddf.h" // generated from the spine_ddf.proto
+
+#include <common/spine_loader.h>
 
 #include <dmsdk/dlib/log.h>
 #include <dmsdk/dlib/math.h>
@@ -20,25 +21,6 @@
 
 namespace dmSpine
 {
-    static spSkeletonData* ReadSkeletonJsonData(spAttachmentLoader* loader, const char* path, void* json_data)
-    {
-        spSkeletonJson* skeleton_json = spSkeletonJson_createWithLoader(loader);
-        if (!skeleton_json) {
-            dmLogError("Failed to create spine skeleton for %s", path);
-            return 0;
-        }
-
-        DEBUGLOG("%s: %p   json: %p", __FUNCTION__, skeleton_json, json_data);
-
-        spSkeletonData* skeletonData = spSkeletonJson_readSkeletonData(skeleton_json, (const char *)json_data);
-        if (!skeletonData)
-        {
-            dmLogError("Failed to read spine skeleton for %s: %s", path, skeleton_json->error);
-            return 0;
-        }
-        spSkeletonJson_dispose(skeleton_json);
-        return skeletonData;
-    }
 
     static dmResource::Result AcquireResources(dmResource::HFactory factory, SpineSceneResource* resource, const char* filename)
     {
@@ -56,11 +38,11 @@ namespace dmSpine
         }
 
         // Create a 1:1 mapping between animation frames and regions in a format that is spine friendly
-        resource->m_Regions = CreateRegions(resource->m_TextureSet);
-        resource->m_AttachmentLoader = dmSpine::CreateAttachmentLoader(resource->m_TextureSet, resource->m_Regions);
+        resource->m_Regions = dmSpine::CreateRegions(resource->m_TextureSet->m_TextureSet);
+        resource->m_AttachmentLoader = dmSpine::CreateAttachmentLoader(resource->m_TextureSet->m_TextureSet, resource->m_Regions);
 
         // Create the spine resource
-        resource->m_Skeleton = ReadSkeletonJsonData((spAttachmentLoader*)resource->m_AttachmentLoader, filename, spine_json_resource->m_Json);
+        resource->m_Skeleton = dmSpine::ReadSkeletonJsonData((spAttachmentLoader*)resource->m_AttachmentLoader, filename, spine_json_resource->m_Json);
         if (!resource->m_Skeleton)
         {
             return dmResource::RESULT_INVALID_DATA;

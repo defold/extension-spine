@@ -1,12 +1,13 @@
 
-#include <spine/AttachmentLoader.h>
 #include <spine/extension.h>
+#include <spine/AttachmentLoader.h>
+#include <spine/SkeletonJson.h>
 
 #include <dmsdk/dlib/hash.h>
 #include <dmsdk/dlib/log.h>
 #include <dmsdk/gamesys/resources/res_textureset.h>
 
-#include "spine_loader.h"
+#include <common/spine_loader.h>
 
 #if 0
 #define DEBUGLOG(...) dmLogWarning("DEBUG: " __VA_ARGS__)
@@ -18,16 +19,18 @@
 
 // These functions are part of the api that the developer must fulfill
 void _spAtlasPage_createTexture(spAtlasPage *self, const char *path) {
-    self->rendererObject = 0;
+    self->rendererObject = 0; // we're not actually creating a texture here, so we set it to 0
     self->width = 2048;
     self->height = 2048;
 }
 
 void _spAtlasPage_disposeTexture(spAtlasPage *self) {
+    // no need to dispose of anything
 }
 
 char *_spUtil_readFile(const char *path, int *length) {
-    return 0;//_spReadFile(path, length);
+    // We are not reading files through their api
+    return 0;
 }
 
 
@@ -90,9 +93,8 @@ namespace dmSpine
     //     }
     // }
 
-    static spAtlasRegion* CreateRegionsFromQuads(dmGameSystem::TextureSetResource* atlas)
+    static spAtlasRegion* CreateRegionsFromQuads(dmGameSystemDDF::TextureSet* texture_set_ddf)
     {
-        dmGameSystemDDF::TextureSet* texture_set_ddf = atlas->m_TextureSet;
         const float* tex_coords = (const float*) texture_set_ddf->m_TexCoords.m_Data;
         uint32_t n_animations = texture_set_ddf->m_Animations.m_Count;
         dmGameSystemDDF::TextureSetAnimation* animations = texture_set_ddf->m_Animations.m_Data;
@@ -193,28 +195,28 @@ namespace dmSpine
 
 
     // Create an array or regions given the atlas. Maps 1:1 with the animation count
-    spAtlasRegion* CreateRegions(dmGameSystem::TextureSetResource* atlas)
+    spAtlasRegion* CreateRegions(dmGameSystemDDF::TextureSet* texture_set_ddf)
     {
-        return CreateRegionsFromQuads(atlas);
+        return CreateRegionsFromQuads(texture_set_ddf);
     }
 
-    static spAtlasRegion* FindAtlasRegion(dmGameSystem::TextureSetResource* atlas, spAtlasRegion* regions, const char* name)
+    static spAtlasRegion* FindAtlasRegion(dmHashTable64<uint32_t>* name_to_index, spAtlasRegion* regions, const char* name)
     {
         dmhash_t name_hash = dmHashString64(name);
-        uint32_t* anim_index = atlas->m_AnimationIds.Get(name_hash);
+        uint32_t* anim_index = name_to_index->Get(name_hash);
         if (!anim_index)
             return 0;
         return &regions[*anim_index];
     }
 
-    static spAttachment *spDefoldAtlasAttachmentLoader_createAttachment(spAttachmentLoader *loader, spSkin *skin, spAttachmentType type,
-                                                                  const char *name, const char *path)
+    static spAttachment* spDefoldAtlasAttachmentLoader_createAttachment(spAttachmentLoader* loader, spSkin* skin, spAttachmentType type,
+                                                                        const char* name, const char* path)
     {
         spDefoldAtlasAttachmentLoader *self = SUB_CAST(spDefoldAtlasAttachmentLoader, loader);
         switch (type) {
             case SP_ATTACHMENT_REGION: {
                 spRegionAttachment* attachment;
-                spAtlasRegion *region = FindAtlasRegion(self->atlas, self->regions, path);
+                spAtlasRegion *region = FindAtlasRegion(self->name_to_index, self->regions, path);
                 if (!region) {
                     _spAttachmentLoader_setError(loader, "Region not found: ", path);
                     return 0;
@@ -233,7 +235,7 @@ namespace dmSpine
             case SP_ATTACHMENT_MESH:
             case SP_ATTACHMENT_LINKED_MESH: {
                 spMeshAttachment *attachment;
-                spAtlasRegion *region = FindAtlasRegion(self->atlas, self->regions, path);
+                spAtlasRegion *region = FindAtlasRegion(self->name_to_index, self->regions, path);
                 if (!region) {
                     _spAttachmentLoader_setError(loader, "Region not found: ", path);
                     return 0;
@@ -269,18 +271,51 @@ namespace dmSpine
         UNUSED(skin);
     }
 
-    spDefoldAtlasAttachmentLoader* CreateAttachmentLoader(dmGameSystem::TextureSetResource* atlas, spAtlasRegion* regions)
+    spDefoldAtlasAttachmentLoader* CreateAttachmentLoader(dmGameSystemDDF::TextureSet* texture_set_ddf, spAtlasRegion* regions)
     {
         spDefoldAtlasAttachmentLoader* self = NEW(spDefoldAtlasAttachmentLoader);
         _spAttachmentLoader_init(SUPER(self), _spAttachmentLoader_deinit, spDefoldAtlasAttachmentLoader_createAttachment, 0, 0);
-        self->atlas = atlas;
+
+        uint32_t n_animations = texture_set_ddf->m_Animations.m_Count;
+        dmHashTable64<uint32_t>* name_to_index = new dmHashTable64<uint32_t>;
+        name_to_index->SetCapacity(n_animations/2+1, n_animations);
+        for (uint32_t i = 0; i < n_animations; ++i)
+        {
+            dmhash_t h = dmHashString64(texture_set_ddf->m_Animations[i].m_Id);
+            name_to_index->Put(h, i);
+        }
+
+        self->name_to_index = name_to_index;
+        self->texture_set_ddf = texture_set_ddf;
         self->regions = regions;
+
         return self;
     }
 
     void Dispose(spDefoldAtlasAttachmentLoader* loader)
     {
+        delete loader->name_to_index;
         spAttachmentLoader_dispose((spAttachmentLoader*)loader);
+    }
+
+    spSkeletonData* ReadSkeletonJsonData(spAttachmentLoader* loader, const char* path, void* json_data)
+    {
+        spSkeletonJson* skeleton_json = spSkeletonJson_createWithLoader(loader);
+        if (!skeleton_json) {
+            dmLogError("Failed to create spine skeleton for %s", path);
+            return 0;
+        }
+
+        //DEBUGLOG("%s: %p   json: %p", __FUNCTION__, skeleton_json, json_data);
+
+        spSkeletonData* skeletonData = spSkeletonJson_readSkeletonData(skeleton_json, (const char *)json_data);
+        if (!skeletonData)
+        {
+            dmLogError("Failed to read spine skeleton for %s: %s", path, skeleton_json->error);
+            return 0;
+        }
+        spSkeletonJson_dispose(skeleton_json);
+        return skeletonData;
     }
 
 } // namespace

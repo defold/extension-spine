@@ -2,6 +2,7 @@
 #define DM_SPINE_ATTACHMENT_LOADER_H
 
 #include <spine/AttachmentLoader.h>
+#include <dmsdk/dlib/hashtable.h>
 
 struct spAtlasRegion;
 
@@ -15,16 +16,19 @@ namespace dmSpine
     // Using their naming convention here
     typedef struct spDefoldAtlasAttachmentLoader {
         spAttachmentLoader                  super;
-        dmGameSystem::TextureSetResource*   atlas;
         spAtlasRegion*                      regions;
+        dmGameSystemDDF::TextureSet*        texture_set_ddf;
+        dmHashTable64<uint32_t>*            name_to_index;
     } spDefoldAtlasAttachmentLoader;
 
-    spAtlasRegion* CreateRegions(dmGameSystem::TextureSetResource* atlas);
+    spAtlasRegion* CreateRegions(dmGameSystemDDF::TextureSet* texture_set_ddf);
 
     // It will keep pointer from the regions array
-    spDefoldAtlasAttachmentLoader* CreateAttachmentLoader(dmGameSystem::TextureSetResource* atlas, spAtlasRegion* regions);
+    spDefoldAtlasAttachmentLoader* CreateAttachmentLoader(dmGameSystemDDF::TextureSet* texture_set_ddf, spAtlasRegion* regions);
 
     void Dispose(spDefoldAtlasAttachmentLoader* loader);
+
+    spSkeletonData* ReadSkeletonJsonData(spAttachmentLoader* loader, const char* path, void* json_data);
 
 } // namespace
 
