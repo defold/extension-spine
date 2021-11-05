@@ -8,9 +8,6 @@ PROJECT=defold-spine
 
 if [ "" == "${BOB}" ]; then
     BOB=~/work/defold/tmp/dynamo_home/share/java/bob.jar
-
-    # comment out when you want to use the bob version instead!
-    DEFOLDSDK="--defoldsdk=eb061db73144081bd125b4a028a5ae9a180fc9b6"
 fi
 
 echo "Using BOB=${BOB}"

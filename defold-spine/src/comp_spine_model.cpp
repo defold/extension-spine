@@ -553,7 +553,6 @@ namespace dmSpine
         {
             SpineModelComponent* component = components[i];
 
-            // NOTE: texture_set = c->m_Resource might be NULL so it's essential to "continue" here
             if (!component->m_Enabled || !component->m_AddedToUpdate)
                 continue;
 
@@ -565,14 +564,7 @@ namespace dmSpine
 
             const Matrix4& go_world = dmGameObject::GetWorldMatrix(component->m_Instance);
             const Matrix4 local = dmTransform::ToMatrix4(component->m_Transform);
-            // if (dmGameObject::ScaleAlongZ(component->m_Instance))
-            // {
-            //     component->m_World = go_world * local;
-            // }
-            // else
-            {
-                component->m_World = dmTransform::MulNoScaleZ(go_world, local);
-            }
+            component->m_World = go_world * local;
         }
     }
 

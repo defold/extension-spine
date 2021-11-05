@@ -5,6 +5,7 @@
 #include <dmsdk/dlib/hashtable.h>
 
 struct spAtlasRegion;
+struct spSkeletonData;
 
 namespace dmGameSystem
 {
