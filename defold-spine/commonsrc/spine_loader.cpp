@@ -38,10 +38,6 @@ char *_spUtil_readFile(const char *path, int *length) {
 
 namespace dmSpine
 {
-        // dmHashTable<dmhash_t, uint32_t>     m_AnimationIds;
-        // dmGraphics::HTexture                m_Texture;
-        // dmhash_t                            m_TexturePath;
-        // dmGameSystemDDF::TextureSet*        m_TextureSet;
 
     // static spAtlasRegion* CreateRegionsFromGeometry(dmGameSystem::TextureSetResource* atlas)
     // {
@@ -214,17 +210,34 @@ namespace dmSpine
     static spAttachment* spDefoldAtlasAttachmentLoader_createAttachment(spAttachmentLoader* loader, spSkin* skin, spAttachmentType type,
                                                                         const char* name, const char* path)
     {
-        spDefoldAtlasAttachmentLoader *self = SUB_CAST(spDefoldAtlasAttachmentLoader, loader);
+        spDefoldAtlasAttachmentLoader* self = SUB_CAST(spDefoldAtlasAttachmentLoader, loader);
+        bool is_atlas_available = self->name_to_index != 0;
+
+        // used in the plugin, when loading a spine scene without the atlas available
+        spAtlasRegion default_region;
+        if (!is_atlas_available)
+        {
+            default_region.u = default_region.v = default_region.u2 = default_region.v2 = default_region.degrees = 0;
+            default_region.offsetX = default_region.offsetY = 0;
+            default_region.width = default_region.height = 0;
+            default_region.originalWidth = default_region.originalHeight = 0;
+        }
+
         switch (type) {
             case SP_ATTACHMENT_REGION: {
-                spRegionAttachment* attachment;
-                spAtlasRegion *region = FindAtlasRegion(self->name_to_index, self->regions, path);
-                if (!region) {
-                    _spAttachmentLoader_setError(loader, "Region not found: ", path);
-                    return 0;
+                spAtlasRegion* region;
+                if (is_atlas_available)
+                {
+                    region = FindAtlasRegion(self->name_to_index, self->regions, path);
+                    if (!region) {
+                        _spAttachmentLoader_setError(loader, "Region not found: ", path);
+                        return 0;
+                    }
+                } else {
+                    region = &default_region;
                 }
-                attachment = spRegionAttachment_create(name);
-                attachment->rendererObject = region;
+                spRegionAttachment* attachment = spRegionAttachment_create(name);
+                attachment->rendererObject = is_atlas_available ? region : 0;
                 spRegionAttachment_setUVs(attachment, region->u, region->v, region->u2, region->v2, region->degrees);
                 attachment->regionOffsetX = region->offsetX;
                 attachment->regionOffsetY = region->offsetY;
@@ -236,14 +249,20 @@ namespace dmSpine
             }
             case SP_ATTACHMENT_MESH:
             case SP_ATTACHMENT_LINKED_MESH: {
-                spMeshAttachment *attachment;
-                spAtlasRegion *region = FindAtlasRegion(self->name_to_index, self->regions, path);
-                if (!region) {
-                    _spAttachmentLoader_setError(loader, "Region not found: ", path);
-                    return 0;
+                spAtlasRegion* region;
+                if (is_atlas_available)
+                {
+                    region = FindAtlasRegion(self->name_to_index, self->regions, path);
+                    if (!region) {
+                        _spAttachmentLoader_setError(loader, "Region not found: ", path);
+                        return 0;
+                    }
                 }
-                attachment = spMeshAttachment_create(name);
-                attachment->rendererObject = region;
+                else {
+                    region = &default_region;
+                }
+                spMeshAttachment* attachment = spMeshAttachment_create(name);
+                attachment->rendererObject = is_atlas_available ? region : 0;
                 attachment->regionU = region->u;
                 attachment->regionV = region->v;
                 attachment->regionU2 = region->u2;
@@ -291,6 +310,17 @@ namespace dmSpine
         self->texture_set_ddf = texture_set_ddf;
         self->regions = regions;
 
+        return self;
+    }
+
+    spDefoldAtlasAttachmentLoader* CreateAttachmentLoader()
+    {
+        spDefoldAtlasAttachmentLoader* self = NEW(spDefoldAtlasAttachmentLoader);
+        _spAttachmentLoader_init(SUPER(self), _spAttachmentLoader_deinit, spDefoldAtlasAttachmentLoader_createAttachment, 0, 0);
+
+        self->name_to_index = 0;
+        self->texture_set_ddf = 0;
+        self->regions = 0;
         return self;
     }
 

@@ -30,6 +30,9 @@ namespace dmSpine
     // It will keep pointer from the regions array
     spDefoldAtlasAttachmentLoader* CreateAttachmentLoader(dmGameSystemDDF::TextureSet* texture_set_ddf, spAtlasRegion* regions);
 
+    // Used to load the skeleton data, without the need for any correct uv coordinates
+    spDefoldAtlasAttachmentLoader* CreateAttachmentLoader();
+
     void Dispose(spDefoldAtlasAttachmentLoader* loader);
 
     spSkeletonData* ReadSkeletonJsonData(spAttachmentLoader* loader, const char* path, void* json_data);

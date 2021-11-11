@@ -86,8 +86,14 @@
   (let [method (.getMethod cls name types)]
     (.invoke method nil (into-array Object args))))
 
-(defn- plugin-load-file-from-buffer [bytes-json path-json bytes-texture-set path-texture-set]
-  (plugin-invoke-static spine-plugin-cls "SPINE_LoadFileFromBuffer" (into-array Class [byte-array-cls String byte-array-cls String]) [bytes-json path-json bytes-texture-set path-texture-set]))
+(defn- plugin-load-file-from-buffer
+  ([bytes-json path-json bytes-texture-set path-texture-set]
+    (plugin-invoke-static spine-plugin-cls "SPINE_LoadFileFromBuffer" (into-array Class [byte-array-cls String byte-array-cls String]) [bytes-json path-json bytes-texture-set path-texture-set]))
+  ([bytes-json path-json]
+   (plugin-invoke-static spine-plugin-cls "SPINE_LoadFileFromBuffer" (into-array Class [byte-array-cls String]) [bytes-json path-json])))
+
+(defn- plugin-destroy-instance [handle]
+  (plugin-invoke-static spine-plugin-cls "SPINE_Destroy" (into-array Class [spine-plugin-pointer-cls]) [handle]))
 
 (defn- plugin-get-animations [handle]
   (plugin-invoke-static spine-plugin-cls "SPINE_GetAnimations" (into-array Class [spine-plugin-pointer-cls]) [handle]))
@@ -96,8 +102,8 @@
 (defn- plugin-get-aabb [handle]
   (plugin-invoke-static spine-plugin-cls "SPINE_GetAABB" (into-array Class [spine-plugin-pointer-cls]) [handle]))
 
-(defn- plugin-get-vertex-size ^double []
-  (plugin-invoke-static spine-plugin-cls "SPINE_GetVertexSize" (into-array Class []) []))
+;; (defn- plugin-get-vertex-size ^double []
+;;   (plugin-invoke-static spine-plugin-cls "SPINE_GetVertexSize" (into-array Class []) []))
 
 (defn- plugin-update-vertices [handle dt]
   (plugin-invoke-static spine-plugin-cls "SPINE_UpdateVertices" (into-array Class [spine-plugin-pointer-cls Float/TYPE]) [handle (float dt)]))
@@ -612,24 +618,22 @@
 (defn- load-spine-json
   [project node-id resource]
   (let [content (resource->bytes resource)
-        ;; spine-json-handle (plugin-load-file content (resource/resource->proj-path resource))
-        ;; animations (get-animations spine-json-handle)
-        ;; aabb (get-aabb spine-json-handle)
-        ;; bones (plugin-get-bones spine-json-handle)
-        ;; skins (plugin-get-skins spine-json-handle)
+        path (resource/resource->proj-path resource)
+        spine-instance (plugin-load-file-from-buffer content path)
+        animations (vec (plugin-get-animations spine-instance))
+        bones (vec (plugin-get-bones spine-instance))
+        skins (vec (plugin-get-skins spine-instance))
+        _ (plugin-destroy-instance spine-instance)
 
         tx-data (concat
-                 (g/set-property node-id :content content))]
-                ;;  (g/set-property node-id :spine-json-handle spine-json-handle)
-                ;;  (g/set-property node-id :animations animations)
-                ;;  (g/set-property node-id :skins skins)
-                ;;  (g/set-property node-id :aabb aabb)
-                ;;  (g/set-property node-id :bones bones)
-                 
+                 (g/set-property node-id :content content)
+                 (g/set-property node-id :animations animations)
+                 (g/set-property node-id :skins skins)
+                 (g/set-property node-id :bones bones))             
 
-        ;all-tx-data (concat tx-data (create-bones project node-id bones))
+        all-tx-data (concat tx-data (create-bones project node-id bones))]
         
-    tx-data))
+    all-tx-data))
 
 (defn- build-spine-json
   [resource dep-resources user-data]
@@ -649,13 +653,11 @@
   (inherits resource-node/ResourceNode)
 
   (property content g/Any)
-  ;; (property spine-json-handle g/Any) ; The c++ pointer
-  ;; (property animations g/Any)
-  ;; (property skins g/Any)
-  ;; (property aabb g/Any)
-  ;; (property bones g/Any)
+  (property animations g/Any)
+  (property skins g/Any)
+  (property bones g/Any)
 
-  ;; (input child-bones g/Any :array)
+  (input child-bones g/Any :array)
 
   (output build-targets g/Any :cached produce-spine-json-build-targets))
 

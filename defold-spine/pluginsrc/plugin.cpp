@@ -152,21 +152,30 @@ static void DestroyAtlas(dmGameSystemDDF::TextureSet* texture_set_ddf)
 
 extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* json, size_t json_size, const char* path, void* atlas_buffer, size_t atlas_size, const char* atlas_path)
 {
-    dmGameSystemDDF::TextureSet* texture_set_ddf = LoadAtlasFromBuffer(atlas_buffer, atlas_size, atlas_path);
-    if (!texture_set_ddf)
+    dmGameSystemDDF::TextureSet* texture_set_ddf = 0;
+    if (atlas_buffer)
     {
-        dmLogError("Couldn't load atlas '%s' for spine scene '%s'", atlas_path, path);
-        return 0;
+        texture_set_ddf = LoadAtlasFromBuffer(atlas_buffer, atlas_size, atlas_path);
+        if (!texture_set_ddf)
+        {
+            dmLogError("Couldn't load atlas '%s' for spine scene '%s'", atlas_path, path);
+            return 0;
+        }
     }
 
     SpineFile* file = new SpineFile;
 
     // Create a 1:1 mapping between animation frames and regions in a format that is spine friendly
-    file->m_AtlasRegions = dmSpine::CreateRegions(texture_set_ddf);
-
-    file->m_AttachmentLoader = dmSpine::CreateAttachmentLoader(texture_set_ddf, file->m_AtlasRegions);
-
-    DestroyAtlas(texture_set_ddf);
+    if (texture_set_ddf)
+    {
+        file->m_AtlasRegions = dmSpine::CreateRegions(texture_set_ddf);
+        file->m_AttachmentLoader = dmSpine::CreateAttachmentLoader(texture_set_ddf, file->m_AtlasRegions);
+        DestroyAtlas(texture_set_ddf);
+    }
+    else {
+        file->m_AtlasRegions = 0;
+        file->m_AttachmentLoader = dmSpine::CreateAttachmentLoader();
+    }
 
     // Create the spine resource
     file->m_SkeletonData = dmSpine::ReadSkeletonJsonData((spAttachmentLoader*)file->m_AttachmentLoader, path, json);

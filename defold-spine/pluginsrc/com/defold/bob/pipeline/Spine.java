@@ -377,6 +377,17 @@ public class Spine {
         return new SpinePointer(p);
     }
 
+    public static SpinePointer SPINE_LoadFileFromBuffer(byte[] json_buffer, String path) {
+        if (json_buffer == null)
+        {
+            System.out.printf("The json buffer is null\n");
+            return null;
+        }
+        Buffer b = ByteBuffer.wrap(json_buffer);
+        Pointer p = SPINE_LoadFromBuffer(b, b.capacity(), path, null, 0, null);
+        return new SpinePointer(p);
+    }
+
     // public static void SPINE_GetVertices(SpinePointer spine, float[] buffer){
     //     Buffer b = FloatBuffer.wrap(buffer);
     //     SPINE_GetVertices(spine, b, b.capacity()*4);
