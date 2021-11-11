@@ -126,9 +126,42 @@ static SpineFile* ToSpineFile(void* _file, const char* fnname)
     }
 
 
+static int FindBoneIndex(spBoneData** const array, int num_bones, const spBoneData* bone)
+{
+    for (int i = 0; i < num_bones; ++i)
+    {
+        if (array[i] == bone)
+            return i;
+    }
+    return -1;
+}
+
 static void SetupBones(SpineFile* file)
 {
     file->m_Bones.SetSize(0);
+    if (!file || !file->m_SkeletonData)
+        return;
+
+    int num_bones = file->m_SkeletonData->bonesCount;
+    spBoneData** const bones = file->m_SkeletonData->bones;
+    file->m_Bones.SetCapacity(num_bones);
+    file->m_Bones.SetSize(num_bones);
+
+    for (int i = 0; i < num_bones; ++i)
+    {
+        const spBoneData* bone = bones[i];
+        int parent_index = FindBoneIndex(bones, num_bones, bone->parent);
+
+        SpineBone& out = file->m_Bones[i];
+        out.name = bone->name;
+        out.parent = parent_index;
+        out.posX = bone->x;
+        out.posY = bone->y;
+        out.rotation = bone->rotation;
+        out.scaleX = bone->scaleX;
+        out.scaleY = bone->scaleY;
+        out.length = 1.0f; // TODO: Calculate the length to the parent
+    }
 }
 
 extern "C" DM_DLLEXPORT void SPINE_Destroy(void* _file);
@@ -225,7 +258,7 @@ extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* json, size_t json_size,
     }
 
     UpdateVertices(file, 0.0f);
-    //SetupBones(file);
+    SetupBones(file);
 
     return (void*)file;
 }
@@ -258,9 +291,6 @@ extern "C" DM_DLLEXPORT void SPINE_Destroy(void* _file) {
     {
         return;
     }
-
-    printf("Destroying %s\n", file->m_Path ? file->m_Path : "null");
-    fflush(stdout);
 
     if (file->m_AnimationStateInstance)
         spAnimationState_dispose(file->m_AnimationStateInstance);
@@ -304,7 +334,6 @@ extern "C" DM_DLLEXPORT const char* SPINE_GetAnimation(void* _file, int i) {
 extern "C" DM_DLLEXPORT int32_t SPINE_GetNumBones(void* _file) {
     SpineFile* file = TO_SPINE_FILE(_file);
     CHECK_FILE_RETURN(file);
-
     return file->m_Bones.Size();
 }
 
@@ -320,6 +349,7 @@ extern "C" DM_DLLEXPORT void SPINE_GetBoneInternal(void* _file, int i, SpineBone
     }
 
     *outbone = file->m_Bones[i];
+    (*outbone).name = strdup((*outbone).name); // Java will delete this
 }
 
 extern "C" DM_DLLEXPORT int SPINE_GetNumChildBones(void* _file, int bone_index)
@@ -335,12 +365,13 @@ extern "C" DM_DLLEXPORT int SPINE_GetNumChildBones(void* _file, int bone_index)
     SpineBone* bone = &file->m_Bones[bone_index];
     uint32_t size = file->m_Bones.Size();
     uint32_t count = 0;
-    for (int i = bone_index+1; i < size; ++i)
+    for (int i = 0; i < size; ++i)
     {
         SpineBone* node = &file->m_Bones[i];
-        if (node->parent != bone_index)
-            break;
-        ++count;
+        if (node->parent == bone_index)
+        {
+            ++count;
+        }
     }
     return count;
 }
@@ -359,11 +390,11 @@ extern "C" DM_DLLEXPORT int SPINE_GetChildBone(void* _file, int bone_index, int 
 
     uint32_t size = file->m_Bones.Size();
     uint32_t count = 0;
-    for (int i = bone_index+1; i < size; ++i)
+    for (int i = 0; i < size; ++i)
     {
         SpineBone* node = &file->m_Bones[i];
         if (node->parent != bone_index)
-            break;
+            continue;
         if (count == child_index)
             return i;
         ++count;

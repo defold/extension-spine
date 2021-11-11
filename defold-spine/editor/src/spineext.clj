@@ -87,13 +87,11 @@
     (.invoke method nil (into-array Object args))))
 
 (defn- plugin-load-file-from-buffer
+  ; The instance is garbage collected by Java
   ([bytes-json path-json bytes-texture-set path-texture-set]
     (plugin-invoke-static spine-plugin-cls "SPINE_LoadFileFromBuffer" (into-array Class [byte-array-cls String byte-array-cls String]) [bytes-json path-json bytes-texture-set path-texture-set]))
   ([bytes-json path-json]
    (plugin-invoke-static spine-plugin-cls "SPINE_LoadFileFromBuffer" (into-array Class [byte-array-cls String]) [bytes-json path-json])))
-
-(defn- plugin-destroy-instance [handle]
-  (plugin-invoke-static spine-plugin-cls "SPINE_Destroy" (into-array Class [spine-plugin-pointer-cls]) [handle]))
 
 (defn- plugin-get-animations [handle]
   (plugin-invoke-static spine-plugin-cls "SPINE_GetAnimations" (into-array Class [spine-plugin-pointer-cls]) [handle]))
@@ -542,7 +540,9 @@
   (property length g/Num
             (dynamic read-only? (g/constantly true)))
 
+  (input nodes g/Any :array)
   (input child-bones g/Any :array)
+  (input child-outlines g/Any :array)
 
   (output transform Matrix4d :cached produce-transform)
   (output bone g/Any (g/fnk [name transform child-bones]
@@ -621,9 +621,8 @@
         path (resource/resource->proj-path resource)
         spine-instance (plugin-load-file-from-buffer content path)
         animations (vec (plugin-get-animations spine-instance))
-        bones (vec (plugin-get-bones spine-instance))
+        bones (plugin-get-bones spine-instance)
         skins (vec (plugin-get-skins spine-instance))
-        _ (plugin-destroy-instance spine-instance)
 
         tx-data (concat
                  (g/set-property node-id :content content)

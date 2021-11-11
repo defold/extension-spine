@@ -68,7 +68,7 @@ public class Spine {
 
     ////////////////////////////////////////////////////////////////////////////////
 
-    static public class BoneInteral extends Structure {
+    static public class SpineBone extends Structure {
         public String name;
         public int parent;
         public float posX, posY, rotation, scaleX, scaleY, length;
@@ -76,7 +76,7 @@ public class Spine {
         protected List getFieldOrder() {
             return Arrays.asList(new String[] {"name", "parent", "posX", "posY", "rotation", "scaleX", "scaleY", "length"});
         }
-        public BoneInteral() {
+        public SpineBone() {
             this.name = "<empty>";
             this.parent = -1;
             this.posX = this.posY = 0.0f;
@@ -95,13 +95,13 @@ public class Spine {
     }
 
     public static native int SPINE_GetNumBones(SpinePointer spine);
-    public static native String SPINE_GetBoneInternal(SpinePointer spine, int index, BoneInteral bone);
+    public static native String SPINE_GetBoneInternal(SpinePointer spine, int index, SpineBone bone);
     public static native int SPINE_GetNumChildBones(SpinePointer spine, int bone);
     public static native int SPINE_GetChildBone(SpinePointer spine, int bone, int index);
 
     protected static Bone SPINE_GetBone(SpinePointer spine, int index) {
         Bone bone = new Bone();
-        BoneInteral internal = new BoneInteral();
+        SpineBone internal = new SpineBone();
         SPINE_GetBoneInternal(spine, index, internal);
         bone.index = index;
         bone.name = internal.name;
@@ -125,7 +125,7 @@ public class Spine {
     public static Bone[] SPINE_GetBones(SpinePointer spine) {
         int num_bones = SPINE_GetNumBones(spine);
         Bone[] bones = new Bone[num_bones];
-        for (int i = 0; i < num_bones; ++i){
+        for (int i = 0; i < num_bones; ++i) {
             bones[i] = SPINE_GetBone(spine, i);
         }
         return bones;
@@ -135,8 +135,6 @@ public class Spine {
 
     public static native void SPINE_UpdateVertices(SpinePointer spine, float dt);
     public static native int SPINE_GetVertexSize(); // size in bytes per vertex
-    // public static native int SPINE_GetVertexCount(SpinePointer spine);
-    // public static native void SPINE_GetVertices(SpinePointer spine, Buffer buffer, int bufferSize); // buffer size must be at least VertexSize * VertexCount bytes long
 
 
     ////////////////////////////////////////////////////////////////////////////////
