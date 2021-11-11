@@ -1,7 +1,9 @@
 
+extern "C" {
 #include <spine/extension.h>
 #include <spine/AttachmentLoader.h>
 #include <spine/SkeletonJson.h>
+}
 
 #include <dmsdk/dlib/hash.h>
 #include <dmsdk/dlib/log.h>

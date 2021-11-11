@@ -10,7 +10,7 @@ struct spAnimationStateData;
 
 namespace dmGameSystemDDF
 {
-    class SpineSceneDesc;
+    struct SpineSceneDesc;
 }
 
 namespace dmGameSystem

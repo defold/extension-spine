@@ -47,8 +47,6 @@ public class Spine {
     public static native Pointer SPINE_LoadFromPath(String path, String atlas_path);
     public static native Pointer SPINE_LoadFromBuffer(Buffer buffer, int bufferSize, String path, Buffer atlas_buffer, int atlas_bufferSize, String atlas_path);
     public static native void SPINE_Destroy(SpinePointer spine);
-    public static native int SPINE_GetNumAnimations(SpinePointer spine);
-    public static native String SPINE_GetAnimation(SpinePointer spine, int index);
 
     // TODO: Create a jna Structure for this
     // Structures in JNA
@@ -63,15 +61,10 @@ public class Spine {
         public AABB() {
             this.minX = this.minY = this.maxX = this.maxY = 0;
         }
+        public static class ByValue extends AABB implements Structure.ByValue { }
     }
 
-    public static native void SPINE_GetAABBInternal(SpinePointer spine, AABB aabb);
-
-    public static AABB SPINE_GetAABB(SpinePointer spine) {
-        AABB aabb = new AABB();
-        SPINE_GetAABBInternal(spine, aabb);
-        return aabb;
-    }
+    public static native AABB.ByValue SPINE_GetAABB(SpinePointer spine);
 
     ////////////////////////////////////////////////////////////////////////////////
 
@@ -151,9 +144,9 @@ public class Spine {
 
     // Matching the struct in vertices.h
     static public class SpineVertex extends Structure {
-        public float x, y, u, v, r, g, b, a;
+        public float x, y, z, u, v, r, g, b, a;
         protected List getFieldOrder() {
-            return Arrays.asList(new String[] {"x", "y", "u", "v", "r", "g", "b", "a"});
+            return Arrays.asList(new String[] {"x", "y", "z", "u", "v", "r", "g", "b", "a"});
         }
     }
 
@@ -264,14 +257,15 @@ public class Spine {
         public byte                 m_SetStencilTest;
         public byte                 m_SetFaceWinding;
         public byte                 m_FaceWindingCCW;
+        public byte                 m_UseIndexBuffer;
         public byte                 m_IsTriangleStrip;
-        public byte[]               pad2 = new byte[(4*4) - 5];
+        public byte[]               pad2 = new byte[(4*4) - 6];
 
         protected List getFieldOrder() {
             return Arrays.asList(new String[] {
                 "m_StencilTestParams", "m_WorldTransform", "m_Constants",
                 "m_NumConstants", "m_VertexStart", "m_VertexCount", "pad1",
-                "m_SetBlendFactors", "m_SetStencilTest", "m_SetFaceWinding", "m_FaceWindingCCW", "m_IsTriangleStrip", "pad2"});
+                "m_SetBlendFactors", "m_SetStencilTest", "m_SetFaceWinding", "m_FaceWindingCCW", "m_UseIndexBuffer", "m_IsTriangleStrip", "pad2"});
         }
 
         public int getOffset(String name) {
@@ -279,9 +273,49 @@ public class Spine {
         }
     }
 
-    public static native SpineVertex SPINE_GetVertexBufferData(SpinePointer spine, IntByReference vertexCount);
-    //public static native IntByReference SPINE_GetIndexBufferData(SpinePointer spine, IntByReference indexCount);
-    public static native RenderObject SPINE_GetRenderObjectData(SpinePointer spine, IntByReference indexCount);
+    static public class NativeString extends Structure {
+        public String    string;
+        protected List getFieldOrder() {
+            return Arrays.asList(new String[] {"string"});
+        }
+        public int getOffset(String name) {
+            return super.fieldOffset(name);
+        }
+    }
+
+    public static native SpineVertex SPINE_GetVertexBufferData(SpinePointer spine, IntByReference objectCount);
+    public static native RenderObject SPINE_GetRenderObjectData(SpinePointer spine, IntByReference objectCount);
+    public static native NativeString SPINE_GetAnimationData(SpinePointer spine, IntByReference objectCount);
+    public static native NativeString SPINE_GetSkinData(SpinePointer spine, IntByReference objectCount);
+
+    private static String[] nativeToStringArray(NativeString first, IntByReference pcount)
+    {
+        if (first == null)
+        {
+            System.out.printf("String buffer is empty!");
+            return new String[0];
+        }
+        int count = pcount.getValue();
+        NativeString[] arr = (NativeString[])first.toArray(count);
+        String[] result = new String[count];
+        for (int i = 0; i < count; ++i)
+        {
+            result[i] = arr[i].string;
+        }
+        return result;
+    }
+
+    public static String[] SPINE_GetAnimations(SpinePointer spine) {
+        IntByReference pcount = new IntByReference();
+        NativeString first = SPINE_GetAnimationData(spine, pcount);
+        return nativeToStringArray(first, pcount);
+    }
+
+    public static String[] SPINE_GetSkins(SpinePointer spine) {
+        IntByReference pcount = new IntByReference();
+        NativeString first = SPINE_GetSkinData(spine, pcount);
+        return nativeToStringArray(first, pcount);
+    }
 
     // idea from https://stackoverflow.com/a/15431595/468516
     public static SpineVertex[] SPINE_GetVertexBuffer(SpinePointer spine) {
@@ -289,8 +323,13 @@ public class Spine {
         SpineVertex first = SPINE_GetVertexBufferData(spine, pcount);
         if (first == null)
         {
-            System.out.printf("Vertex buffer is empty!");
-            return new SpineVertex[0];
+            SpineVertex[] arr = new SpineVertex[1];
+            SpineVertex v = new SpineVertex();
+            v.x = v.y = v.z = 0;
+            v.u = v.v = 0;
+            v.r = v.g = v.b = v.a = 0;
+            arr[0] = v;
+            return arr;
         }
         return (SpineVertex[])first.toArray(pcount.getValue());
     }
@@ -326,8 +365,13 @@ public class Spine {
 
     ////////////////////////////////////////////////////////////////////////////////
 
-    public static SpinePointer SPINE_LoadFileFromBuffer(byte[] buffer, String path, byte[] atlas_buffer, String atlas_path) {
-        Buffer b = ByteBuffer.wrap(buffer);
+    public static SpinePointer SPINE_LoadFileFromBuffer(byte[] json_buffer, String path, byte[] atlas_buffer, String atlas_path) {
+        if (json_buffer == null || atlas_buffer == null)
+        {
+            System.out.printf("One of the buffers is null (%s)\n", json_buffer == null ? "json_buffer":"atlas_buffer");
+            return null;
+        }
+        Buffer b = ByteBuffer.wrap(json_buffer);
         Buffer a = ByteBuffer.wrap(atlas_buffer);
         Pointer p = SPINE_LoadFromBuffer(b, b.capacity(), path, a, a.capacity(), atlas_path);
         return new SpinePointer(p);
@@ -387,9 +431,18 @@ public class Spine {
 
         SpinePointer p = new SpinePointer(spine_file);
 
-        for (int i = 0; i < SPINE_GetNumAnimations(p); ++i) {
-            String name = SPINE_GetAnimation(p, i);
-            System.out.printf("Animation %d: %s\n", i, name);
+        {
+            int i = 0;
+            for (String name : SPINE_GetAnimations(p)) {
+                System.out.printf("Animation %d: %s\n", i++, name);
+            }
+        }
+
+        {
+            int i = 0;
+            for (String name : SPINE_GetSkins(p)) {
+                System.out.printf("Skin %d: %s\n", i++, name);
+            }
         }
 
         Bone[] bones = SPINE_GetBones(p);

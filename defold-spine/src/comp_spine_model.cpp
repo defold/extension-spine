@@ -13,6 +13,8 @@
 #include "comp_spine_model.h"
 #include "res_spine_scene.h"
 
+extern "C" {
+
 #include <spine/extension.h>
 #include <spine/Skeleton.h>
 #include <spine/Slot.h>
@@ -20,6 +22,8 @@
 #include <spine/Attachment.h>
 #include <spine/RegionAttachment.h>
 #include <spine/MeshAttachment.h>
+
+} // extern C
 
 #include <string.h> // memset
 
@@ -35,6 +39,9 @@
 #include <gameobject/gameobject_ddf.h>
 
 #include <common/vertices.h>
+
+#define _USE_MATH_DEFINES
+#include <math.h> // M_PI
 
 namespace dmSpine
 {
@@ -78,7 +85,7 @@ namespace dmSpine
     dmGameObject::CreateResult CompSpineModelNewWorld(const dmGameObject::ComponentNewWorldParams& params)
     {
         SpineModelContext* context = (SpineModelContext*)params.m_Context;
-        dmRender::HRenderContext render_context = context->m_RenderContext;
+        //dmRender::HRenderContext render_context = context->m_RenderContext;
         SpineModelWorld* world = new SpineModelWorld();
         world->m_Factory = context->m_Factory;
 
@@ -197,10 +204,10 @@ namespace dmSpine
 
     static bool CreateGOBones(SpineModelWorld* world, SpineModelComponent* component)
     {
-        dmGameObject::HCollection collection = dmGameObject::GetCollection(component->m_Instance);
+        //dmGameObject::HCollection collection = dmGameObject::GetCollection(component->m_Instance);
 
         SpineModelResource* spine_model = component->m_Resource;
-        SpineSceneResource* spine_scene = spine_model->m_SpineScene;
+        //SpineSceneResource* spine_scene = spine_model->m_SpineScene;
 
         spSkeleton* skeleton = component->m_SkeletonInstance;
 
@@ -517,7 +524,7 @@ namespace dmSpine
 
     dmGameObject::CreateResult CompSpineModelDestroy(const dmGameObject::ComponentDestroyParams& params)
     {
-        SpineModelContext* ctx = (SpineModelContext*)params.m_Context;
+        //SpineModelContext* ctx = (SpineModelContext*)params.m_Context;
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
         uint32_t index = *params.m_UserData;
         DestroyComponent(world, index);
@@ -543,30 +550,30 @@ namespace dmSpine
         }
     }
 
-    static void UpdateTransforms(SpineModelWorld* world)
-    {
-        //DM_PROFILE(SpineModel, "UpdateTransforms");
+    // static void UpdateTransforms(SpineModelWorld* world)
+    // {
+    //     //DM_PROFILE(SpineModel, "UpdateTransforms");
 
-        dmArray<SpineModelComponent*>& components = world->m_Components.m_Objects;
-        uint32_t n = components.Size();
-        for (uint32_t i = 0; i < n; ++i)
-        {
-            SpineModelComponent* component = components[i];
+    //     dmArray<SpineModelComponent*>& components = world->m_Components.m_Objects;
+    //     uint32_t n = components.Size();
+    //     for (uint32_t i = 0; i < n; ++i)
+    //     {
+    //         SpineModelComponent* component = components[i];
 
-            if (!component->m_Enabled || !component->m_AddedToUpdate)
-                continue;
+    //         if (!component->m_Enabled || !component->m_AddedToUpdate)
+    //             continue;
 
-            if (!component->m_SkeletonInstance || !component->m_AnimationStateInstance)
-            {
-                component->m_Enabled = false;
-                continue;
-            }
+    //         if (!component->m_SkeletonInstance || !component->m_AnimationStateInstance)
+    //         {
+    //             component->m_Enabled = false;
+    //             continue;
+    //         }
 
-            const Matrix4& go_world = dmGameObject::GetWorldMatrix(component->m_Instance);
-            const Matrix4 local = dmTransform::ToMatrix4(component->m_Transform);
-            component->m_World = go_world * local;
-        }
-    }
+    //         const Matrix4& go_world = dmGameObject::GetWorldMatrix(component->m_Instance);
+    //         const Matrix4 local = dmTransform::ToMatrix4(component->m_Transform);
+    //         component->m_World = go_world * local;
+    //     }
+    // }
 
     dmGameObject::CreateResult CompSpineModelAddToUpdate(const dmGameObject::ComponentAddToUpdateParams& params)
     {

@@ -70,8 +70,9 @@ namespace dmSpinePlugin
         bool                            m_SetStencilTest;
         bool                            m_SetFaceWinding;
         bool                            m_FaceWindingCCW;
+        bool                            m_UseIndexBuffer;
         bool                            m_IsTriangleStrip;
-        uint8_t                         pad[(4*4) - 5];
+        uint8_t                         pad[(4*4) - 6];
     };
 
 } // dmPlugin

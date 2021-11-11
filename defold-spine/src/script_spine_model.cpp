@@ -416,6 +416,7 @@ namespace dmSpine
         dmMessage::URL receiver; // needed for error output
         dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
 
+    //TODO: Use top to check if there is an argument there?
         dmhash_t skin_id = 0;
         if (!lua_isnil(L, 2))
             skin_id = dmScript::CheckHashOrString(L, 2);
@@ -466,6 +467,7 @@ namespace dmSpine
 
         dmhash_t slot_id = dmScript::CheckHashOrString(L, 2);
 
+    //TODO: Use top to check if there is an argument there?
         dmhash_t attachment_id = 0;
         if (!lua_isnil(L, 3))
             attachment_id = dmScript::CheckHashOrString(L, 3);

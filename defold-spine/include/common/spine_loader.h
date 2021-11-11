@@ -1,7 +1,10 @@
 #ifndef DM_SPINE_ATTACHMENT_LOADER_H
 #define DM_SPINE_ATTACHMENT_LOADER_H
 
+extern "C" {
 #include <spine/AttachmentLoader.h>
+}
+
 #include <dmsdk/dlib/hashtable.h>
 
 struct spAtlasRegion;
@@ -9,7 +12,7 @@ struct spSkeletonData;
 
 namespace dmGameSystem
 {
-    class TextureSetResource;
+    struct TextureSetResource;
 }
 
 namespace dmSpine
