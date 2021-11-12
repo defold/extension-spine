@@ -72,6 +72,8 @@ struct SpineFile
     // Render data
     dmArray<dmSpine::SpineVertex>           m_VertexBuffer;
     dmArray<dmSpinePlugin::RenderObject>    m_RenderObjects;
+    dmhash_t                                m_CurrentSkin;
+    dmhash_t                                m_CurrentAnimation;
 };
 
 typedef SpineFile* HSpineFile;
@@ -123,6 +125,11 @@ static SpineFile* ToSpineFile(void* _file, const char* fnname)
 #define CHECK_FILE_RETURN_VALUE(_P_, _VALUE_) \
     if (!(_P_) || !(_P_)->m_AnimationStateInstance) { \
         return (_VALUE_); \
+    }
+
+#define CHECK_FILE_RETURN_VOID(_P_) \
+    if (!(_P_) || !(_P_)->m_AnimationStateInstance) { \
+        return; \
     }
 
 
@@ -256,6 +263,9 @@ extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* json, size_t json_size,
     {
         file->m_SkinNames[i] = strdup(file->m_SkeletonData->skins[i]->name);
     }
+
+    file->m_CurrentSkin = 0;
+    file->m_CurrentAnimation = 0;
 
     UpdateVertices(file, 0.0f);
     SetupBones(file);
@@ -463,6 +473,35 @@ extern "C" DM_DLLEXPORT const char** SPINE_GetSkinData(void* _file, int* pcount)
     CHECK_FILE_RETURN(file);
     *pcount = (int)file->m_SkinNames.Size();
     return file->m_SkinNames.Begin();
+}
+
+extern "C" DM_DLLEXPORT void SPINE_SetSkin(void* _file, const char* skin)
+{
+    SpineFile* file = TO_SPINE_FILE(_file);
+    CHECK_FILE_RETURN_VOID(file);
+    dmhash_t name_hash = dmHashString64(skin);
+    if (name_hash == file->m_CurrentSkin)
+        return;
+
+    file->m_CurrentSkin = name_hash;
+    if (!spSkeleton_setSkinByName(file->m_SkeletonInstance, skin))
+    {
+        dmLogError("Failed to set skin '%s' to spine instance '%s'", skin, file->m_Path);
+    }
+}
+
+extern "C" DM_DLLEXPORT void SPINE_SetAnimation(void* _file, const char* animation)
+{
+    SpineFile* file = TO_SPINE_FILE(_file);
+    CHECK_FILE_RETURN_VOID(file);
+    dmhash_t name_hash = dmHashString64(animation);
+    if (name_hash == file->m_CurrentAnimation)
+        return;
+    file->m_CurrentAnimation = name_hash;
+
+    int loop = 1; // we're in the editor, so we want it to loop
+    int track = 0; // In the editor, we're only playing a single animation
+    spAnimationState_setAnimationByName(file->m_AnimationStateInstance, track, animation, loop);
 }
 
 extern "C" DM_DLLEXPORT AABB SPINE_GetAABB(void* _file)

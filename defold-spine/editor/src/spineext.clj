@@ -102,6 +102,12 @@
 (defn- plugin-get-aabb [handle]
   (plugin-invoke-static spine-plugin-cls "SPINE_GetAABB" (into-array Class [spine-plugin-pointer-cls]) [handle]))
 
+(defn- plugin-set-skin [handle ^String skin]
+  (plugin-invoke-static spine-plugin-cls "SPINE_SetSkin" (into-array Class [spine-plugin-pointer-cls String]) [handle skin]))
+
+(defn- plugin-set-animation [handle ^String animation]
+  (plugin-invoke-static spine-plugin-cls "SPINE_SetAnimation" (into-array Class [spine-plugin-pointer-cls String]) [handle animation]))
+
 (defn- plugin-update-vertices [handle dt]
   (plugin-invoke-static spine-plugin-cls "SPINE_UpdateVertices" (into-array Class [spine-plugin-pointer-cls Float/TYPE]) [handle (float dt)]))
 
@@ -334,7 +340,7 @@
 (defn- set-constants! [^GL2 gl shader ro]
   (doall (map (fn [constant] (set-constant! gl shader constant)) (.m_Constants ro))))
 
-(defn- do-render-object! [^GL2 gl render-args shader renderable ro vbo]
+(defn- do-render-object! [^GL2 gl render-args shader renderable ro]
   (let [start (.m_VertexStart ro) ; the name is from the engine, but in this case refers to the index
         count (.m_VertexCount ro)
         face-winding (if (not= (.m_FaceWindingCCW ro) 0) GL/GL_CCW GL/GL_CW)
@@ -380,21 +386,21 @@
 (defn- render-group-transparent [^GL2 gl render-args override-shader group]
   (let [renderable (:renderable group)
         user-data (:user-data renderable)
+        spine-instance (:spine-instance user-data)
+        dt 0.0 ; (:dt user-data)
+        _ (plugin-set-skin spine-instance (:skin user-data))
+        _ (plugin-set-animation spine-instance (:animation user-data))
+        _ (plugin-update-vertices spine-instance dt)
         blend-mode (:blend-mode user-data)
         gpu-texture (or (get user-data :gpu-texture) texture/white-pixel)
-        shader (if (not= override-shader nil) override-shader
-                   (:shader user-data))
+        shader (if (not= override-shader nil) override-shader (:shader user-data))
         vb (:vertex-buffer group)
-        ;_ (prn "MAWE vb" (type vb))
         render-objects (:render-objects group)
-        vertex-binding (vtx/use-with ::spine-trans vb shader)
-        vbo 1 ; (scene-cache/request-object! ::vbo ::spine-trans gl vb) ; debug purposes only
-        ;_ (prn "MAWE vertex-binding" (type vertex-binding))
-        ]
+        vertex-binding (vtx/use-with ::spine-trans vb shader)]
     (gl/with-gl-bindings gl render-args [gpu-texture shader vertex-binding]
       (setup-gl gl)
       (gl/set-blend-mode gl blend-mode)
-      (doall (map (fn [ro] (do-render-object! gl render-args shader renderable ro vbo)) render-objects))
+      (doall (map (fn [ro] (do-render-object! gl render-args shader renderable ro)) render-objects))
       (restore-gl gl))))
 
 (defn- render-spine-outlines [^GL2 gl render-args renderables rcount]
@@ -881,7 +887,7 @@
   (input material-shader ShaderLifecycle)
   (output material-shader ShaderLifecycle (gu/passthrough material-shader))
 
-  (output scene g/Any :cached (g/fnk [_node-id spine-main-scene aabb material-shader tex-params skin]
+  (output scene g/Any :cached (g/fnk [_node-id spine-main-scene aabb material-shader tex-params spine-instance default-animation skin]
                                      (if (and (some? material-shader) (some? (:renderable spine-main-scene)))
                                        (let [aabb aabb
                                              spine-scene-node-id (:node-id spine-main-scene)]
@@ -889,6 +895,8 @@
                                              (assoc-in [:renderable :user-data :shader] material-shader)
                                              (update-in [:renderable :user-data :gpu-texture] texture/set-params tex-params)
                                              (assoc-in [:renderable :user-data :skin] skin)
+                                             (assoc-in [:renderable :user-data :animation] default-animation)
+                                             (assoc-in [:renderable :user-data :spine-instance] spine-instance)
                                              (assoc :aabb aabb)
                                              (assoc :children [(make-spine-outline-scene spine-scene-node-id aabb)])))
                                        (merge {:node-id _node-id

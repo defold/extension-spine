@@ -286,6 +286,9 @@ public class Spine {
     public static native NativeString SPINE_GetAnimationData(SpinePointer spine, IntByReference objectCount);
     public static native NativeString SPINE_GetSkinData(SpinePointer spine, IntByReference objectCount);
 
+    public static native void SPINE_SetSkin(SpinePointer spine, String skin);
+    public static native void SPINE_SetAnimation(SpinePointer spine, String animation);
+
     private static String[] nativeToStringArray(NativeString first, IntByReference pcount)
     {
         if (first == null)
