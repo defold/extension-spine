@@ -76,7 +76,9 @@
 (def spine-plugin-cls (workspace/load-class! "com.dynamo.bob.pipeline.Spine"))
 (def spine-plugin-pointer-cls (workspace/load-class! "com.dynamo.bob.pipeline.Spine$SpinePointer"))
 (def spine-plugin-aabb-cls (workspace/load-class! "com.dynamo.bob.pipeline.Spine$AABB"))
-
+(def spine-plugin-blendmode-cls (workspace/load-class! "com.dynamo.spine.proto.Spine$SpineModelDesc$BlendMode"))
+(def spine-plugin-spinescene-cls (workspace/load-class! "com.dynamo.spine.proto.Spine$SpineSceneDesc"))
+(def spine-plugin-spinemodel-cls (workspace/load-class! "com.dynamo.spine.proto.Spine$SpineModelDesc"))
 
 (def byte-array-cls (Class/forName "[B"))
 (def float-array-cls (Class/forName "[F"))
@@ -100,17 +102,8 @@
 (defn- plugin-get-aabb [handle]
   (plugin-invoke-static spine-plugin-cls "SPINE_GetAABB" (into-array Class [spine-plugin-pointer-cls]) [handle]))
 
-;; (defn- plugin-get-vertex-size ^double []
-;;   (plugin-invoke-static spine-plugin-cls "SPINE_GetVertexSize" (into-array Class []) []))
-
 (defn- plugin-update-vertices [handle dt]
   (plugin-invoke-static spine-plugin-cls "SPINE_UpdateVertices" (into-array Class [spine-plugin-pointer-cls Float/TYPE]) [handle (float dt)]))
-
-;; (defn- plugin-get-vertex-count [handle]
-;;   (plugin-invoke-static spine-plugin-cls "SPINE_GetVertexCount" (into-array Class [spine-plugin-pointer-cls]) [handle]))
-
-;; (defn- plugin-get-vertices [handle buffer]
-;;   (plugin-invoke-static spine-plugin-cls "SPINE_GetVertices" (into-array Class [spine-plugin-pointer-cls float-array-cls]) [handle buffer]))
 
 ;(defn- plugin-get-bones ^"[Lcom.dynamo.bob.pipeline.Spine$Bone;" [handle]
 (defn- plugin-get-bones [handle]
@@ -122,9 +115,6 @@
 ;(defn- plugin-get-vertex-buffer-data ^"[Lcom.dynamo.bob.pipeline.Spine$RiveVertex;" [handle]
 (defn- plugin-get-vertex-buffer-data [handle]
   (plugin-invoke-static spine-plugin-cls "SPINE_GetVertexBuffer" (into-array Class [spine-plugin-pointer-cls]) [handle]))
-
-;; (defn- plugin-get-index-buffer-data ^"[I" [handle]
-;;   (plugin-invoke-static spine-plugin-cls "SPINE_GetIndexBuffer" (into-array Class [spine-plugin-pointer-cls]) [handle]))
 
 ;(defn- plugin-get-render-objects ^"[Lcom.dynamo.bob.pipeline.Spine$RenderObject;" [handle]
 (defn- plugin-get-render-objects [handle]
@@ -351,6 +341,7 @@
         _ (set-constants! gl shader ro)
         ro-transform (double-array (.m (.m_WorldTransform ro)))
         renderable-transform (Matrix4d. (:world-transform renderable)) ; make a copy so we don't alter the original
+
         ro-matrix (doto (Matrix4d. ro-transform) (.transpose))
         shader-world-transform (doto renderable-transform (.mul ro-matrix))
         use-index-buffer (not= (.m_UseIndexBuffer ro) 0)
@@ -410,29 +401,6 @@
   (assert (= (:pass render-args) pass/outline))
   (render/render-aabb-outline gl render-args ::spine-outline renderables rcount))
 
-
-;; (defn- render-spine-scenes [^GL2 gl render-args renderables rcount]
-;;   (let [pass (:pass render-args)]
-;;     (condp = pass
-;;       pass/transparent
-;;       (when-let [vb (gen-vb renderables)]
-;;         (let [user-data (:user-data (first renderables))
-;;               blend-mode (:blend-mode user-data)
-;;               gpu-texture (:gpu-texture user-data)
-;;               shader (get user-data :shader render/shader-tex-tint)
-;;               vertex-binding (vtx/use-with ::spine-trans vb shader)]
-;;           (gl/with-gl-bindings gl render-args [gpu-texture shader vertex-binding]
-;;             (gl/set-blend-mode gl blend-mode)
-;;             (gl/gl-draw-arrays gl GL/GL_TRIANGLES 0 (count vb))
-;;             (.glBlendFunc gl GL/GL_SRC_ALPHA GL/GL_ONE_MINUS_SRC_ALPHA))))
-
-;;       pass/selection
-;;       (when-let [vb (gen-vb renderables)]
-;;         (let [gpu-texture (:gpu-texture (:user-data (first renderables)))
-;;               vertex-binding (vtx/use-with ::spine-selection vb spine-id-shader)]
-;;           (gl/with-gl-bindings gl (assoc render-args :id (scene-picking/renderable-picking-id-uniform (first renderables))) [gpu-texture spine-id-shader vertex-binding]
-;;             (gl/gl-draw-arrays gl GL/GL_TRIANGLES 0 (count vb))))))))
-
 (defn- render-spine-scenes [^GL2 gl render-args renderables rcount]
   (let [pass (:pass render-args)]
     (condp = pass
@@ -477,55 +445,7 @@
                 :batch-key ::outline
                 :passes [pass/outline]}})
 
-;; (defn- make-spine-skeleton-scene [_node-id aabb gpu-texture scene-structure]
-;;   (let [scene {:node-id _node-id :aabb aabb}]
-;;     (if (and gpu-texture scene-structure)
-;;       (let [blend-mode :blend-mode-alpha]
-;;         {:aabb aabb
-;;          :node-id _node-id
-;;          :renderable {:render-fn render-spine-skeletons
-;;                       :tags #{:spine :skeleton :outline}
-;;                       :batch-key gpu-texture
-;;                       :user-data {:scene-structure scene-structure}
-;;                       :passes [pass/transparent]}})
-;;       scene)))
-
-(g/defnk produce-spine-scene [_node-id aabb main-scene gpu-texture aabb spine-instance]
-  (if (some? main-scene)
-    (assoc main-scene :children [;(make-spine-skeleton-scene _node-id aabb gpu-texture scene-structure)
-                                 (make-spine-outline-scene _node-id aabb)])
-    ;{:node-id _node-id :aabb geom/empty-bounding-box}
-    {:node-id _node-id :aabb aabb}))
-    
-
-;; (defn- mesh->aabb [aabb mesh]
-;;   (let [positions (partition 3 (:positions mesh))]
-;;     (reduce (fn [aabb pos] (apply geom/aabb-incorporate aabb pos)) aabb positions)))
-
-;; (g/defnk produce-skin-aabbs [scene-structure spine-scene-pb]
-;;   (let [skin-names (:skins scene-structure)
-;;         skins (get-in spine-scene-pb [:mesh-set :mesh-entries])
-;;         meshes (get-in spine-scene-pb [:mesh-set :mesh-attachments])]
-;;     (into {}
-;;           (map (fn [skin-name]
-;;                  (let [skin-id (murmur/hash64 skin-name)
-;;                        skin (or (some (fn [skin] (when (= (:id skin) skin-id) skin)) skins)
-;;                                 (first skins))] ; this is a bit ugly but matches what we do in renderable->meshes while rendering the scene
-;;                    (if-not (some? skin)
-;;                      [skin-name geom/empty-bounding-box]
-;;                      (let [mesh-slots (:mesh-slots skin)
-;;                            skin-meshes (into []
-;;                                              (keep (fn [{:keys [mesh-attachments active-index] :as _mesh-slot}]
-;;                                                      (get meshes (get mesh-attachments active-index -1))))
-;;                                              mesh-slots)
-;;                            skin-meshes-aabb (reduce mesh->aabb geom/empty-bounding-box skin-meshes)]
-;;                        [skin-name skin-meshes-aabb])))))
-;;           skin-names)))
-
-(g/defnk produce-transform [position rotation scale]
-  (math/->mat4-non-uniform (Vector3d. (double-array position))
-                           (math/euler-z->quat rotation)
-                           (Vector3d. (double-array scale))))
+;;//////////////////////////////////////////////////////////////////////////////////////////////
 
 (g/defnode SpineBone
   (inherits outline/OutlineNode)
@@ -556,14 +476,6 @@
                                                    :icon spine-bone-icon
                                                    :children child-outlines
                                                    :read-only true})))
-
-(defn- update-transforms [^Matrix4d parent bone]
-  (let [t ^Matrix4d (:local-transform bone)
-        t (doto (Matrix4d.)
-            (.mul parent t))]
-    (-> bone
-        (assoc :transform t)
-        (assoc :children (mapv #(update-transforms t %) (:children bone))))))
 
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -608,6 +520,19 @@
         tx-data (mapcat (fn [bone] (create-bone-hierarchy project parent-id bones bone)) root-bones)]
     tx-data))
 
+;; (defn- update-transforms [^Matrix4d parent bone]
+;;   (let [t ^Matrix4d (:local-transform bone)
+;;         t (doto (Matrix4d.)
+;;             (.mul parent t))]
+;;     (-> bone
+;;         (assoc :transform t)
+;;         (assoc :children (mapv #(update-transforms t %) (:children bone))))))
+
+(g/defnk produce-transform [position rotation scale]
+  (math/->mat4-non-uniform (Vector3d. (double-array position))
+                           (math/euler-z->quat rotation)
+                           (Vector3d. (double-array scale))))
+
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
 (defn- resource->bytes [resource]
@@ -620,9 +545,9 @@
   (let [content (resource->bytes resource)
         path (resource/resource->proj-path resource)
         spine-instance (plugin-load-file-from-buffer content path)
-        animations (vec (plugin-get-animations spine-instance))
+        animations (sort (vec (plugin-get-animations spine-instance)))
         bones (plugin-get-bones spine-instance)
-        skins (vec (plugin-get-skins spine-instance))
+        skins (sort (vec (plugin-get-skins spine-instance)))
 
         tx-data (concat
                  (g/set-property node-id :content content)
@@ -681,6 +606,25 @@
                      :atlas atlas
                      :material material))))
 
+;; (defn- make-spine-skeleton-scene [_node-id aabb gpu-texture scene-structure]
+;;   (let [scene {:node-id _node-id :aabb aabb}]
+;;     (if (and gpu-texture scene-structure)
+;;       (let [blend-mode :blend-mode-alpha]
+;;         {:aabb aabb
+;;          :node-id _node-id
+;;          :renderable {:render-fn render-spine-skeletons
+;;                       :tags #{:spine :skeleton :outline}
+;;                       :batch-key gpu-texture
+;;                       :user-data {:scene-structure scene-structure}
+;;                       :passes [pass/transparent]}})
+;;       scene)))
+
+(g/defnk produce-spine-scene [_node-id aabb main-scene gpu-texture aabb spine-instance]
+  (if (some? main-scene)
+    (assoc main-scene :children [;(make-spine-skeleton-scene _node-id aabb gpu-texture scene-structure)
+                                 (make-spine-outline-scene _node-id aabb)])
+    {:node-id _node-id :aabb aabb}))
+
 (g/defnk produce-spine-scene-save-value [spine-json-resource atlas-resource]
   {:spine-json (resource/resource->proj-path spine-json-resource)
    :atlas (resource/resource->proj-path atlas-resource)})
@@ -694,7 +638,7 @@
 (defn- build-spine-scene [resource dep-resources user-data]
   (let [pb (:proto-msg user-data)
         pb (reduce #(assoc %1 (first %2) (second %2)) pb (map (fn [[label res]] [label (resource/proj-path (get dep-resources res))]) (:dep-resources user-data)))]
-    {:resource resource :content (protobuf/map->bytes (workspace/load-class! "com.dynamo.rive.proto.Rive$RiveSceneDesc") pb)}))
+    {:resource resource :content (protobuf/map->bytes spine-plugin-spinescene-cls pb)}))
 
 
 (g/defnk produce-spine-scene-build-targets
@@ -723,7 +667,9 @@
                    (project/resource-setter evaluation-context self old-value new-value
                                             [:resource :spine-json-resource]
                                             [:content :spine-json-content]
-                                            ;[:consumer-passthrough :scene-structure]
+                                            [:animations :animations]
+                                            [:skins :skins]
+                                            [:bones :bones]
                                             [:node-outline :source-outline])))
             (dynamic edit-type (g/constantly {:type resource/Resource :ext spine-json-ext}))
             (dynamic error (g/fnk [_node-id spine-json]
@@ -758,18 +704,27 @@
   (input material-samplers g/Any)
   (input material-resource resource/Resource) ; Just for being able to preview the asset
 
-  (input spine-json-content g/Any)
-  (input texture-set-pb g/Any)
   (input default-tex-params g/Any)
   (input gpu-texture g/Any)
   (input dep-build-targets g/Any :array)
 
+  (input animations g/Any)
+  (output animations g/Any :cached (gu/passthrough animations))
+
+  (input skins g/Any)
+  (output skins g/Any :cached (gu/passthrough skins))
+
+  (input bones g/Any)
+  (output bones g/Any :cached (gu/passthrough bones))
+
   (output spine-instance g/Any load-spine-instance) ; The c++ pointer
-  (output animations g/Any :cached (g/fnk [spine-instance] (plugin-get-animations spine-instance)))
-  (output skins g/Any :cached (g/fnk [spine-instance] (plugin-get-skins spine-instance)))
-  ;(output aabb AABB :cached (g/fnk [spine-instance] (plugin-get-aabb spine-instance)))
-  (output bones g/Any :cached (g/fnk [spine-instance] (plugin-get-bones spine-instance)))
   (output aabb AABB :cached (g/fnk [spine-instance] (get-aabb spine-instance)))
+
+  (input texture-set-pb g/Any)
+  (output texture-set-pb g/Any :cached (gu/passthrough texture-set-pb))
+
+  (input spine-json-content g/Any)
+  (output spine-json-content g/Any :cached (gu/passthrough spine-json-content))
 
   (output save-value g/Any produce-spine-scene-save-value)
   (output own-build-errors g/Any produce-spine-scene-own-build-errors)
@@ -777,13 +732,6 @@
   (output spine-scene-pb g/Any :cached produce-spine-scene-pb)
   (output main-scene g/Any :cached produce-main-scene)
   (output scene g/Any :cached produce-spine-scene))
-
-  ;(output skin-aabbs g/Any :cached produce-skin-aabbs)
-  ;(output anim-data g/Any (gu/passthrough anim-data))
-  ;(output scene-structure g/Any (gu/passthrough scene-structure))
-  ;(output spine-anim-ids g/Any (g/fnk [scene-structure] (:animations scene-structure)))
-  
-
 
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -806,31 +754,31 @@
                            spine-skin
                            (disj (set spine-skins) "default"))))
 
-(defn- validate-model-default-animation [node-id spine-scene spine-anim-ids default-animation]
+(defn- validate-model-default-animation [node-id spine-scene animations default-animation]
   (when (and spine-scene (not-empty default-animation))
     (validation/prop-error :fatal node-id :default-animation
                            (fn [anim ids]
                              (when-not (contains? ids anim)
                                (format "animation '%s' could not be found in the specified spine scene" anim)))
                            default-animation
-                           (set spine-anim-ids))))
+                           (set animations))))
 
 (defn- validate-model-material [node-id material]
   (prop-resource-error :fatal node-id :material material "Material"))
 
-(defn- validate-model-skin [node-id spine-scene scene-structure skin]
+(defn- validate-model-skin [node-id spine-scene skins skin]
   (when spine-scene
-    (validate-skin node-id :skin (:skins scene-structure) skin)))
+    (validate-skin node-id :skin skins skin)))
 
 (defn- validate-model-spine-scene [node-id spine-scene]
   (prop-resource-error :fatal node-id :spine-scene spine-scene "Spine Scene"))
 
-(g/defnk produce-model-own-build-errors [_node-id default-animation material spine-anim-ids spine-scene scene-structure skin]
+(g/defnk produce-model-own-build-errors [_node-id default-animation material animations spine-scene skins skin]
   (g/package-errors _node-id
                     (validate-model-material _node-id material)
                     (validate-model-spine-scene _node-id spine-scene)
-                    (validate-model-skin _node-id spine-scene scene-structure skin)
-                    (validate-model-default-animation _node-id spine-scene spine-anim-ids default-animation)))
+                    (validate-model-skin _node-id spine-scene skins skin)
+                    (validate-model-default-animation _node-id spine-scene animations default-animation)))
 
 (defn- build-spine-model [resource dep-resources user-data]
   (let [pb (:proto-msg user-data)
@@ -870,19 +818,23 @@
             (set (fn [evaluation-context self old-value new-value]
                    (project/resource-setter evaluation-context self old-value new-value
                                             [:resource :spine-scene-resource]
+                                            [:spine-json-resource :spine-json-resource]
+                                            [:atlas-resource :atlas-resource]
                                             [:main-scene :spine-main-scene]
-                                            [:skin-aabbs :spine-scene-skin-aabbs]
-                                            [:spine-anim-ids :spine-anim-ids]
+                                            [:texture-set-pb :texture-set-pb]
+                                            [:spine-json-content :spine-json-content]
+                                            [:animations :animations]
+                                            [:skins :skins]
+                                            [:bones :bones]
                                             [:build-targets :dep-build-targets]
-                                            [:anim-data :anim-data])))
-                                            ;[:scene-structure :scene-structure]
+                                            )))
                                             
             (dynamic edit-type (g/constantly {:type resource/Resource :ext spine-scene-ext}))
             (dynamic error (g/fnk [_node-id spine-scene]
                                   (validate-model-spine-scene _node-id spine-scene))))
   (property blend-mode g/Any (default :blend-mode-alpha)
-            (dynamic tip (validation/blend-mode-tip blend-mode (workspace/load-class! "com.dynamo.spine.proto.Spine$SpineModelDesc$BlendMode")))
-            (dynamic edit-type (g/constantly (properties/->pb-choicebox (workspace/load-class! "com.dynamo.spine.proto.Spine$SpineModelDesc$BlendMode")))))
+            (dynamic tip (validation/blend-mode-tip blend-mode spine-plugin-blendmode-cls))
+            (dynamic edit-type (g/constantly (properties/->pb-choicebox spine-plugin-blendmode-cls))))
   (property material resource/Resource
             (value (gu/passthrough material-resource))
             (set (fn [evaluation-context self old-value new-value]
@@ -895,34 +847,43 @@
             (dynamic error (g/fnk [_node-id material]
                                   (validate-model-material _node-id material))))
   (property default-animation g/Str
-            (dynamic error (g/fnk [_node-id spine-anim-ids default-animation spine-scene]
-                                  (validate-model-default-animation _node-id spine-scene spine-anim-ids default-animation)))
-            (dynamic edit-type (g/fnk [spine-anim-ids] (properties/->choicebox spine-anim-ids))))
+            (dynamic error (g/fnk [_node-id animations default-animation spine-scene]
+                                  (validate-model-default-animation _node-id spine-scene animations default-animation)))
+            (dynamic edit-type (g/fnk [animations] (properties/->choicebox animations))))
   (property skin g/Str
-            (dynamic error (g/fnk [_node-id skin scene-structure spine-scene]
-                                  (validate-model-skin _node-id spine-scene scene-structure skin)))
-            (dynamic edit-type (g/fnk [scene-structure] (->skin-choicebox (:skins scene-structure)))))
+            (dynamic error (g/fnk [_node-id skin skins spine-scene]
+                                  (validate-model-skin _node-id spine-scene skins skin)))
+            (dynamic edit-type (g/fnk [skins] (->skin-choicebox skins))))
 
+  (input spine-json-resource resource/Resource)
+  (input atlas-resource resource/Resource)
+  
   (input dep-build-targets g/Any :array)
   (input spine-scene-resource resource/Resource)
   (input spine-main-scene g/Any)
-  (input spine-scene-skin-aabbs g/Any)
-  (input scene-structure g/Any)
-  (input spine-anim-ids g/Any)
   (input material-resource resource/Resource)
-  (input material-shader ShaderLifecycle)
   (input material-samplers g/Any)
   (input default-tex-params g/Any)
-  (input anim-data g/Any)
-
+  
+  (input animations g/Any)
+  (input skins g/Any)
+  (input bones g/Any)
+  (input texture-set-pb g/Any)
+  (input spine-json-content g/Any)
+  
+  (output spine-instance g/Any load-spine-instance) ; The c++ pointer
+  (output aabb AABB :cached (g/fnk [spine-instance] (get-aabb spine-instance)))
+  
   (output tex-params g/Any (g/fnk [material-samplers default-tex-params]
                                   (or (some-> material-samplers first material/sampler->tex-params)
                                       default-tex-params)))
-  (output anim-ids g/Any :cached (g/fnk [anim-data] (vec (sort (keys anim-data)))))
+  
+  (input material-shader ShaderLifecycle)
   (output material-shader ShaderLifecycle (gu/passthrough material-shader))
-  (output scene g/Any :cached (g/fnk [_node-id spine-main-scene spine-scene-skin-aabbs material-shader tex-params skin]
+
+  (output scene g/Any :cached (g/fnk [_node-id spine-main-scene aabb material-shader tex-params skin]
                                      (if (and (some? material-shader) (some? (:renderable spine-main-scene)))
-                                       (let [aabb (get spine-scene-skin-aabbs (if (= "" skin) "default" skin) geom/empty-bounding-box)
+                                       (let [aabb aabb
                                              spine-scene-node-id (:node-id spine-main-scene)]
                                          (-> spine-main-scene
                                              (assoc-in [:renderable :user-data :shader] material-shader)
@@ -958,7 +919,7 @@
                                              :build-ext "rigscenec"
                                              :label "Spine Scene"
                                              :node-type SpineSceneNode
-                                             :ddf-type (workspace/load-class! "com.dynamo.spine.proto.Spine$SpineSceneDesc")
+                                             :ddf-type spine-plugin-spinescene-cls
                                              :load-fn load-spine-scene
                                              :icon spine-scene-icon
                                              :view-types [:scene :text]
@@ -968,7 +929,7 @@
                                              :ext spine-model-ext
                                              :label "Spine Model"
                                              :node-type SpineModelNode
-                                             :ddf-type (workspace/load-class! "com.dynamo.spine.proto.Spine$SpineModelDesc")
+                                             :ddf-type spine-plugin-spinemodel-cls
                                              :load-fn load-spine-model
                                              :icon spine-model-icon
                                              :view-types [:scene :text]

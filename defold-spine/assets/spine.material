@@ -4,8 +4,8 @@ vertex_program: "/defold-spine/assets/spine.vp"
 fragment_program: "/defold-spine/assets/spine.fp"
 vertex_space: VERTEX_SPACE_WORLD
 vertex_constants {
-  name: "view_proj"
-  type: CONSTANT_TYPE_VIEWPROJ
+  name: "world_view_proj"
+  type: CONSTANT_TYPE_WORLDVIEWPROJ
   value {
     x: 0.0
     y: 0.0
