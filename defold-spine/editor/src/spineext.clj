@@ -91,7 +91,7 @@
 (defn- plugin-load-file-from-buffer
   ; The instance is garbage collected by Java
   ([bytes-json path-json bytes-texture-set path-texture-set]
-    (plugin-invoke-static spine-plugin-cls "SPINE_LoadFileFromBuffer" (into-array Class [byte-array-cls String byte-array-cls String]) [bytes-json path-json bytes-texture-set path-texture-set]))
+   (plugin-invoke-static spine-plugin-cls "SPINE_LoadFileFromBuffer" (into-array Class [byte-array-cls String byte-array-cls String]) [bytes-json path-json bytes-texture-set path-texture-set]))
   ([bytes-json path-json]
    (plugin-invoke-static spine-plugin-cls "SPINE_LoadFileFromBuffer" (into-array Class [byte-array-cls String]) [bytes-json path-json])))
 
@@ -228,11 +228,11 @@
     (when (> vcount 0)
       (let [vb (->vtx-pos-tex-col vcount)
             vb-out (persistent! (reduce conj! vb verts))]
-        vb-out))
+        vb-out))))
     ;; (when (= vcount 0)
     ;;   (prn "MAWE vb-out length" 0)
     ;;   (persistent! (->vtx-pos-tex-col 0)))
-    ))
+    
 
 (set! *warn-on-reflection* false)
 
@@ -368,8 +368,7 @@
     (when use-index-buffer
       (gl/gl-draw-elements gl triangle-mode start count))
     ; reset blend state
-    (.glBlendFunc gl GL/GL_SRC_ALPHA GL/GL_ONE_MINUS_SRC_ALPHA)
-    ))
+    (.glBlendFunc gl GL/GL_SRC_ALPHA GL/GL_ONE_MINUS_SRC_ALPHA)))
 
 (set! *warn-on-reflection* true)
 
@@ -386,11 +385,6 @@
 (defn- render-group-transparent [^GL2 gl render-args override-shader group]
   (let [renderable (:renderable group)
         user-data (:user-data renderable)
-        spine-instance (:spine-instance user-data)
-        dt 0.0 ; (:dt user-data)
-        _ (plugin-set-skin spine-instance (:skin user-data))
-        _ (plugin-set-animation spine-instance (:animation user-data))
-        _ (plugin-update-vertices spine-instance dt)
         blend-mode (:blend-mode user-data)
         gpu-texture (or (get user-data :gpu-texture) texture/white-pixel)
         shader (if (not= override-shader nil) override-shader (:shader user-data))
@@ -559,10 +553,10 @@
                  (g/set-property node-id :content content)
                  (g/set-property node-id :animations animations)
                  (g/set-property node-id :skins skins)
-                 (g/set-property node-id :bones bones))             
+                 (g/set-property node-id :bones bones))
 
         all-tx-data (concat tx-data (create-bones project node-id bones))]
-        
+
     all-tx-data))
 
 (defn- build-spine-json
@@ -593,11 +587,14 @@
 
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
-(g/defnk load-spine-instance [spine-json-resource spine-json-content atlas-resource texture-set-pb]
+(g/defnk load-spine-instance [spine-json-resource spine-json-content atlas-resource texture-set-pb default-animation skin]
   ; The paths are used for error reporting if any loading goes wrong
   (let [spine-json-path (resource/resource->proj-path spine-json-resource)
         atlas-path (resource/resource->proj-path atlas-resource)
-        spine-instance (plugin-load-file-from-buffer spine-json-content spine-json-path texture-set-pb atlas-path)]
+        spine-instance (plugin-load-file-from-buffer spine-json-content spine-json-path texture-set-pb atlas-path)
+        _ (if (not= default-animation nil) (plugin-set-animation spine-instance default-animation))
+        _ (if (not= skin nil) (plugin-set-skin spine-instance skin))
+        _ (plugin-update-vertices spine-instance 0.0)]
     spine-instance))
 
 (defn- load-spine-scene [project self resource spine]
@@ -653,14 +650,14 @@
                        (let [dep-build-targets (flatten dep-build-targets)
                              deps-by-source (into {} (map #(let [res (:resource %)] [(:resource res) res]) dep-build-targets))
                              dep-resources (map (fn [[label resource]] [label (get deps-by-source resource)]) [[:spine-json spine-json-resource] [:atlas atlas-resource]])]
-                             
+
                          [(bt/with-content-hash
                             {:node-id _node-id
                              :resource (workspace/make-build-resource resource)
                              :build-fn build-spine-scene
                              :user-data {:proto-msg spine-scene-pb
                                          :dep-resources dep-resources}
-                                         
+
                              :deps dep-build-targets})])))
 
 (g/defnode SpineSceneNode
@@ -722,6 +719,9 @@
 
   (input bones g/Any)
   (output bones g/Any :cached (gu/passthrough bones))
+
+  (output skin g/Str (g/fnk [skins] (first skins)))
+  (output default-animation g/Str (g/fnk [animations] (first animations)))
 
   (output spine-instance g/Any load-spine-instance) ; The c++ pointer
   (output aabb AABB :cached (g/fnk [spine-instance] (get-aabb spine-instance)))
@@ -815,6 +815,19 @@
      (for [[k v] spine]
        (g/set-property self k v)))))
 
+(defn- step-animation
+  [state dt spine-instance animation skin]
+  (plugin-set-skin spine-instance skin)
+  (plugin-set-animation spine-instance animation)
+  (plugin-update-vertices spine-instance dt)
+  state)
+
+(g/defnk produce-spine-instance-updatable [_node-id spine-instance default-animation skin]
+  (when (and spine-instance default-animation skin)
+    {:node-id       _node-id
+     :name          "Spine Scene Updater"
+     :update-fn     (fn [state {:keys [dt]}] (step-animation state dt spine-instance default-animation skin))
+     :initial-state {}}))
 
 (g/defnode SpineModelNode
   (inherits resource-node/ResourceNode)
@@ -832,9 +845,8 @@
                                             [:animations :animations]
                                             [:skins :skins]
                                             [:bones :bones]
-                                            [:build-targets :dep-build-targets]
-                                            )))
-                                            
+                                            [:build-targets :dep-build-targets])))
+
             (dynamic edit-type (g/constantly {:type resource/Resource :ext spine-scene-ext}))
             (dynamic error (g/fnk [_node-id spine-scene]
                                   (validate-model-spine-scene _node-id spine-scene))))
@@ -863,31 +875,33 @@
 
   (input spine-json-resource resource/Resource)
   (input atlas-resource resource/Resource)
-  
+
   (input dep-build-targets g/Any :array)
   (input spine-scene-resource resource/Resource)
   (input spine-main-scene g/Any)
   (input material-resource resource/Resource)
   (input material-samplers g/Any)
   (input default-tex-params g/Any)
-  
+
   (input animations g/Any)
   (input skins g/Any)
   (input bones g/Any)
   (input texture-set-pb g/Any)
   (input spine-json-content g/Any)
-  
+
   (output spine-instance g/Any load-spine-instance) ; The c++ pointer
   (output aabb AABB :cached (g/fnk [spine-instance] (get-aabb spine-instance)))
-  
+
   (output tex-params g/Any (g/fnk [material-samplers default-tex-params]
                                   (or (some-> material-samplers first material/sampler->tex-params)
                                       default-tex-params)))
-  
+
   (input material-shader ShaderLifecycle)
   (output material-shader ShaderLifecycle (gu/passthrough material-shader))
 
-  (output scene g/Any :cached (g/fnk [_node-id spine-main-scene aabb material-shader tex-params spine-instance default-animation skin]
+  (output updatable g/Any :cached produce-spine-instance-updatable)
+
+  (output scene g/Any :cached (g/fnk [_node-id spine-main-scene aabb material-shader tex-params spine-instance default-animation skin updatable]
                                      (if (and (some? material-shader) (some? (:renderable spine-main-scene)))
                                        (let [aabb aabb
                                              spine-scene-node-id (:node-id spine-main-scene)]
@@ -897,6 +911,8 @@
                                              (assoc-in [:renderable :user-data :skin] skin)
                                              (assoc-in [:renderable :user-data :animation] default-animation)
                                              (assoc-in [:renderable :user-data :spine-instance] spine-instance)
+
+                                             (assoc :updatable updatable)
                                              (assoc :aabb aabb)
                                              (assoc :children [(make-spine-outline-scene spine-scene-node-id aabb)])))
                                        (merge {:node-id _node-id
