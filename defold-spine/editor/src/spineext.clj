@@ -642,19 +642,18 @@
 
 
 (g/defnk produce-spine-scene-build-targets
-  [_node-id own-build-errors resource spine-scene-pb dep-build-targets]
+  [_node-id own-build-errors resource spine-json-resource atlas-resource spine-scene-pb dep-build-targets]
   (g/precluding-errors own-build-errors
                        (let [dep-build-targets (flatten dep-build-targets)
-                             deps-by-source (into {} (map #(let [res (:resource %)] [(:resource res) res]) dep-build-targets))]
-                             ;dep-resources (map (fn [[label resource]] [label (get deps-by-source resource)]) [[:scene rive-file]])
+                             deps-by-source (into {} (map #(let [res (:resource %)] [(:resource res) res]) dep-build-targets))
+                             dep-resources (map (fn [[label resource]] [label (get deps-by-source resource)]) [[:spine-json spine-json-resource] [:atlas atlas-resource]])]
                              
                          [(bt/with-content-hash
                             {:node-id _node-id
                              :resource (workspace/make-build-resource resource)
                              :build-fn build-spine-scene
                              :user-data {:proto-msg spine-scene-pb
-                                         ;:dep-resources dep-resources
-                                         :dep-resources deps-by-source}
+                                         :dep-resources dep-resources}
                                          
                              :deps dep-build-targets})])))
 
@@ -665,12 +664,13 @@
             (value (gu/passthrough spine-json-resource))
             (set (fn [evaluation-context self old-value new-value]
                    (project/resource-setter evaluation-context self old-value new-value
-                                            [:resource :spine-json-resource]
+                                            [:resource :spine-json-resource] ; Is this redundant?
                                             [:content :spine-json-content]
                                             [:animations :animations]
                                             [:skins :skins]
                                             [:bones :bones]
-                                            [:node-outline :source-outline])))
+                                            [:node-outline :source-outline]
+                                            [:build-targets :dep-build-targets])))
             (dynamic edit-type (g/constantly {:type resource/Resource :ext spine-json-ext}))
             (dynamic error (g/fnk [_node-id spine-json]
                                   (validate-scene-spine-json _node-id spine-json))))
@@ -679,7 +679,7 @@
             (value (gu/passthrough atlas-resource))
             (set (fn [evaluation-context self old-value new-value]
                    (project/resource-setter evaluation-context self old-value new-value
-                                            [:resource :atlas-resource]
+                                            [:resource :atlas-resource]  ; Is this redundant?
                                             [:texture-set-pb :texture-set-pb]
                                             [:gpu-texture :gpu-texture]
                                             [:build-targets :dep-build-targets])))
@@ -916,7 +916,6 @@
   (concat
    (resource-node/register-ddf-resource-type workspace
                                              :ext spine-scene-ext
-                                             :build-ext "rigscenec"
                                              :label "Spine Scene"
                                              :node-type SpineSceneNode
                                              :ddf-type spine-plugin-spinescene-cls
