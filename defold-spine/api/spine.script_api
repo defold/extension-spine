@@ -1,0 +1,249 @@
+- name: spine
+  type: table
+  desc: Functions and constants for interacting with Spine models
+
+  members:
+
+  - name: play_anim
+    type: function
+    desc: Plays the specified animation on a Spine model.
+     A [ref:spine_animation_done] message is sent to the script that started the animation.
+     [icon:attention] The callback is not called (or message sent) if the animation is
+     cancelled with [ref:spine.cancel]. The callback is called (or message sent) only for
+     animations that play with the following playback modes
+     * `go.PLAYBACK_ONCE_FORWARD`
+     * `go.PLAYBACK_ONCE_BACKWARD`
+     * `go.PLAYBACK_ONCE_PINGPONG`
+
+    parameters:
+      - name: url
+        type: string|hash|url
+        desc: The Spine model for which to play an animation
+
+      - name: anim_id
+        type: hash
+        desc: Id of the animation to play
+
+      - name: playback
+        type: number
+        desc: Playback mode of the animation (from go.PLAYBACK_*)
+
+      - name: options
+        type: table
+        desc: Playback options
+        parameters:
+          - name: blend_duration
+            type: number
+            desc: Duration of a linear blend between the current and new animation.
+
+          - name: offset
+            type: number
+            desc: The normalized initial value of the animation cursor when the animation starts playing.
+
+          - name: playback_rate
+            type: constant
+            desc: The rate with which the animation will be played. Must be positive.
+
+      - name: complete_function
+        type: function
+        desc: function to call when the animation has completed
+        parameters:
+          - name: self
+            type: object
+            desc: The context of the calling script
+
+          - name: message_id
+            type: hash
+            desc: The name of the completion message ("Spine_animation_done")
+
+          - name: message
+            type: table
+            desc: A table that contains the response
+            parameters:
+              - name: animation_id
+                type: hash
+                desc: the animation that was completed
+
+              - name: playback
+                type: constant
+                desc: the playback mode for the animation
+
+          - name: sender
+            type: url
+            desc: The invoker of the callback - the Spine model component
+
+
+#*****************************************************************************************************
+
+  - name: cancel
+    type: function
+    desc: Cancels all running animations on a specified spine model component
+
+    parameters:
+      - name: url
+        type: string|hash|url
+        desc: The Spine model for which to cancel the animation
+
+#*****************************************************************************************************
+
+  - name: get_go
+    type: function
+    desc: Returns the id of the game object that corresponds to a specified skeleton bone.
+
+    parameters:
+      - name: url
+        type: string|hash|url
+        desc: The Spine model to query
+
+      - name: bone_id
+        type: hash
+        desc: Id of the corresponding bone
+
+    return:
+      - name: id
+        type: hash
+        desc: Id of the game object
+
+
+#*****************************************************************************************************
+
+  - name: set_skin
+    type: function
+    desc: Returns the id of the game object that corresponds to a specified skeleton bone.
+
+    parameters:
+      - name: url
+        type: string|hash|url
+        desc: The Spine model to query
+
+      - name: spine_skin
+        type: string|hash
+        desc: Id of the corresponding skin
+
+
+
+#*****************************************************************************************************
+
+  - name: set_ik_target_position
+    type: function
+    desc: Sets a target position of an inverse kinematic (IK) object.
+
+    parameters:
+      - name: url
+        type: string|hash|url
+        desc: The Spine model to query
+
+      - name: ik_constraint_id
+        type: string|hash
+        desc: id of the corresponding IK constraint object
+
+      - name: ik_constraint_id
+        type: vector3
+        desc: Sets a target position of an inverse kinematic (IK) object.
+
+
+
+#*****************************************************************************************************
+
+  - name: set_ik_target
+    type: function
+    desc: Sets a game object as target position of an inverse kinematic (IK) object. As the
+     target game object's position is updated, the constraint object is updated with the
+     new position.
+
+    parameters:
+      - name: url
+        type: string|hash|url
+        desc: The Spine model to query
+
+      - name: ik_constraint_id
+        type: string|hash
+        desc: id of the corresponding IK constraint object
+
+      - name: target_url
+        type: string|hash|url
+        desc: Target game object
+
+
+
+#*****************************************************************************************************
+
+  - name: reset_ik_target
+    type: function
+    desc: Resets any previously set IK target of a spine model, the position will be reset
+     to the original position from the spine scene.
+
+    parameters:
+      - name: url
+        type: string|hash|url
+        desc: The Spine model to query
+
+      - name: ik_constraint_id
+        type: string|hash
+        desc: id of the corresponding IK constraint object
+
+
+
+
+#*****************************************************************************************************
+
+  - name: reset_constant
+    type: function
+    desc: Resets a shader constant for a spine model component. (Previously set with `go.set()`)
+
+    parameters:
+      - name: url
+        type: string|hash|url
+        desc: The Spine model to query
+
+      - name: constant
+        type: string|hash
+        desc: name of the constant
+
+
+#*****************************************************************************************************
+
+- name: spine_animation_done
+  type: message
+  desc: The animation has been finished
+
+- name: spine_event
+  type: message
+  desc: A spine event sent by the currently playing animation.
+
+  parameters:
+    - name: event_id
+      type: hash
+      desc: The event name
+
+    - name: animation_id
+      type: hash
+      desc: The animation that sent the event
+
+    - name: blend_weight
+      type: number
+      desc: The current blend weight
+
+    - name: t
+      type: number
+      desc: The current animation time
+
+    - name: integer
+      type: number
+      desc: The event value. nil if not present
+
+    - name: float
+      type: number
+      desc: The event value. nil if not present
+
+    - name: string
+      type: string
+      desc: The event value. nil if not present
+
+
+
+
+
+
+
+
