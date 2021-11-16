@@ -39,9 +39,9 @@ jobs:
       - name: Resolve libraries
         run: java -jar bob.jar resolve --email a@b.com --auth 123456
       - name: Build
-        run: java -jar bob.jar --platform=${{ matrix.platform }} build --archive --build-server=${{env.BUILD_SERVER}}
+        run: java -v -jar bob.jar --platform=${{ matrix.platform }} build --archive --build-server=${{env.BUILD_SERVER}}
       - name: Bundle
-        run: java -jar bob.jar --platform=${{ matrix.platform }} bundle
+        run: java -v -jar bob.jar --platform=${{ matrix.platform }} bundle
 
   # macOS is not technically needed for building, but we want to test bundling as well, since we're also testing the manifest merging
   build_with_bob_macos:
