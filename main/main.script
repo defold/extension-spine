@@ -3,6 +3,17 @@ local function callback(self, message_id, message, sender)
 	pprint("GO callback", message_id, message, sender)
 end
 
+local function play_animation(self)
+
+	--spine.play_anim("#spinemodel", "run", go.PLAYBACK_ONCE_FORWARD)
+
+	spine.play_anim(self.url, "run", go.PLAYBACK_LOOP_FORWARD, {}, callback)
+	--spine.play_anim(self.url, "run", go.PLAYBACK_ONCE_FORWARD, {}, callback)
+	--spine.play_anim(self.url, "run", go.PLAYBACK_ONCE_FORWARD)
+
+	self.is_playing = true
+end
+
 function init(self)
 	msg.post(".", "acquire_input_focus")
 
@@ -10,12 +21,6 @@ function init(self)
 	self.url = "#spinemodel"
 
 	--spine.set_skin("#spinemodel", "default")
-	--spine.play_anim("#spinemodel", "run", go.PLAYBACK_ONCE_FORWARD)
-
-	--spine.play_anim(self.url, "run", go.PLAYBACK_LOOP_FORWARD, {}, callback)
-	--spine.play_anim(self.url, "run", go.PLAYBACK_ONCE_FORWARD, {}, callback)
-	--spine.play_anim(self.url, "run", go.PLAYBACK_ONCE_FORWARD)
-
 	--constants
 	print("getting constants")
 
@@ -74,6 +79,7 @@ function init(self)
 
 
 	self.bone = bone
+
 end
 
 function final(self)
@@ -94,6 +100,14 @@ function on_message(self, message_id, message, sender)
 end
 
 function on_input(self, action_id, action)
+	if action_id == hash("touch") and action.pressed then
+		if self.is_playing then
+			spine.cancel(self.url)
+			self.is_playing = false
+		else
+			play_animation(self)
+		end
+	end
 	-- Add input-handling code here. The game object this script is attached to
 	-- must have acquired input focus:
 	--

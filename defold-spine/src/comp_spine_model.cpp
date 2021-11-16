@@ -114,8 +114,8 @@ namespace dmSpine
     dmGameObject::CreateResult CompSpineModelDeleteWorld(const dmGameObject::ComponentDeleteWorldParams& params)
     {
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
-        // dmGraphics::DeleteVertexDeclaration(world->m_VertexDeclaration);
-        // dmGraphics::DeleteVertexBuffer(world->m_VertexBuffer);
+        dmGraphics::DeleteVertexDeclaration(world->m_VertexDeclaration);
+        dmGraphics::DeleteVertexBuffer(world->m_VertexBuffer);
 
         dmResource::UnregisterResourceReloadedCallback(((SpineModelContext*)params.m_Context)->m_Factory, ResourceReloadedCallback, world);
 
@@ -293,20 +293,14 @@ namespace dmSpine
         component->m_AnimationInstance->timeScale = playback_rate;
         component->m_AnimationInstance->reverse = IsReverse(playback);
         component->m_AnimationInstance->mixDuration = blend_duration;
+        component->m_Playing = 1;
 
         return true;
     }
 
     static void CancelAnimations(SpineModelComponent* component)
     {
-        if (!component->m_AnimationInstance)
-        {
-            return;
-        }
-
-        int track_index = 0;
-        float mix_duration = 0.0f;
-        spAnimationState_setEmptyAnimation(component->m_AnimationStateInstance, track_index, mix_duration);
+        component->m_Playing = 0;
     }
 
     static bool GetSender(SpineModelComponent* component, dmMessage::URL* out_sender)
@@ -550,31 +544,6 @@ namespace dmSpine
         }
     }
 
-    // static void UpdateTransforms(SpineModelWorld* world)
-    // {
-    //     //DM_PROFILE(SpineModel, "UpdateTransforms");
-
-    //     dmArray<SpineModelComponent*>& components = world->m_Components.m_Objects;
-    //     uint32_t n = components.Size();
-    //     for (uint32_t i = 0; i < n; ++i)
-    //     {
-    //         SpineModelComponent* component = components[i];
-
-    //         if (!component->m_Enabled || !component->m_AddedToUpdate)
-    //             continue;
-
-    //         if (!component->m_SkeletonInstance || !component->m_AnimationStateInstance)
-    //         {
-    //             component->m_Enabled = false;
-    //             continue;
-    //         }
-
-    //         const Matrix4& go_world = dmGameObject::GetWorldMatrix(component->m_Instance);
-    //         const Matrix4 local = dmTransform::ToMatrix4(component->m_Transform);
-    //         component->m_World = go_world * local;
-    //     }
-    // }
-
     dmGameObject::CreateResult CompSpineModelAddToUpdate(const dmGameObject::ComponentAddToUpdateParams& params)
     {
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
@@ -622,7 +591,11 @@ namespace dmSpine
             float anim_dt = component.m_UseCursor ? 0.0f : dt;
             component.m_UseCursor = 0;
 
-            spAnimationState_update(component.m_AnimationStateInstance, anim_dt);
+            if (component.m_Playing)
+            {
+                spAnimationState_update(component.m_AnimationStateInstance, anim_dt);
+            }
+
             spAnimationState_apply(component.m_AnimationStateInstance, component.m_SkeletonInstance);
             spSkeleton_updateWorldTransform(component.m_SkeletonInstance);
 
@@ -841,47 +814,7 @@ namespace dmSpine
         }
         else if (params.m_Message->m_Descriptor != 0x0)
         {
-            // if (params.m_Message->m_Id == dmGameSystemDDF::SpinePlayAnimation::m_DDFDescriptor->m_NameHash)
-            // {
-            //     dmGameSystemDDF::SpinePlayAnimation* ddf = (dmGameSystemDDF::SpinePlayAnimation*)params.m_Message->m_Data;
-            //     if (PlayAnimation(component, ddf->m_AnimationId, (dmGameObject::Playback)ddf->m_Playback, ddf->m_BlendDuration, ddf->m_Offset, ddf->m_PlaybackRate))
-            //     {
-            //         component->m_Listener = params.m_Message->m_Sender;
-            //         component->m_AnimationCallbackRef = params.m_Message->m_UserData2;
-            //     }
-            // }
-            // else if (params.m_Message->m_Id == dmGameSystemDDF::SpineCancelAnimation::m_DDFDescriptor->m_NameHash)
-            // {
-            //     //dmRig::CancelAnimation(component->m_RigInstance);
-
-            //     // Currently, we only have one track and one animation
-            //     CancelAnimations(component);
-            // }
         }
-        //     else if (params.m_Message->m_Id == dmGameSystemDDF::SetConstantSpineModel::m_DDFDescriptor->m_NameHash)
-        //     {
-        //         dmGameSystemDDF::SetConstantSpineModel* ddf = (dmGameSystemDDF::SetConstantSpineModel*)params.m_Message->m_Data;
-        //         dmGameObject::PropertyResult result = dmGameSystem::SetMaterialConstant(GetMaterial(component), ddf->m_NameHash,
-        //                 dmGameObject::PropertyVar(ddf->m_Value), CompSpineModelSetConstantCallback, component);
-        //         if (result == dmGameObject::PROPERTY_RESULT_NOT_FOUND)
-        //         {
-        //             dmMessage::URL& receiver = params.m_Message->m_Receiver;
-        //             dmLogError("'%s:%s#%s' has no constant named '%s'",
-        //                     dmMessage::GetSocketName(receiver.m_Socket),
-        //                     dmHashReverseSafe64(receiver.m_Path),
-        //                     dmHashReverseSafe64(receiver.m_Fragment),
-        //                     dmHashReverseSafe64(ddf->m_NameHash));
-        //         }
-        //     }
-        //     else if (params.m_Message->m_Id == dmGameSystemDDF::ResetConstant::m_DDFDescriptor->m_NameHash)
-        //     {
-        //         dmGameSystemDDF::ResetConstant* ddf = (dmGameSystemDDF::ResetConstant*)params.m_Message->m_Data;
-        //         if (component->m_RenderConstants)
-        //         {
-        //             component->m_ReHash |= dmGameSystem::ClearRenderConstant(component->m_RenderConstants, ddf->m_NameHash);
-        //         }
-        //     }
-        // }
 
         return dmGameObject::UPDATE_RESULT_OK;
     }

@@ -59,6 +59,7 @@ namespace dmSpine
         uint8_t                                 m_AddedToUpdate : 1;
         uint8_t                                 m_ReHash : 1;
         uint8_t                                 m_UseCursor : 1;
+        uint8_t                                 m_Playing : 1;
     };
 
     // For scripting
