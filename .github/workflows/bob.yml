@@ -39,6 +39,9 @@ jobs:
       - name: NM
         run: nm ./defold-spine/plugins/lib/x86_64-linux/libSpineExt.so
 
+      - name: LDD
+        run: ldd ./defold-spine/plugins/lib/x86_64-linux/libSpineExt.so
+
       - name: GLIBC version
         run: strings /lib/x86_64-linux-gnu/libc.so.6 | grep GLIBC
 
