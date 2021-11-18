@@ -39,6 +39,12 @@ jobs:
       - name: NM
         run: nm ./defold-spine/plugins/lib/x86_64-linux/libSpineExt.so
 
+      - name: GLIBC version
+        run: strings /lib/x86_64-linux-gnu/libc.so.6 | grep GLIBC
+
+      - name: GLIBCXX version
+        run: strings /lib/x86_64-linux-gnu/libstdc++.so.6 | grep GLIBCXX
+
       - name: Resolve libraries
         run: java -jar bob.jar resolve --email a@b.com --auth 123456
       - name: Build
