@@ -79,7 +79,7 @@ jobs:
 
       - name: Download bob.jar
         run: |
-          wget -q http://d.defold.com/archive/${{env.CHANNEL}}/${{env.DEFOLD_VERSION}}/bob/bob.jar
+          curl --silent http://example.com http://d.defold.com/archive/${{env.CHANNEL}}/${{env.DEFOLD_VERSION}}/bob/bob.jar --output bob.jar
           java -jar bob.jar --version
 
       - name: Resolve libraries
@@ -111,7 +111,7 @@ jobs:
 
       - name: Download bob.jar
         run: |
-          wget -q http://d.defold.com/archive/stable/${{env.DEFOLD_VERSION}}/bob/bob.jar
+          wget -q http://d.defold.com/archive/${{env.CHANNEL}}/${{env.DEFOLD_VERSION}}/bob/bob.jar
           java -jar bob.jar --version
 
       - name: Resolve libraries
