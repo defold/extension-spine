@@ -79,7 +79,7 @@ jobs:
 
       - name: Download bob.jar
         run: |
-          wget -q http://example.com http://d.defold.com/archive/${{env.CHANNEL}}/${{env.DEFOLD_VERSION}}/bob/bob.jar
+          curl -s -L -o bob.jar http://example.com http://d.defold.com/archive/${{env.CHANNEL}}/${{env.DEFOLD_VERSION}}/bob/bob.jar
           java -jar bob.jar --version
         shell: bash
 
