@@ -79,7 +79,7 @@ jobs:
 
       - name: Download bob.jar
         run: |
-          curl --silent http://example.com http://d.defold.com/archive/${{env.CHANNEL}}/${{env.DEFOLD_VERSION}}/bob/bob.jar --output bob.jar
+          curl -s -o bob.jar http://example.com http://d.defold.com/archive/${{env.CHANNEL}}/${{env.DEFOLD_VERSION}}/bob/bob.jar
           java -jar bob.jar --version
 
       - name: Resolve libraries
