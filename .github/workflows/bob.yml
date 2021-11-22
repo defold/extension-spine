@@ -82,6 +82,7 @@ jobs:
         run: |
           wget -q http://example.com http://d.defold.com/archive/${{env.CHANNEL}}/${{env.DEFOLD_VERSION}}/bob/bob.jar
           java -jar bob.jar --version
+        shell: bash
 
       - name: Resolve libraries
         run: java -jar bob.jar resolve --email a@b.com --auth 123456
