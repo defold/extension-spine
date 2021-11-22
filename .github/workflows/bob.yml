@@ -79,9 +79,8 @@ jobs:
 
       - name: Download bob.jar
         run: |
-          wget -q http://d.defold.com/archive/${{env.CHANNEL}}/${{env.DEFOLD_VERSION}}/bob/bob.jar
+          curl -s -o bob.jar http://d.defold.com/archive/${{env.CHANNEL}}/${{env.DEFOLD_VERSION}}/bob/bob.jar
           java -jar bob.jar --version
-        shell: msys2
 
       - name: Resolve libraries
         run: java -jar bob.jar resolve --email a@b.com --auth 123456
