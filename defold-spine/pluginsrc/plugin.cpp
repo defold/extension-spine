@@ -35,12 +35,6 @@
 #include <spine/SkeletonData.h>
 #include <spine/Skeleton.h>
 
-// We map these to ints on the java side (See Spine.java)
-DM_STATIC_ASSERT(sizeof(dmGraphics::CompareFunc) == sizeof(int), Invalid_struct_size);
-DM_STATIC_ASSERT(sizeof(dmGraphics::StencilOp) == sizeof(int), Invalid_struct_size);
-// Making sure the size is the same for both C++ and Java
-DM_STATIC_ASSERT(sizeof(dmSpinePlugin::RenderObject) == 288, Invalid_struct_size);
-
 static const dmhash_t UNIFORM_TINT = dmHashString64("tint");
 
 struct AABB
@@ -192,6 +186,13 @@ static void DestroyAtlas(dmGameSystemDDF::TextureSet* texture_set_ddf)
 
 extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* json, size_t json_size, const char* path, void* atlas_buffer, size_t atlas_size, const char* atlas_path)
 {
+    // We map these to ints on the java side (See Spine.java)
+    DM_STATIC_ASSERT(sizeof(dmGraphics::CompareFunc) == sizeof(int), Invalid_struct_size);
+    DM_STATIC_ASSERT(sizeof(dmGraphics::StencilOp) == sizeof(int), Invalid_struct_size);
+    // Making sure the size is the same for both C++ and Java
+    DM_STATIC_ASSERT(sizeof(dmSpinePlugin::RenderObject) == 288, Invalid_struct_size);
+
+
     dmGameSystemDDF::TextureSet* texture_set_ddf = 0;
     if (atlas_buffer)
     {
