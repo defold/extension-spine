@@ -18,7 +18,7 @@ jobs:
   build_with_bob:
     strategy:
       matrix:
-        platform: [armv7-android, x86_64-linux, x86_64-win32, x86-win32, js-web]
+        platform: [armv7-android, x86_64-linux, js-web]
     runs-on: ubuntu-latest
 
     name: Build
@@ -63,6 +63,7 @@ jobs:
       matrix:
         platform: [x86_64-win32, x86-win32]
     runs-on: windows-latest
+    shell: bash
 
     name: Build
     steps:
@@ -79,7 +80,7 @@ jobs:
 
       - name: Download bob.jar
         run: |
-          curl -s -o bob.jar http://example.com http://d.defold.com/archive/${{env.CHANNEL}}/${{env.DEFOLD_VERSION}}/bob/bob.jar
+          wget -q http://example.com http://d.defold.com/archive/${{env.CHANNEL}}/${{env.DEFOLD_VERSION}}/bob/bob.jar
           java -jar bob.jar --version
 
       - name: Resolve libraries
