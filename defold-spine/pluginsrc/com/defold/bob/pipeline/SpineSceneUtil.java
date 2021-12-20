@@ -935,7 +935,7 @@ public class SpineSceneUtil {
 
             // If Spine version is 3 and above it uses a different scaling model than 2.x.
             if (scene.spineVersion != null) {
-                scene.spineVersionParts = scene.spineVersion.split("\\.");
+                scene.spineVersionParts = scene.spineVersion.split("\\.|-");
                 if (scene.spineVersionParts != null && Integer.parseInt(scene.spineVersionParts[0]) >= 3) {
                     scene.localBoneScaling = false;
                 }
