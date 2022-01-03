@@ -1,6 +1,6 @@
 
 #include <dmsdk/sdk.h>
-#include "script_spine_model.h"
+#include "script_spine.h"
 
 static dmExtension::Result AppInitializeSpine(dmExtension::AppParams* params)
 {
