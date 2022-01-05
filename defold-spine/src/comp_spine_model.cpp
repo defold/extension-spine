@@ -599,8 +599,6 @@ namespace dmSpine
             spAnimationState_apply(component.m_AnimationStateInstance, component.m_SkeletonInstance);
             spSkeleton_updateWorldTransform(component.m_SkeletonInstance);
 
-            component.m_UseCursor = 0;
-
             UpdateBones(&component);
 
             if (component.m_ReHash || (component.m_RenderConstants && dmGameSystem::AreRenderConstantsUpdated(component.m_RenderConstants)))
