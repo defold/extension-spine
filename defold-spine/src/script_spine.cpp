@@ -2,6 +2,7 @@
 
 #include <dmsdk/dlib/hash.h>
 #include <dmsdk/dlib/message.h>
+#include <dmsdk/dlib/vmath.h>
 #include <dmsdk/gameobject/script.h>
 #include <dmsdk/gamesys/script.h>
 
@@ -19,6 +20,8 @@
 
 namespace dmSpine
 {
+    using namespace dmVMath;
+
     static const char* SPINE_MODEL_EXT = "spinemodelc";
     static const dmhash_t SPINE_MODEL_EXT_HASH = dmHashString64(SPINE_MODEL_EXT);
 

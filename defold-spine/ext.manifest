@@ -3,4 +3,4 @@ name: SpineExt
 platforms:
     common:
         context:
-            symbols: ["ResourceTypeSpineModelExt", "ResourceTypeSpineSceneExt", "ResourceTypeSpineJsonExt", "ComponentTypeSpineModelExt"]
+            symbols: ["ResourceTypeSpineModelExt", "ResourceTypeSpineSceneExt", "ResourceTypeSpineJsonExt", "ComponentTypeSpineModelExt","ComponentTypeGuiNodeSpineModelExt"]
