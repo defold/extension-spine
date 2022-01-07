@@ -21,6 +21,11 @@ dmhash_t    GetAnimation(dmGui::HScene scene, dmGui::HNode hnode);
 bool        SetCursor(dmGui::HScene scene, dmGui::HNode hnode, float cursor);
 float       GetCursor(dmGui::HScene scene, dmGui::HNode hnode);
 
+bool        SetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode, float playback_rate);
+float       GetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode);
+
+
+
 } // namespace
 
 

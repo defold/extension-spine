@@ -5,8 +5,9 @@ end
 function init(self)
 	print("HELLO FROM GUI!")
 	self.n = gui.get_node("spine")
-	gui.play_spine_anim(self.n, "run", gui.PLAYBACK_ONCE_FORWARD, {}, spine_callback)
+	gui.play_spine_anim(self.n, "run", gui.PLAYBACK_LOOP_FORWARD, {}, spine_callback)
 	gui.set_spine_cursor(self.n, 0.5)
+	gui.set_spine_playback_rate(self.n, 1.1)
 
 	--timer.delay(0.5, false, function (self, timer, data)
 	--	print("CANCELLING")
@@ -18,6 +19,7 @@ function init(self)
 	print("gui.get_spine_skin", gui.get_spine_skin(self.n))
 	print("gui.get_spine_animation", gui.get_spine_animation(self.n))
 	print("gui.get_spine_cursor", gui.get_spine_cursor(self.n))
+	print("gui.get_spine_playback_rate", gui.get_spine_playback_rate(self.n))
 end
 
 function final(self)

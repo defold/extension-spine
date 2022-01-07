@@ -417,6 +417,53 @@ namespace dmSpine
         return 1;
     }
 
+    /*# sets the playback rate of the animation on a spine node
+     * This is only useful for spine nodes. Sets the playback rate of the animation on a spine node. Must be positive.
+     *
+     * @name gui.set_spine_playback_rate
+     * @param node [type:node] spine node to set the cursor for
+     * @param playback_rate [type:number] playback rate
+     */
+    static int SetSpinePlaybackRate(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
+
+        VERIFY_SPINE_NODE(scene, node);
+
+        float playback_rate = luaL_checknumber(L, 2);
+        bool result = dmSpine::SetPlaybackRate(scene, node, playback_rate);
+
+        if (!result)
+        {
+            return DM_LUA_ERROR("Failed to set spine playback rate for gui spine node");
+        }
+        return 0;
+    }
+
+    /*# gets the playback rate of the animation on a spine node
+     * This is only useful for spine nodes. Gets the playback rate of the animation on a spine node.
+     *
+     * @name gui.get_spine_playback_rate
+     * @param node [type:node] spine node to set the cursor for
+     * @return rate [type:number] playback rate
+     */
+    static int GetSpinePlaybackRate(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 1);
+
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
+
+        VERIFY_SPINE_NODE(scene, node);
+
+        float playback_rate = dmSpine::GetPlaybackRate(scene, node);
+        lua_pushnumber(L, playback_rate);
+        return 1;
+    }
+
     static const luaL_reg SPINE_FUNCTIONS[] =
     {
         //{"new_spine_node", NewSpineNode},
@@ -430,8 +477,8 @@ namespace dmSpine
         {"get_spine_animation", GetSpineAnimation},
         {"set_spine_cursor",    SetSpineCursor},
         {"get_spine_cursor",    GetSpineCursor},
-        // {"set_spine_playback_rate", SetSpinePlaybackRate},
-        // {"get_spine_playback_rate", GetSpinePlaybackRate},
+        {"set_spine_playback_rate", SetSpinePlaybackRate},
+        {"get_spine_playback_rate", GetSpinePlaybackRate},
         {0, 0}
     };
 

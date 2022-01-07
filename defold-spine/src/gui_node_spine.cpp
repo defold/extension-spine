@@ -325,6 +325,19 @@ float GetCursor(dmGui::HScene scene, dmGui::HNode hnode)
     return unit;
 }
 
+bool SetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode, float playback_rate)
+{
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    node->m_AnimationInstance->timeScale = playback_rate;
+    return true;
+}
+
+float GetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode)
+{
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    return node->m_AnimationInstance->timeScale;
+}
+
 // END SCRIPTING
 
 static void DestroyNode(InternalGuiNode* node)
