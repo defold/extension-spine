@@ -18,6 +18,9 @@ bool        SetSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_skin
 dmhash_t    GetSkin(dmGui::HScene scene, dmGui::HNode hnode);
 dmhash_t    GetAnimation(dmGui::HScene scene, dmGui::HNode hnode);
 
+bool        SetCursor(dmGui::HScene scene, dmGui::HNode hnode, float cursor);
+float       GetCursor(dmGui::HScene scene, dmGui::HNode hnode);
+
 } // namespace
 
 

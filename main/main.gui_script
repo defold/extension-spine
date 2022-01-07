@@ -4,18 +4,20 @@ end
 
 function init(self)
 	print("HELLO FROM GUI!")
-	local n = gui.get_node("spine")
-	gui.play_spine_anim(n, "run", gui.PLAYBACK_ONCE_FORWARD, {}, spine_callback)
+	self.n = gui.get_node("spine")
+	gui.play_spine_anim(self.n, "run", gui.PLAYBACK_ONCE_FORWARD, {}, spine_callback)
+	gui.set_spine_cursor(self.n, 0.5)
 
 	--timer.delay(0.5, false, function (self, timer, data)
 	--	print("CANCELLING")
-	--	gui.cancel_spine(n)
+	--	gui.cancel_spine(self.n)
 	--end)
 
-	--print("gui.get_spine_skin", gui.get_spine_skin(n))
-	--gui.set_spine_skin(n, "default")
-	print("gui.get_spine_skin", gui.get_spine_skin(n))
-	print("gui.get_spine_animation", gui.get_spine_animation(n))
+	--print("gui.get_spine_skin", gui.get_spine_skin(self.n))
+	--gui.set_spine_skin(self.n, "default")
+	print("gui.get_spine_skin", gui.get_spine_skin(self.n))
+	print("gui.get_spine_animation", gui.get_spine_animation(self.n))
+	print("gui.get_spine_cursor", gui.get_spine_cursor(self.n))
 end
 
 function final(self)
@@ -25,9 +27,7 @@ function final(self)
 end
 
 function update(self, dt)
-	-- Add update code here
-	-- Learn more: https://defold.com/manuals/script/
-	-- Remove this function if not needed
+	--print("gui.get_spine_cursor", gui.get_spine_cursor(self.n))
 end
 
 function on_message(self, message_id, message, sender)

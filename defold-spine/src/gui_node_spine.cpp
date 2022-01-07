@@ -50,6 +50,8 @@ struct InternalGuiNode
     dmScript::LuaCallbackInfo* m_Callback;
 
     uint8_t             m_Playing : 1;
+    uint8_t             m_UseCursor : 1;
+    uint8_t             : 6;
 };
 
 static inline bool IsLooping(dmGui::Playback playback)
@@ -158,11 +160,13 @@ static void SpineEventListener(spAnimationState* state, spEventType type, spTrac
     //     break;
     case SP_ANIMATION_COMPLETE:
         {
-        printf("Animation %s complete on track %i\n", entry->animation->name, entry->trackIndex);
-// TODO: Should we send event for looping animations as well?
+            printf("Animation %s complete on track %i\n", entry->animation->name, entry->trackIndex);
+    // TODO: Should we send event for looping animations as well?
 
             if (!IsLooping(node->m_Playback))
             {
+                node->m_Playing = 0;
+
                 if (node->m_Callback)
                 {
                     // We only send the event if it's not looping (same behavior as before)
@@ -226,6 +230,7 @@ static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::P
 
     node->m_Playing = 1;
     node->m_Playback = playback;
+    node->m_UseCursor = 0;
     node->m_AnimationInstance->timeScale = playback_rate;
     node->m_AnimationInstance->reverse = IsReverse(playback);
     node->m_AnimationInstance->mixDuration = blend_duration;
@@ -284,6 +289,40 @@ dmhash_t GetAnimation(dmGui::HScene scene, dmGui::HNode hnode)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
     return node->m_AnimationId;
+}
+
+bool SetCursor(dmGui::HScene scene, dmGui::HNode hnode, float cursor)
+{
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    if (!node->m_AnimationInstance)
+    {
+        return false;
+    }
+
+    float unit_0_1 = fmodf(cursor + 1.0f, 1.0f);
+
+    float duration = node->m_AnimationInstance->animationEnd - node->m_AnimationInstance->animationStart;
+    float t = unit_0_1 * duration;
+
+    node->m_AnimationInstance->trackTime = t;
+    node->m_UseCursor = 1;
+    return true;
+}
+
+float GetCursor(dmGui::HScene scene, dmGui::HNode hnode)
+{
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    spTrackEntry* entry = node->m_AnimationInstance;
+    float unit = 0.0f;
+    if (entry)
+    {
+        float duration = entry->animationEnd - entry->animationStart;
+        if (duration != 0)
+        {
+            unit = fmodf(entry->trackTime, duration) / duration;
+        }
+    }
+    return unit;
 }
 
 // END SCRIPTING
@@ -405,15 +444,15 @@ static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
     if (!node->m_AnimationStateInstance)
         return;
 
-    //float anim_dt = component.m_UseCursor ? 0.0f : dt;
-    float anim_dt = dt;
+    float anim_dt = node->m_UseCursor ? 0.0f : dt;
+    node->m_UseCursor = 0;
 
     if (node->m_Playing)
     {
         spAnimationState_update(node->m_AnimationStateInstance, anim_dt);
+        spAnimationState_apply(node->m_AnimationStateInstance, node->m_SkeletonInstance);
     }
 
-    spAnimationState_apply(node->m_AnimationStateInstance, node->m_SkeletonInstance);
     spSkeleton_updateWorldTransform(node->m_SkeletonInstance);
 }
 

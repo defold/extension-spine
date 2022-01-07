@@ -398,6 +398,8 @@ namespace dmSpine
                 // Should we look at the looping state?
                 if (!IsLooping(component->m_Playback))
                 {
+                    component->m_Playing = 0;
+
                     // We only send the event if it's not looping (same behavior as before)
                     SendAnimationDone(component, state, entry, event);
 
@@ -594,9 +596,9 @@ namespace dmSpine
             if (component.m_Playing)
             {
                 spAnimationState_update(component.m_AnimationStateInstance, anim_dt);
+                spAnimationState_apply(component.m_AnimationStateInstance, component.m_SkeletonInstance);
             }
 
-            spAnimationState_apply(component.m_AnimationStateInstance, component.m_SkeletonInstance);
             spSkeleton_updateWorldTransform(component.m_SkeletonInstance);
 
             UpdateBones(&component);

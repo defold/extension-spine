@@ -369,6 +369,54 @@ namespace dmSpine
         return 1;
     }
 
+    /*# sets the normalized cursor of the animation on a spine node
+     * This is only useful for spine nodes. The cursor is normalized.
+     *
+     * @name gui.set_spine_cursor
+     * @param node [type:node] spine node to set the cursor for
+     * @param cursor [type:number] cursor value
+     */
+    static int SetSpineCursor(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
+
+        VERIFY_SPINE_NODE(scene, node);
+
+        float cursor = luaL_checknumber(L, 2);
+
+        bool result = dmSpine::SetCursor(scene, node, cursor);
+        if (!result)
+        {
+            return DM_LUA_ERROR("Failed to set spine cursor for gui spine node");
+        }
+
+        return 0;
+    }
+
+    /*# gets the normalized cursor of the animation on a spine node
+     * This is only useful for spine nodes. Gets the normalized cursor of the animation on a spine node.
+     *
+     * @name gui.get_spine_cursor
+     * @param node [type:node] spine node to get the cursor for (node)
+     * @return cursor value [type:number] cursor value
+     */
+    static int GetSpineCursor(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 1);
+
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
+
+        VERIFY_SPINE_NODE(scene, node);
+
+        float cursor = dmSpine::GetCursor(scene, node);
+        lua_pushnumber(L, cursor);
+        return 1;
+    }
+
     static const luaL_reg SPINE_FUNCTIONS[] =
     {
         //{"new_spine_node", NewSpineNode},
@@ -380,8 +428,8 @@ namespace dmSpine
         {"set_spine_skin",      SetSpineSkin},
         {"get_spine_skin",      GetSpineSkin},
         {"get_spine_animation", GetSpineAnimation},
-        // {"set_spine_cursor",    SetSpineCursor},
-        // {"get_spine_cursor",    GetSpineCursor},
+        {"set_spine_cursor",    SetSpineCursor},
+        {"get_spine_cursor",    GetSpineCursor},
         // {"set_spine_playback_rate", SetSpinePlaybackRate},
         // {"get_spine_playback_rate", GetSpinePlaybackRate},
         {0, 0}
