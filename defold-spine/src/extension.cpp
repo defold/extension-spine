@@ -9,7 +9,7 @@ static dmExtension::Result AppInitializeSpine(dmExtension::AppParams* params)
 
 static dmExtension::Result InitializeSpine(dmExtension::Params* params)
 {
-    dmSpine::ScriptSpineModelRegister(params->m_L);
+    dmSpine::ScriptSpineGoRegister(params->m_L);
     dmLogInfo("Registered spine extension\n");
     return dmExtension::RESULT_OK;
 }

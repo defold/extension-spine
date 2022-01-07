@@ -1,4 +1,4 @@
-script: ""
+script: "/main/main.gui_script"
 background_color {
   x: 0.0
   y: 0.0
@@ -53,6 +53,7 @@ nodes {
   size_mode: SIZE_MODE_AUTO
   spine_scene: "spineboy"
   spine_default_animation: "walk"
+  spine_skin: ""
 }
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT

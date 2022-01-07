@@ -6,6 +6,7 @@
 #include <dmsdk/dlib/log.h>
 #include <dmsdk/gameobject/gameobject.h>
 #include <dmsdk/gamesys/gui.h>
+#include <dmsdk/script/script.h>
 
 #include <spine/extension.h>
 #include <spine/Skeleton.h>
@@ -15,6 +16,9 @@
 #include <spine/RegionAttachment.h>
 #include <spine/MeshAttachment.h>
 
+#include "spine_ddf.h" // generated from the spine_ddf.proto
+#include "script_spine_gui.h"
+
 namespace dmSpine
 {
 
@@ -22,6 +26,10 @@ static const dmhash_t SPINE_SCENE               = dmHashString64("spine_scene");
 static const dmhash_t SPINE_DEFAULT_ANIMATION   = dmHashString64("spine_default_animation");
 static const dmhash_t SPINE_SKIN                = dmHashString64("spine_skin");
 
+struct GuiNodeTypeContext
+{
+    // In case we need something later. Here for visibility
+};
 
 struct InternalGuiNode
 {
@@ -38,6 +46,8 @@ struct InternalGuiNode
     dmGui::Playback     m_Playback;
     dmGui::HScene       m_GuiScene;
     dmGui::HNode        m_GuiNode;
+
+    dmScript::LuaCallbackInfo* m_Callback;
 
     uint8_t             m_Playing : 1;
 };
@@ -61,36 +71,130 @@ static inline bool IsPingPong(dmGui::Playback playback)
             playback == dmGui::PLAYBACK_ONCE_PINGPONG;
 }
 
+// static void printStack(lua_State* L)
+// {
+//     int top = lua_gettop(L);
+//     int bottom = 1;
+//     lua_getglobal(L, "tostring");
+//     for(int i = top; i >= bottom; i--)
+//     {
+//         lua_pushvalue(L, -1);
+//         lua_pushvalue(L, i);
+//         lua_pcall(L, 1, 1, 0);
+//         const char *str = lua_tostring(L, -1);
+//         if (str) {
+//             printf("%2d: %s\n", i, str);
+//         }else{
+//             printf("%2d: %s\n", i, luaL_typename(L, i));
+//         }
+//         lua_pop(L, 1);
+//     }
+//     lua_pop(L, 1);
+// }
+
+static void SendDDF(InternalGuiNode* node, const dmDDF::Descriptor* descriptor, const char* data)
+{
+    if (!dmScript::IsCallbackValid(node->m_Callback))
+        return;
+
+    lua_State* L = dmScript::GetCallbackLuaContext(node->m_Callback);
+    DM_LUA_STACK_CHECK(L, 0);
+
+    if (!dmScript::SetupCallback(node->m_Callback))
+    {
+        dmLogError("Failed to setup callback");
+        return;
+    }
+
+    dmGui::LuaPushNode(L, node->m_GuiScene, node->m_GuiNode);
+    dmScript::PushHash(L, descriptor->m_NameHash);
+    dmScript::PushDDF(L, descriptor, data, true); // from comp_script.cpp
+
+    dmScript::PCall(L, 4, 0); // instance + 3
+
+    dmScript::TeardownCallback(node->m_Callback);
+}
+
+static void SendAnimationDone(InternalGuiNode* node, const spAnimationState* state, const spTrackEntry* entry, const spEvent* event)
+{
+    dmGameSystemDDF::SpineAnimationDone message;
+    message.m_AnimationId = dmHashString64(entry->animation->name);
+    message.m_Playback    = node->m_Playback;
+    message.m_Track       = entry->trackIndex;
+
+    SendDDF(node, dmGameSystemDDF::SpineAnimationDone::m_DDFDescriptor, (const char*)&message);
+}
+
+// static void SendSpineEvent(SpineModelComponent* component, const spAnimationState* state, const spTrackEntry* entry, const spEvent* event)
+// {
+//     dmMessage::URL sender;
+//     dmMessage::URL receiver = component->m_Listener;
+
+//     if (!GetSender(component, &sender))
+//     {
+//         dmLogError("Could not send animation_done to listener because of incomplete component.");
+//         return;
+//     }
+
+//     if (!dmMessage::IsSocketValid(receiver.m_Socket))
+//     {
+//         receiver = sender;
+//         receiver.m_Fragment = 0;
+//     }
+
+//     dmGameSystemDDF::SpineEvent message;
+//     message.m_AnimationId = dmHashString64(entry->animation->name);
+//     message.m_EventId     = dmHashString64(event->data->name);
+//     message.m_BlendWeight = 0.0f;//keyframe_event->m_BlendWeight;
+//     message.m_T           = event->time;
+//     message.m_Integer     = event->intValue;
+//     message.m_Float       = event->floatValue;
+//     message.m_String      = dmHashString64(event->stringValue?event->stringValue:"");
+//     message.m_Node.m_Ref  = 0;
+//     message.m_Node.m_ContextTableRef = 0;
+
+//     dmGameObject::Result result = dmGameObject::PostDDF(&message, &sender, &receiver, component->m_AnimationCallbackRef, false);
+//     if (result != dmGameObject::RESULT_OK)
+//     {
+//         dmLogError("Could not send animation event '%s' from animation '%s' to listener: %d", entry->animation->name, event->data->name, result);
+//     }
+// }
+
 static void SpineEventListener(spAnimationState* state, spEventType type, spTrackEntry* entry, spEvent* event)
 {
     InternalGuiNode* node = (InternalGuiNode*)state->userData;
 
     switch (type)
     {
-    // case SP_ANIMATION_START:
-    //     printf("Animation %s started on track %i\n", entry->animation->name, entry->trackIndex);
-    //     break;
-    // case SP_ANIMATION_INTERRUPT:
-    //     printf("Animation %s interrupted on track %i\n", entry->animation->name, entry->trackIndex);
-    //     break;
-    // case SP_ANIMATION_END:
-    //     printf("Animation %s ended on track %i\n", entry->animation->name, entry->trackIndex);
-    //     break;
+    case SP_ANIMATION_START:
+        printf("Animation %s started on track %i\n", entry->animation->name, entry->trackIndex);
+        break;
+    case SP_ANIMATION_INTERRUPT:
+        printf("Animation %s interrupted on track %i\n", entry->animation->name, entry->trackIndex);
+        break;
+    case SP_ANIMATION_END:
+        printf("Animation %s ended on track %i\n", entry->animation->name, entry->trackIndex);
+        break;
         case SP_ANIMATION_COMPLETE:
         {
-            // // Should we look at the looping state?
-            // if (!IsLooping(node->m_Playback))
-            // {
-            //     // We only send the event if it's not looping (same behavior as before)
-            //     SendAnimationDone(node, state, entry, event);
+        printf("Animation %s complete on track %i\n", entry->animation->name, entry->trackIndex);
+            // Should we look at the looping state?
+            if (!IsLooping(node->m_Playback))
+            {
+                if (node->m_Callback)
+                {
+                    // We only send the event if it's not looping (same behavior as before)
+                    SendAnimationDone(node, state, entry, event);
 
-            //     dmMessage::ResetURL(&node->m_Listener); // The animation has ended, so we won't send any more on this
-            // }
+                    dmScript::DestroyCallback(node->m_Callback); // The animation has ended, so we won't send any more on this
+                    node->m_Callback = 0;
+                }
+            }
 
-            // if (IsPingPong(node->m_Playback))
-            // {
-            //     node->m_AnimationInstance->reverse = !component->m_AnimationInstance->reverse;
-            // }
+            if (IsPingPong(node->m_Playback))
+            {
+                node->m_AnimationInstance->reverse = !node->m_AnimationInstance->reverse;
+            }
         }
         break;
     // case SP_ANIMATION_DISPOSE:
@@ -114,7 +218,7 @@ static inline uint32_t FindAnimationIndex(InternalGuiNode* node, dmhash_t animat
 }
 
 static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::Playback playback,
-                            float blend_duration, float offset, float playback_rate)
+                            float blend_duration, float offset, float playback_rate, dmScript::LuaCallbackInfo* callback)
 {
     uint32_t index = FindAnimationIndex(node, animation_id);
     if (index == INVALID_ANIMATION_INDEX)
@@ -138,26 +242,35 @@ static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::P
     node->m_AnimationId = animation_id;
     node->m_AnimationInstance = spAnimationState_setAnimation(node->m_AnimationStateInstance, trackIndex, animation, loop);
 
+    node->m_Playing = 1;
     node->m_Playback = playback;
     node->m_AnimationInstance->timeScale = playback_rate;
     node->m_AnimationInstance->reverse = IsReverse(playback);
     node->m_AnimationInstance->mixDuration = blend_duration;
-    node->m_Playing = 1;
+
+    if (node->m_Callback)
+    {
+        dmScript::DestroyCallback(node->m_Callback);
+    }
+    node->m_Callback = callback;
 
     return true;
+}
+
+bool PlayAnimation(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t animation_id, dmGui::Playback playback,
+                            float blend_duration, float offset, float playback_rate, dmScript::LuaCallbackInfo* callback)
+{
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    return PlayAnimation(node, animation_id, playback, blend_duration, offset, playback_rate, callback);
 }
 
 static void DestroyNode(InternalGuiNode* node)
 {
     //node->m_BoneInstances.SetCapacity(0);
-    // if (node->m_Material)
-    // {
-    //     dmResource::Release(world->m_Factory, (void*)node->m_Material);
-    // }
-    // if (node->m_RenderConstants)
-    // {
-    //     dmGameSystem::DestroyRenderConstants(node->m_RenderConstants);
-    // }
+    if (node->m_Callback)
+    {
+        dmScript::DestroyCallback(node->m_Callback);
+    }
 
     if (node->m_AnimationStateInstance)
         spAnimationState_dispose(node->m_AnimationStateInstance);
@@ -171,7 +284,6 @@ static void* GuiCreate(const dmGameSystem::CompGuiNodeContext* ctx, void* contex
 {
     InternalGuiNode* node_data = new InternalGuiNode;
     memset(node_data, 0, sizeof(InternalGuiNode));
-    dmLogWarning("MAWE %s %d",  __FUNCTION__, __LINE__);
     node_data->m_GuiScene = scene;
     node_data->m_GuiNode = node;
     return node_data;
@@ -232,37 +344,53 @@ static void GuiSetProperty(const dmGameSystem::CompGuiNodeContext* ctx, const dm
     {
         node->m_AnimationId = dmHashString64(variant->m_VString);
     }
+    else if (SPINE_SKIN == name_hash)
+    {
+        if (node->m_SkeletonInstance)
+        {
+            dmhash_t skin_id = dmHashString64(variant->m_VString);
+            spSkin* skin = node->m_SpineScene->m_Skeleton->defaultSkin;
+            if (skin_id)
+            {
+                uint32_t* index =  node->m_SpineScene->m_SkinNameToIndex.Get(skin_id);
+                if (!index)
+                {
+                    dmLogError("No skin named '%s'", dmHashReverseSafe64(skin_id));
+                } else {
+                    skin =  node->m_SpineScene->m_Skeleton->skins[*index];
+                }
+            }
+
+            spSkeleton_setSkin(node->m_SkeletonInstance, skin);
+        }
+    }
 
 // this state management is a bit awkward. Do we need a a "post create" function?
     if (node->m_AnimationId != 0 && node->m_AnimationStateInstance != 0)
     {
-        PlayAnimation(node, node->m_AnimationId, dmGui::PLAYBACK_LOOP_FORWARD, 0.0f, 0.0f, 1.0f); // TODO: Is the default playmode specified anywhere?
+// TODO: Q: Is the default playmode specified anywhere?
+        PlayAnimation(node, node->m_AnimationId, dmGui::PLAYBACK_LOOP_FORWARD, 0.0f, 0.0f, 1.0f, 0);
     }
 }
 
 static void GuiGetVertices(const dmGameSystem::CustomNodeCtx* nodectx, uint32_t decl_size, dmBuffer::StreamDeclaration* decl, uint32_t struct_size, dmArray<uint8_t>& vertices)
 {
-    // In theory, we can check the vertex format to see which components to output
-    //dmLogWarning("MAWE %s %d",  __FUNCTION__, __LINE__);
     InternalGuiNode* node = (InternalGuiNode*)(nodectx->m_NodeData);
 
     //TODO: Verify the vertex declaration
+    // In theory, we can check the vertex format to see which components to output
     // We currently know it's xyz-uv-rgba
     dmArray<dmSpine::SpineVertex>* vbdata = (dmArray<dmSpine::SpineVertex>*)&vertices;
 
     uint32_t num_vertices = dmSpine::GenerateVertexData(*vbdata, node->m_SkeletonInstance, node->m_Transform);
     (void)num_vertices;
-
-    //uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleton* skeleton, const dmVMath::Matrix4& world)
 }
 
 static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
 {
-    // In theory, we can check the vertex format to see which components to output
     InternalGuiNode* node = (InternalGuiNode*)(nodectx->m_NodeData);
     if (!node->m_AnimationStateInstance)
         return;
-    //dmLogWarning("MAWE %s %d: %f",  __FUNCTION__, __LINE__, dt);
 
     //float anim_dt = component.m_UseCursor ? 0.0f : dt;
     float anim_dt = dt;
@@ -274,32 +402,13 @@ static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
 
     spAnimationState_apply(node->m_AnimationStateInstance, node->m_SkeletonInstance);
     spSkeleton_updateWorldTransform(node->m_SkeletonInstance);
-
-
-    //uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleton* skeleton, const dmVMath::Matrix4& world)
 }
-
-
-// typedef dmGameObject::Result (*GuiNodeTypeCreateFunction)(const struct CompGuiNodeTypeCtx* ctx, CompGuiNodeType* type);
-// typedef dmGameObject::Result (*GuiNodeTypeDestroyFunction)(const struct CompGuiNodeTypeCtx* ctx, CompGuiNodeType* type);
 
 static dmGameObject::Result GuiNodeTypeSpineCreate(const dmGameSystem::CompGuiNodeTypeCtx* ctx, dmGameSystem::CompGuiNodeType* type)
 {
-    dmLogWarning("MAWE: %s", __FUNCTION__);
-    // // Spine gui node type setup
-    // dmGameSystem::CompGuiNodeType gui_node_type;
-    // gui_node_type.m_Name = "Spine";
-    // gui_node_type.m_NameHash = dmHashString32("Spine"); //TODO: we should do this in comp_gui.cpp, in order to make sure it's a hash32
+    GuiNodeTypeContext* type_context = new GuiNodeTypeContext;
+    dmGameSystem::CompGuiNodeTypeSetContext(type, type_context);
 
-
-
-    // const char*             m_Name;
-    // dmhash_t                m_NameHash;
-    // void*                   m_Context;
-
-    // void* (*CreateContext)(const struct CompGuiNodeTypeCtx* ctx);
-
-    // dmGameObject::Result RegisterCompGuiNodeType(dmGameObject::HRegister regist, const char* name, const CompGuiNodeType& type, void* context);
 
     dmGameSystem::CompGuiNodeTypeSetCreateFn(type, GuiCreate);
     dmGameSystem::CompGuiNodeTypeSetDestroyFn(type, GuiDestroy);
@@ -307,6 +416,8 @@ static dmGameObject::Result GuiNodeTypeSpineCreate(const dmGameSystem::CompGuiNo
     dmGameSystem::CompGuiNodeTypeSetGetVerticesFn(type, GuiGetVertices);
     dmGameSystem::CompGuiNodeTypeSetSetPropertyFn(type, GuiSetProperty);
 
+    lua_State* L = dmGameSystem::GetLuaState(ctx);
+    ScriptSpineGuiRegister(L);
 
     return dmGameObject::RESULT_OK;
 }
@@ -314,7 +425,8 @@ static dmGameObject::Result GuiNodeTypeSpineCreate(const dmGameSystem::CompGuiNo
 static dmGameObject::Result GuiNodeTypeSpineDestroy(const dmGameSystem::CompGuiNodeTypeCtx* ctx, dmGameSystem::CompGuiNodeType* type)
 {
     dmLogWarning("MAWE: %s", __FUNCTION__);
-
+    GuiNodeTypeContext* type_context = (GuiNodeTypeContext*)dmGameSystem::CompGuiNodeTypeGetContext(type);
+    delete type_context;
     return dmGameObject::RESULT_OK;
 }
 

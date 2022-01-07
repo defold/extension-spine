@@ -726,7 +726,7 @@ namespace dmSpine
             {0, 0}
     };
 
-    void ScriptSpineModelRegister(lua_State* L)
+    void ScriptSpineGoRegister(lua_State* L)
     {
         luaL_register(L, "spine", SPINE_COMP_FUNCTIONS);
         lua_pop(L, 1);

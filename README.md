@@ -15,11 +15,15 @@ Happy Defolding!
 
 # Migration guide
 
+## Spine content
+
 * The new file suffix is `.spinejson`
     - Set this as the output suffix in the Spine Editor
 
-* Resave the files
+* Update the spine source files to latest version
     - The new runtime is based on Spine 4.0+
+
+## GameObject
 
 * `spine.set_skin(name)` now only takes one argument
 
@@ -28,4 +32,13 @@ Happy Defolding!
 * `spine.play_animation()` etc are now synchronous.
 
 * If a callback is set to `spine.play_animation()` it will now receive _all_ spine events (e.g. foot steps etc)
+
+
+## GUI
+
+* The Lua callbacks have a new signature, to make them more consistent with the game object callbacks
+
+        local function spine_callback(self, node, event, data)
+            pprint("SPINE CALLBACK", node, event, data)
+        end
 
