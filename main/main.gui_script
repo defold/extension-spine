@@ -6,6 +6,16 @@ function init(self)
 	print("HELLO FROM GUI!")
 	local n = gui.get_node("spine")
 	gui.play_spine_anim(n, "run", gui.PLAYBACK_ONCE_FORWARD, {}, spine_callback)
+
+	--timer.delay(0.5, false, function (self, timer, data)
+	--	print("CANCELLING")
+	--	gui.cancel_spine(n)
+	--end)
+
+	--print("gui.get_spine_skin", gui.get_spine_skin(n))
+	--gui.set_spine_skin(n, "default")
+	print("gui.get_spine_skin", gui.get_spine_skin(n))
+	print("gui.get_spine_animation", gui.get_spine_animation(n))
 end
 
 function final(self)

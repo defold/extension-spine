@@ -186,11 +186,204 @@ namespace dmSpine
         return 0;
     }
 
+
+    /*# retrieve the GUI node corresponding to a spine skeleton bone
+     * The returned node can be used for parenting and transform queries.
+     * This function has complexity O(n), where n is the number of bones in the spine model skeleton.
+     *
+     * @name gui.get_spine_bone
+     * @param node [type:node] spine node to query for bone node
+     * @param bone_id [type:string|hash] id of the corresponding bone
+     * @return bone [type:node] node corresponding to the spine bone
+     */
+    // static int GetSpineBone(lua_State* L)
+    // {
+    //     int top = lua_gettop(L);
+    //     HNode spine_node;
+    //     Scene* scene = GuiScriptInstance_Check(L);
+    //     LuaCheckNode(L, 1, &spine_node);
+
+    //     dmhash_t bone_id;
+    //     if (lua_isstring(L, 2)) {
+    //         const char* bone_id_str = luaL_checkstring(L, 2);
+    //         bone_id = dmHashString64(bone_id_str);
+    //     } else {
+    //         bone_id = dmScript::CheckHash(L, 2);
+    //     }
+
+    //     HNode bone_node = GetNodeSpineBone(scene, spine_node, bone_id);
+    //     if (bone_node == 0)
+    //     {
+    //         char buffer[128];
+    //         return luaL_error(L, "no gui node found for the bone '%s'", dmScript::GetStringFromHashOrString(L, 2, buffer, sizeof(buffer)));
+    //     }
+
+    //     NodeProxy* node_proxy = (NodeProxy *)lua_newuserdata(L, sizeof(NodeProxy));
+    //     node_proxy->m_Scene = scene;
+    //     node_proxy->m_Node = bone_node;
+    //     luaL_getmetatable(L, NODE_PROXY_TYPE_NAME);
+    //     lua_setmetatable(L, -2);
+
+    //     assert(top + 1 == lua_gettop(L));
+    //     return 1;
+    // }
+
+    /*# sets the spine scene of a node
+     * Set the spine scene on a spine node. The spine scene must be mapped to the gui scene in the gui editor.
+     *
+     * @name gui.set_spine_scene
+     * @param node [type:node] node to set spine scene for
+     * @param spine_scene [type:string|hash] spine scene id
+     */
+    // static int SetSpineScene(lua_State* L)
+    // {
+    //     int top = lua_gettop(L);
+    //     HNode node;
+    //     Scene* scene = GuiScriptInstance_Check(L);
+    //     LuaCheckNode(L, 1, &node);
+    //     if (dmGui::GetNodeIsBone(scene, node))
+    //     {
+    //         return 0;
+    //     }
+
+    //     if (RESULT_OK != SetNodeSpineScene(scene, node, dmScript::CheckHashOrString(L, 2), 0, 0, false))
+    //     {
+    //         return luaL_error(L, "failed to set spine scene for gui node");
+    //     }
+
+    //     assert(top == lua_gettop(L));
+    //     return 0;
+    // }
+
+    /*# gets the spine scene of a node
+     * Returns the spine scene id of the supplied node.
+     * This is currently only useful for spine nodes.
+     * The returned spine scene must be mapped to the gui scene in the gui editor.
+     *
+     * @name gui.get_spine_scene
+     * @param node [type:node] node to get texture from
+     * @return spine_scene [type:hash] spine scene id
+     */
+    // static int GetSpineScene(lua_State* L)
+    // {
+    //     Scene* scene = GuiScriptInstance_Check(L);
+
+    //     HNode hnode;
+    //     LuaCheckNode(L, 1, &hnode);
+
+    //     dmScript::PushHash(L, dmGui::GetNodeSpineSceneId(scene, hnode));
+    //     return 1;
+    // }
+    /*# sets the spine skin
+     * Sets the spine skin on a spine node.
+     *
+     * @name gui.set_spine_skin
+     * @param node [type:node] node to set the spine skin on
+     * @param spine_skin [type:string|hash] spine skin id
+     * @param [spine_slot] [type:string|hash] optional slot id to only change a specific slot
+     * @examples
+     *
+     * Change skin of a Spine node
+     *
+     * ```lua
+     * function init(self)
+     *   gui.set_spine_skin(gui.get_node("spine_node"), "monster")
+     * end
+     * ```
+     *
+     * Change only part of the Spine to a different skin.
+     *
+     * ```lua
+     * function monster_transform_arm(self)
+     *   -- The player is transforming into a monster, begin with changing the arm.
+     *   gui.set_spine_skin(gui.get_node("spine_node"), "monster", "left_arm_slot")
+     * end
+     * ```
+     */
+    static int SetSpineSkin(lua_State* L)
+    {
+        //int top = lua_gettop(L);
+        DM_LUA_STACK_CHECK(L, 0);
+
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
+
+        VERIFY_SPINE_NODE(scene, node);
+
+        dmhash_t skin_id = dmScript::CheckHashOrString(L, 2);
+
+        // if (top > 2) {
+        //     dmhash_t slot_id = dmScript::CheckHashOrString(L, 3);
+        //     if (RESULT_OK != dmGui::SetNodeSpineSkinSlot(scene, node, skin_id, slot_id)) {
+        //         return luaL_error(L, "failed to set spine skin ('%s') slot '%s' for gui node", dmHashReverseSafe64(skin_id), dmHashReverseSafe64(slot_id));
+        //     }
+        // } else
+        {
+            bool result = dmSpine::SetSkin(scene, node, skin_id);
+            if (!result) {
+                return DM_LUA_ERROR("Failed to set skin '%s' for spine node", dmHashReverseSafe64(skin_id));
+            }
+        }
+        return 0;
+    }
+
+    /*# gets the skin of a spine node
+     * Gets the spine skin of a spine node
+     *
+     * @name gui.get_spine_skin
+     * @param node [type:node] node to get spine skin from
+     * @return id [type:hash] spine skin id, 0 if no explicit skin is set
+     */
+    static int GetSpineSkin(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 1); // hash pushed onto state will increase stack by 1
+
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
+
+        VERIFY_SPINE_NODE(scene, node);
+
+        dmhash_t skin_id = dmSpine::GetSkin(scene, node);
+        dmScript::PushHash(L, skin_id);
+        return 1;
+    }
+
+    /*# gets the playing animation on a spine node
+     * Gets the playing animation on a spine node
+     *
+     * @name gui.get_spine_animation
+     * @param node [type:node] node to get spine skin from
+     * @return id [type:hash] spine animation id, 0 if no animation is playing
+     */
+    static int GetSpineAnimation(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 1); // hash pushed onto state will increase stack by 1
+
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
+
+        VERIFY_SPINE_NODE(scene, node);
+
+        dmhash_t anim_id = dmSpine::GetAnimation(scene, node);
+        dmScript::PushHash(L, anim_id);
+        return 1;
+    }
+
     static const luaL_reg SPINE_FUNCTIONS[] =
     {
         //{"new_spine_node", NewSpineNode},
-        {"play_spine_anim", PlaySpineAnim},
-        {"cancel_spine", CancelSpine},
+        {"play_spine_anim",     PlaySpineAnim},
+        {"cancel_spine",        CancelSpine},
+        // {"get_spine_bone",      GetSpineBone},
+        // {"set_spine_scene",     SetSpineScene},
+        //{"get_spine_scene",     GetSpineScene},
+        {"set_spine_skin",      SetSpineSkin},
+        {"get_spine_skin",      GetSpineSkin},
+        {"get_spine_animation", GetSpineAnimation},
+        // {"set_spine_cursor",    SetSpineCursor},
+        // {"get_spine_cursor",    GetSpineCursor},
+        // {"set_spine_playback_rate", SetSpinePlaybackRate},
+        // {"get_spine_playback_rate", GetSpinePlaybackRate},
         {0, 0}
     };
 

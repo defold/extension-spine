@@ -254,6 +254,38 @@ void CancelAnimation(dmGui::HScene scene, dmGui::HNode hnode)
     node->m_Playing = 0;
 }
 
+bool SetSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id)
+{
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    spSkin* skin = node->m_SpineScene->m_Skeleton->defaultSkin;
+    if (skin_id)
+    {
+        uint32_t* index = node->m_SpineScene->m_SkinNameToIndex.Get(skin_id);
+        if (!index)
+        {
+            return false;
+        } else {
+            skin = node->m_SpineScene->m_Skeleton->skins[*index];
+        }
+    }
+
+    spSkeleton_setSkin(node->m_SkeletonInstance, skin);
+    return true;
+}
+
+dmhash_t GetSkin(dmGui::HScene scene, dmGui::HNode hnode)
+{
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    spSkin* skin = node->m_SkeletonInstance->skin;
+    return dmHashString64(skin->name);
+}
+
+dmhash_t GetAnimation(dmGui::HScene scene, dmGui::HNode hnode)
+{
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    return node->m_AnimationId;
+}
+
 // END SCRIPTING
 
 static void DestroyNode(InternalGuiNode* node)
@@ -310,7 +342,8 @@ static void GuiSetProperty(const dmGameSystem::CompGuiNodeContext* ctx, const dm
             DestroyNode(node);
             return;
         }
-        spSkeleton_setSkin(node->m_SkeletonInstance, node->m_SpineScene->m_Skeleton->defaultSkin);
+
+        SetSkin(node->m_GuiScene, node->m_GuiNode, 0);
 
         node->m_AnimationStateInstance = spAnimationState_create(node->m_SpineScene->m_AnimationStateData);
         if (!node->m_AnimationStateInstance)
@@ -341,19 +374,7 @@ static void GuiSetProperty(const dmGameSystem::CompGuiNodeContext* ctx, const dm
         if (node->m_SkeletonInstance)
         {
             dmhash_t skin_id = dmHashString64(variant->m_VString);
-            spSkin* skin = node->m_SpineScene->m_Skeleton->defaultSkin;
-            if (skin_id)
-            {
-                uint32_t* index =  node->m_SpineScene->m_SkinNameToIndex.Get(skin_id);
-                if (!index)
-                {
-                    dmLogError("No skin named '%s'", dmHashReverseSafe64(skin_id));
-                } else {
-                    skin =  node->m_SpineScene->m_Skeleton->skins[*index];
-                }
-            }
-
-            spSkeleton_setSkin(node->m_SkeletonInstance, skin);
+            SetSkin(node->m_GuiScene, node->m_GuiNode, skin_id);
         }
     }
 
