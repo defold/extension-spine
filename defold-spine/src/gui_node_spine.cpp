@@ -147,19 +147,20 @@ static void SpineEventListener(spAnimationState* state, spEventType type, spTrac
 
     switch (type)
     {
-    case SP_ANIMATION_START:
-        printf("Animation %s started on track %i\n", entry->animation->name, entry->trackIndex);
-        break;
-    case SP_ANIMATION_INTERRUPT:
-        printf("Animation %s interrupted on track %i\n", entry->animation->name, entry->trackIndex);
-        break;
-    case SP_ANIMATION_END:
-        printf("Animation %s ended on track %i\n", entry->animation->name, entry->trackIndex);
-        break;
-        case SP_ANIMATION_COMPLETE:
+    // case SP_ANIMATION_START:
+    //     printf("Animation %s started on track %i\n", entry->animation->name, entry->trackIndex);
+    //     break;
+    // case SP_ANIMATION_INTERRUPT:
+    //     printf("Animation %s interrupted on track %i\n", entry->animation->name, entry->trackIndex);
+    //     break;
+    // case SP_ANIMATION_END:
+    //     printf("Animation %s ended on track %i\n", entry->animation->name, entry->trackIndex);
+    //     break;
+    case SP_ANIMATION_COMPLETE:
         {
         printf("Animation %s complete on track %i\n", entry->animation->name, entry->trackIndex);
-            // Should we look at the looping state?
+// TODO: Should we send event for looping animations as well?
+
             if (!IsLooping(node->m_Playback))
             {
                 if (node->m_Callback)
@@ -238,12 +239,22 @@ static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::P
     return true;
 }
 
+// SCRIPTING
+
 bool PlayAnimation(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t animation_id, dmGui::Playback playback,
                             float blend_duration, float offset, float playback_rate, dmScript::LuaCallbackInfo* callback)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
     return PlayAnimation(node, animation_id, playback, blend_duration, offset, playback_rate, callback);
 }
+
+void CancelAnimation(dmGui::HScene scene, dmGui::HNode hnode)
+{
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    node->m_Playing = 0;
+}
+
+// END SCRIPTING
 
 static void DestroyNode(InternalGuiNode* node)
 {

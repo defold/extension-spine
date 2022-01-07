@@ -24,6 +24,24 @@ namespace dmSpine
 
     static const uint32_t SPINE_NODE_TYPE = dmHashString32("Spine");
 
+    int VerifySpineNode(lua_State* L, dmGui::HScene scene, dmGui::HNode node)
+    {
+        uint32_t custom_type = GetNodeCustomType(scene, node);
+        if (SPINE_NODE_TYPE != custom_type) {
+            return luaL_error(L, "Cannot play spine animation on a non-spine node: %u (expected: %u)", custom_type, SPINE_NODE_TYPE);
+        }
+        return 0;
+    }
+
+    #define VERIFY_SPINE_NODE(scene, node) \
+    { \
+        uint32_t custom_type = GetNodeCustomType(scene, node); \
+        if (SPINE_NODE_TYPE != custom_type) { \
+            return luaL_error(L, "Cannot play spine animation on a non-spine node: %u (expected: %u)", custom_type, SPINE_NODE_TYPE); \
+        } \
+    }
+
+
     /*# creates a new spine node
      * Dynamically create a new spine node.
      *
@@ -90,17 +108,13 @@ namespace dmSpine
         dmGui::HScene scene = dmGui::LuaCheckScene(L);
         dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
 
-        uint32_t custom_type = GetNodeCustomType(scene, node);
-        if (SPINE_NODE_TYPE != custom_type) {
-            return luaL_error(L, "Cannot play spine animation on a non-spine node: %u", custom_type);
-        }
+        (void)VerifySpineNode(L, scene, node);
 
         dmhash_t anim_id = dmScript::CheckHashOrString(L, 2);
         dmGui::Playback playback = (dmGui::Playback)luaL_checkinteger(L, 3);
         float blend_duration = 0.0, offset = 0.0, playback_rate = 1.0;
 
-// TODO: Check if nil
-        if (top > 3) // table with args, parse
+        if (top > 3 && !lua_isnil(L, 4)) // table with args, parse
         {
             luaL_checktype(L, 4, LUA_TTABLE);
             lua_pushvalue(L, 4);
@@ -154,10 +168,29 @@ namespace dmSpine
         return 0;
     }
 
+    /*# cancel a spine animation
+     *
+     * @name gui.cancel_spine
+     * @param node [type:node] spine node that should cancel its animation
+     */
+    static int CancelSpine(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
+
+        VERIFY_SPINE_NODE(scene, node);
+
+        dmSpine::CancelAnimation(scene, node);
+        return 0;
+    }
+
     static const luaL_reg SPINE_FUNCTIONS[] =
     {
         //{"new_spine_node", NewSpineNode},
         {"play_spine_anim", PlaySpineAnim},
+        {"cancel_spine", CancelSpine},
         {0, 0}
     };
 
