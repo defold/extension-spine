@@ -125,40 +125,21 @@ static void SendAnimationDone(InternalGuiNode* node, const spAnimationState* sta
     SendDDF(node, dmGameSystemDDF::SpineAnimationDone::m_DDFDescriptor, (const char*)&message);
 }
 
-// static void SendSpineEvent(SpineModelComponent* component, const spAnimationState* state, const spTrackEntry* entry, const spEvent* event)
-// {
-//     dmMessage::URL sender;
-//     dmMessage::URL receiver = component->m_Listener;
+static void SendSpineEvent(InternalGuiNode* node, const spAnimationState* state, const spTrackEntry* entry, const spEvent* event)
+{
+    dmGameSystemDDF::SpineEvent message;
+    message.m_AnimationId = dmHashString64(entry->animation->name);
+    message.m_EventId     = dmHashString64(event->data->name);
+    message.m_BlendWeight = 0.0f;//keyframe_event->m_BlendWeight;
+    message.m_T           = event->time;
+    message.m_Integer     = event->intValue;
+    message.m_Float       = event->floatValue;
+    message.m_String      = dmHashString64(event->stringValue?event->stringValue:"");
+    message.m_Node.m_Ref  = 0;
+    message.m_Node.m_ContextTableRef = 0;
 
-//     if (!GetSender(component, &sender))
-//     {
-//         dmLogError("Could not send animation_done to listener because of incomplete component.");
-//         return;
-//     }
-
-//     if (!dmMessage::IsSocketValid(receiver.m_Socket))
-//     {
-//         receiver = sender;
-//         receiver.m_Fragment = 0;
-//     }
-
-//     dmGameSystemDDF::SpineEvent message;
-//     message.m_AnimationId = dmHashString64(entry->animation->name);
-//     message.m_EventId     = dmHashString64(event->data->name);
-//     message.m_BlendWeight = 0.0f;//keyframe_event->m_BlendWeight;
-//     message.m_T           = event->time;
-//     message.m_Integer     = event->intValue;
-//     message.m_Float       = event->floatValue;
-//     message.m_String      = dmHashString64(event->stringValue?event->stringValue:"");
-//     message.m_Node.m_Ref  = 0;
-//     message.m_Node.m_ContextTableRef = 0;
-
-//     dmGameObject::Result result = dmGameObject::PostDDF(&message, &sender, &receiver, component->m_AnimationCallbackRef, false);
-//     if (result != dmGameObject::RESULT_OK)
-//     {
-//         dmLogError("Could not send animation event '%s' from animation '%s' to listener: %d", entry->animation->name, event->data->name, result);
-//     }
-// }
+    SendDDF(node, dmGameSystemDDF::SpineEvent::m_DDFDescriptor, (const char*)&message);
+}
 
 static void SpineEventListener(spAnimationState* state, spEventType type, spTrackEntry* entry, spEvent* event)
 {
@@ -201,7 +182,7 @@ static void SpineEventListener(spAnimationState* state, spEventType type, spTrac
     //     printf("Track entry for animation %s disposed on track %i\n", entry->animation->name, entry->trackIndex);
     //     break;
     case SP_ANIMATION_EVENT:
-        //SendSpineEvent(node, state, entry, event);
+        SendSpineEvent(node, state, entry, event);
         break;
     default:
         break;
