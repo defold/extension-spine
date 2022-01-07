@@ -281,6 +281,8 @@ bool SetSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id)
 dmhash_t GetSkin(dmGui::HScene scene, dmGui::HNode hnode)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    if (!node->m_SkeletonInstance)
+        return 0;
     spSkin* skin = node->m_SkeletonInstance->skin;
     return dmHashString64(skin->name);
 }
@@ -328,6 +330,8 @@ float GetCursor(dmGui::HScene scene, dmGui::HNode hnode)
 bool SetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode, float playback_rate)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    if (!node->m_AnimationInstance)
+        return false;
     node->m_AnimationInstance->timeScale = playback_rate;
     return true;
 }
@@ -335,6 +339,8 @@ bool SetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode, float playback_rat
 float GetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    if (!node->m_AnimationInstance)
+        return 1.0f;
     return node->m_AnimationInstance->timeScale;
 }
 

@@ -280,7 +280,6 @@ namespace dmSpine
      * @name gui.set_spine_skin
      * @param node [type:node] node to set the spine skin on
      * @param spine_skin [type:string|hash] spine skin id
-     * @param [spine_slot] [type:string|hash] optional slot id to only change a specific slot
      * @examples
      *
      * Change skin of a Spine node
@@ -288,15 +287,6 @@ namespace dmSpine
      * ```lua
      * function init(self)
      *   gui.set_spine_skin(gui.get_node("spine_node"), "monster")
-     * end
-     * ```
-     *
-     * Change only part of the Spine to a different skin.
-     *
-     * ```lua
-     * function monster_transform_arm(self)
-     *   -- The player is transforming into a monster, begin with changing the arm.
-     *   gui.set_spine_skin(gui.get_node("spine_node"), "monster", "left_arm_slot")
      * end
      * ```
      */
@@ -469,9 +459,9 @@ namespace dmSpine
         //{"new_spine_node", NewSpineNode},
         {"play_spine_anim",     PlaySpineAnim},
         {"cancel_spine",        CancelSpine},
-        // {"get_spine_bone",      GetSpineBone},
-        // {"set_spine_scene",     SetSpineScene},
-        //{"get_spine_scene",     GetSpineScene},
+        // {"get_spine_bone",      GetSpineBone},   // MVP2
+        // {"set_spine_scene",     SetSpineScene},  // MVP2
+        //{"get_spine_scene",     GetSpineScene},   // MVP2
         {"set_spine_skin",      SetSpineSkin},
         {"get_spine_skin",      GetSpineSkin},
         {"get_spine_animation", GetSpineAnimation},
@@ -479,6 +469,8 @@ namespace dmSpine
         {"get_spine_cursor",    GetSpineCursor},
         {"set_spine_playback_rate", SetSpinePlaybackRate},
         {"get_spine_playback_rate", GetSpinePlaybackRate},
+
+        // Also gui.set_spine_attachment to mimic the the go.set_attachment
         {0, 0}
     };
 
