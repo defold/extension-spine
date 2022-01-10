@@ -42,3 +42,16 @@ Happy Defolding!
             pprint("SPINE CALLBACK", node, event, data)
         end
 
+* Currently the play anim requires a callback (i.e. the default handler is currently disabled)
+
+
+
+## MVP2
+
+### GUI
+
+* [ ] - Create bone nodes
+* [ ] - Script: on_message callback if no callback function was used
+* [ ] - Script: Get bone node
+* [ ] - Script: Set spine scene
+* [ ] - Script: Get spine scene

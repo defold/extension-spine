@@ -253,6 +253,9 @@ bool SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene)
     (void)hnode;
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
 
+    if (spine_scene == node->m_SpinePath)
+        return true;
+
     SpineSceneResource* resource = (SpineSceneResource*)dmGui::GetResource(scene, spine_scene, SPINE_SCENE_SUFFIX);
     if (!resource)
         return false;
@@ -263,6 +266,12 @@ bool SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene)
     if (node->m_SkeletonInstance)
         spSkeleton_dispose(node->m_SkeletonInstance);
     node->m_SkeletonInstance = 0;
+
+    // if we want to play an animation, the user needs to explicitly do it with gui.play_spine_anim()
+    // which will then ofc also use a callback
+    // It in turn means that we have no use for the current callback
+    dmScript::DestroyCallback(node->m_Callback);
+    node->m_Callback = 0;
 
     return SetupNode(spine_scene, resource, node);
 }
