@@ -10,6 +10,9 @@
 namespace dmSpine
 {
 
+bool        SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene);
+dmhash_t    GetScene(dmGui::HScene scene, dmGui::HNode hnode);
+
 bool        PlayAnimation(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t animation_id, dmGui::Playback playback,
                             float blend_duration, float offset, float playback_rate, dmScript::LuaCallbackInfo* callback);
 void        CancelAnimation(dmGui::HScene scene, dmGui::HNode hnode);

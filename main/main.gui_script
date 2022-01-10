@@ -16,6 +16,14 @@ function init(self)
 	-- pos.y = pos.y - 50
 	-- gui.set_position(self.nclone, pos)
 
+	local pos = gui.get_position(self.n)
+	pos.x = pos.x - 300
+	pos.y = pos.y - 50
+
+	-- self.nn = gui.new_spine_node(pos, "spineboy")
+	-- gui.play_spine_anim(self.nn, "jump", gui.PLAYBACK_LOOP_FORWARD, {}, spine_callback)
+	-- gui.set_color(self.nn, vmath.vector4(1,0,0,1))
+
 	--timer.delay(0.5, false, function (self, timer, data)
 	--	print("CANCELLING")
 	--	gui.cancel_spine(self.n)
@@ -27,6 +35,7 @@ function init(self)
 	print("gui.get_spine_animation", gui.get_spine_animation(self.n))
 	print("gui.get_spine_cursor", gui.get_spine_cursor(self.n))
 	print("gui.get_spine_playback_rate", gui.get_spine_playback_rate(self.n))
+	print("gui.get_spine_scene", gui.get_spine_scene(self.n))
 end
 
 function final(self)

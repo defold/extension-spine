@@ -25,6 +25,7 @@ namespace dmSpine
 static const dmhash_t SPINE_SCENE               = dmHashString64("spine_scene");
 static const dmhash_t SPINE_DEFAULT_ANIMATION   = dmHashString64("spine_default_animation");
 static const dmhash_t SPINE_SKIN                = dmHashString64("spine_skin");
+static const dmhash_t SPINE_SCENE_SUFFIX        = dmHashString64(".spinescenec");
 
 struct GuiNodeTypeContext
 {
@@ -53,6 +54,8 @@ struct InternalGuiNode
     uint8_t             m_UseCursor : 1;
     uint8_t             : 6;
 };
+
+static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNode* node);
 
 static inline bool IsLooping(dmGui::Playback playback)
 {
@@ -245,6 +248,31 @@ static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::P
 
 // SCRIPTING
 
+bool SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene)
+{
+    (void)hnode;
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+
+    SpineSceneResource* resource = (SpineSceneResource*)dmGui::GetResource(scene, spine_scene, SPINE_SCENE_SUFFIX);
+    if (!resource)
+        return false;
+
+    if (node->m_AnimationStateInstance)
+        spAnimationState_dispose(node->m_AnimationStateInstance);
+    node->m_AnimationStateInstance = 0;
+    if (node->m_SkeletonInstance)
+        spSkeleton_dispose(node->m_SkeletonInstance);
+    node->m_SkeletonInstance = 0;
+
+    return SetupNode(spine_scene, resource, node);
+}
+
+dmhash_t GetScene(dmGui::HScene scene, dmGui::HNode hnode)
+{
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    return node->m_SpinePath;
+}
+
 bool PlayAnimation(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t animation_id, dmGui::Playback playback,
                             float blend_duration, float offset, float playback_rate, dmScript::LuaCallbackInfo* callback)
 {
@@ -372,7 +400,6 @@ static void* GuiCreate(const dmGameSystem::CompGuiNodeContext* ctx, void* contex
 
 static void GuiDestroy(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameSystem::CustomNodeCtx* nodectx)
 {
-    dmLogWarning("MAWE %s %d",  __FUNCTION__, __LINE__);
     delete (InternalGuiNode*)(nodectx->m_NodeData);
 }
 
@@ -478,42 +505,8 @@ static void GuiSetProperty(const dmGameSystem::CompGuiNodeContext* ctx, const dm
     if (SPINE_SCENE == name_hash)
     {
         dmhash_t name_hash = dmHashString64(variant->m_VString);
-        //node->m_SpineScene = (SpineSceneResource*)ctx->m_GetResourceFn(ctx->m_GetResourceContext, name_hash);
-
-        SpineSceneResource* resource = (SpineSceneResource*)ctx->m_GetResourceFn(ctx->m_GetResourceContext, name_hash);
+        SpineSceneResource* resource = (SpineSceneResource*)dmGui::GetResource(nodectx->m_Scene, name_hash, SPINE_SCENE_SUFFIX);
         SetupNode(name_hash, resource, node);
-        dmLogWarning("    spine_scene: %s  %p", variant->m_VString, node->m_SpineScene);
-
-
-        // node->m_SkeletonInstance = spSkeleton_create(node->m_SpineScene->m_Skeleton);
-        // if (!node->m_SkeletonInstance)
-        // {
-        //     dmLogError("%s: Failed to create skeleton instance", __FUNCTION__);
-        //     DestroyNode(node);
-        //     return;
-        // }
-
-        // SetSkin(node->m_GuiScene, node->m_GuiNode, 0);
-
-        // node->m_AnimationStateInstance = spAnimationState_create(node->m_SpineScene->m_AnimationStateData);
-        // if (!node->m_AnimationStateInstance)
-        // {
-        //     dmLogError("%s: Failed to create animation state instance", __FUNCTION__);
-        //     DestroyNode(node);
-        //     return;
-        // }
-
-        // node->m_AnimationStateInstance->userData = node;
-        // node->m_AnimationStateInstance->listener = SpineEventListener;
-
-        // spSkeleton_setToSetupPose(node->m_SkeletonInstance);
-        // spSkeleton_updateWorldTransform(node->m_SkeletonInstance);
-
-        // node->m_Transform = dmVMath::Matrix4::identity();
-
-        // dmLogWarning("    spine_scene: %s  %p", variant->m_VString, node->m_SpineScene);
-
-        // dmGui::SetNodeTexture(node->m_GuiScene, node->m_GuiNode, dmGui::NODE_TEXTURE_TYPE_TEXTURE_SET, node->m_SpineScene->m_TextureSet);
     }
     else if (SPINE_DEFAULT_ANIMATION == name_hash)
     {

@@ -41,7 +41,6 @@ namespace dmSpine
         } \
     }
 
-
     /*# creates a new spine node
      * Dynamically create a new spine node.
      *
@@ -50,27 +49,29 @@ namespace dmSpine
      * @param spine_scene [type:string|hash] spine scene id
      * @return node [type:node] new spine node
      */
-    // static int NewSpineNode(lua_State* L)
-    // {
-    //     Point3 pos = GetPositionFromArgumentIndex(L, 1);
+    static int NewSpineNode(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 1);
 
-    //     dmGui::HScene scene = GuiScriptInstance_Check(L);
-    //     HNode node = dmGui::NewNode(scene, pos, Vector3(1,1,0), dmGui::NODE_TYPE_CUSTOM, SPINE_NODE_TYPE);
-    //     if (!node)
-    //     {
-    //         return luaL_error(L, "Out of nodes (max %d)", scene->m_Nodes.Capacity());
-    //     }
+        Vector3* pos = dmScript::CheckVector3(L, 1);
+        dmhash_t spine_scene_id = dmScript::CheckHashOrString(L, 2);
 
-    //     dmhash_t spine_scene_id = dmScript::CheckHashOrString(L, 2);
-    //     if (RESULT_OK != SetNodeSpineScene(scene, node, spine_scene_id, 0, 0, true))
-    //     {
-    //         GetNode(scene, node)->m_Deleted = 1;
-    //         return luaL_error(L, "failed to set spine scene for new node");
-    //     }
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
 
-    //     dmGui::LuaPushNode(L, scene, node);
-    //     return 1;
-    // }
+        dmGui::HNode node = dmGui::NewNode(scene, Point3(*pos), Vector3(1,1,0), dmGui::NODE_TYPE_CUSTOM, SPINE_NODE_TYPE);
+        if (!node)
+        {
+            return DM_LUA_ERROR("Failed to create spine scene node with scene %s", dmHashReverseSafe64(spine_scene_id));
+        }
+
+        if (!dmSpine::SetScene(scene, node, spine_scene_id))
+        {
+            return DM_LUA_ERROR("failed to set spine scene for new node");
+        }
+
+        dmGui::LuaPushNode(L, scene, node);
+        return 1;
+    }
 
     /*# play a spine animation
      * Starts a spine animation.
@@ -235,25 +236,22 @@ namespace dmSpine
      * @param node [type:node] node to set spine scene for
      * @param spine_scene [type:string|hash] spine scene id
      */
-    // static int SetSpineScene(lua_State* L)
-    // {
-    //     int top = lua_gettop(L);
-    //     HNode node;
-    //     Scene* scene = GuiScriptInstance_Check(L);
-    //     LuaCheckNode(L, 1, &node);
-    //     if (dmGui::GetNodeIsBone(scene, node))
-    //     {
-    //         return 0;
-    //     }
+    static int SetSpineScene(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 1);
 
-    //     if (RESULT_OK != SetNodeSpineScene(scene, node, dmScript::CheckHashOrString(L, 2), 0, 0, false))
-    //     {
-    //         return luaL_error(L, "failed to set spine scene for gui node");
-    //     }
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
 
-    //     assert(top == lua_gettop(L));
-    //     return 0;
-    // }
+        dmhash_t spine_scene_id = dmScript::CheckHashOrString(L, 2);
+
+        if (!dmSpine::SetScene(scene, node, spine_scene_id))
+        {
+            return DM_LUA_ERROR("failed to set spine scene for new node");
+        }
+
+        return 0;
+    }
 
     /*# gets the spine scene of a node
      * Returns the spine scene id of the supplied node.
@@ -264,16 +262,19 @@ namespace dmSpine
      * @param node [type:node] node to get texture from
      * @return spine_scene [type:hash] spine scene id
      */
-    // static int GetSpineScene(lua_State* L)
-    // {
-    //     Scene* scene = GuiScriptInstance_Check(L);
+    static int GetSpineScene(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 1);
 
-    //     HNode hnode;
-    //     LuaCheckNode(L, 1, &hnode);
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
 
-    //     dmScript::PushHash(L, dmGui::GetNodeSpineSceneId(scene, hnode));
-    //     return 1;
-    // }
+        VERIFY_SPINE_NODE(scene, node);
+
+        dmScript::PushHash(L, dmSpine::GetScene(scene, node));
+        return 1;
+    }
+
     /*# sets the spine skin
      * Sets the spine skin on a spine node.
      *
@@ -456,12 +457,12 @@ namespace dmSpine
 
     static const luaL_reg SPINE_FUNCTIONS[] =
     {
-        //{"new_spine_node", NewSpineNode},
+        {"new_spine_node", NewSpineNode},
         {"play_spine_anim",     PlaySpineAnim},
         {"cancel_spine",        CancelSpine},
         // {"get_spine_bone",      GetSpineBone},   // MVP2
-        // {"set_spine_scene",     SetSpineScene},  // MVP2
-        //{"get_spine_scene",     GetSpineScene},   // MVP2
+        {"set_spine_scene",     SetSpineScene},  // MVP2
+        {"get_spine_scene",     GetSpineScene},   // MVP2
         {"set_spine_skin",      SetSpineSkin},
         {"get_spine_skin",      GetSpineSkin},
         {"get_spine_animation", GetSpineAnimation},
