@@ -1,5 +1,5 @@
 local function spine_callback(self, node, event, data)
-	pprint("SPINE CALLBACK", node, event, data)
+	--pprint("SPINE CALLBACK", node, event, data)
 end
 
 function init(self)
@@ -8,6 +8,13 @@ function init(self)
 	gui.play_spine_anim(self.n, "run", gui.PLAYBACK_LOOP_FORWARD, {}, spine_callback)
 	gui.set_spine_cursor(self.n, 0.5)
 	gui.set_spine_playback_rate(self.n, 1.1)
+
+
+	-- self.nclone = gui.clone(self.n)
+	-- local pos = gui.get_position(self.n)
+	-- pos.x = pos.x + 100
+	-- pos.y = pos.y - 50
+	-- gui.set_position(self.nclone, pos)
 
 	--timer.delay(0.5, false, function (self, timer, data)
 	--	print("CANCELLING")

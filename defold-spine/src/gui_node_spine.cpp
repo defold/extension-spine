@@ -160,7 +160,7 @@ static void SpineEventListener(spAnimationState* state, spEventType type, spTrac
     //     break;
     case SP_ANIMATION_COMPLETE:
         {
-            printf("Animation %s complete on track %i\n", entry->animation->name, entry->trackIndex);
+            //printf("Animation %s complete on track %i\n", entry->animation->name, entry->trackIndex);
     // TODO: Should we send event for looping animations as well?
 
             if (!IsLooping(node->m_Playback))
@@ -206,22 +206,21 @@ static inline uint32_t FindAnimationIndex(InternalGuiNode* node, dmhash_t animat
 static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::Playback playback,
                             float blend_duration, float offset, float playback_rate, dmScript::LuaCallbackInfo* callback)
 {
+    SpineSceneResource* spine_scene = node->m_SpineScene;
     uint32_t index = FindAnimationIndex(node, animation_id);
     if (index == INVALID_ANIMATION_INDEX)
     {
         dmLogError("No animation '%s' found", dmHashReverseSafe64(animation_id));
         return false;
     }
-
-    SpineSceneResource* spine_scene = node->m_SpineScene;
+    else if (index >= spine_scene->m_Skeleton->animationsCount)
+    {
+        dmLogError("Animation index %u is too large. Number of animations are %u", index, spine_scene->m_Skeleton->animationsCount);
+        return false;
+    }
 
     int trackIndex = 0;
     int loop = IsLooping(playback);
-    if (index >= spine_scene->m_Skeleton->animationsCount)
-    {
-        dmLogError("No animation index %u is too large. Number of animations are %u", index, spine_scene->m_Skeleton->animationsCount);
-        return false;
-    }
 
     spAnimation* animation = spine_scene->m_Skeleton->animations[index];
 
@@ -377,6 +376,94 @@ static void GuiDestroy(const dmGameSystem::CompGuiNodeContext* ctx, const dmGame
     delete (InternalGuiNode*)(nodectx->m_NodeData);
 }
 
+
+static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNode* node)
+{
+    node->m_SpinePath    = path;
+    node->m_SpineScene   = resource;
+
+    node->m_SkeletonInstance = spSkeleton_create(node->m_SpineScene->m_Skeleton);
+    if (!node->m_SkeletonInstance)
+    {
+        dmLogError("%s: Failed to create skeleton instance", __FUNCTION__);
+        DestroyNode(node);
+        return false;
+    }
+
+    SetSkin(node->m_GuiScene, node->m_GuiNode, 0);
+
+    node->m_AnimationStateInstance = spAnimationState_create(node->m_SpineScene->m_AnimationStateData);
+    if (!node->m_AnimationStateInstance)
+    {
+        dmLogError("%s: Failed to create animation state instance", __FUNCTION__);
+        DestroyNode(node);
+        return false;
+    }
+
+    node->m_AnimationStateInstance->userData = node;
+    node->m_AnimationStateInstance->listener = SpineEventListener;
+
+    spSkeleton_setToSetupPose(node->m_SkeletonInstance);
+    spSkeleton_updateWorldTransform(node->m_SkeletonInstance);
+
+    node->m_Transform = dmVMath::Matrix4::identity();
+
+    dmGui::SetNodeTexture(node->m_GuiScene, node->m_GuiNode, dmGui::NODE_TEXTURE_TYPE_TEXTURE_SET, node->m_SpineScene->m_TextureSet);
+    return true;
+
+}
+
+static void* GuiClone(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameSystem::CustomNodeCtx* nodectx)
+{
+    InternalGuiNode* src = (InternalGuiNode*)nodectx->m_NodeData;
+    InternalGuiNode* dst = new InternalGuiNode;
+    memset(dst, 0, sizeof(InternalGuiNode));
+
+    dst->m_GuiScene = nodectx->m_Scene;
+    dst->m_GuiNode = nodectx->m_Node;
+
+    // Setup the spine structures
+    SetupNode(src->m_SpinePath, src->m_SpineScene, dst);
+
+    // Now set the correct animation
+    dst->m_Transform    = src->m_Transform;
+    dst->m_Playback     = src->m_Playback;
+    dst->m_Playing      = src->m_Playing;
+    dst->m_UseCursor    = src->m_UseCursor;
+
+    dst->m_AnimationId = src->m_AnimationId;
+    uint32_t index = FindAnimationIndex(dst, dst->m_AnimationId);
+    if (index == INVALID_ANIMATION_INDEX)
+    {
+        dmLogError("No animation '%s' found", dmHashReverseSafe64(dst->m_AnimationId));
+    }
+    else if (index >= dst->m_SpineScene->m_Skeleton->animationsCount)
+    {
+        dmLogError("Animation index %u is too large. Number of animations are %u", index, dst->m_SpineScene->m_Skeleton->animationsCount);
+        index = INVALID_ANIMATION_INDEX;
+    }
+
+    if (index != INVALID_ANIMATION_INDEX)
+    {
+        spAnimation* animation = dst->m_SpineScene->m_Skeleton->animations[index];
+        if (animation)
+        {
+            int trackIndex = 0;
+            int loop = IsLooping(dst->m_Playback);
+            dst->m_AnimationId = src->m_AnimationId;
+            dst->m_AnimationInstance = spAnimationState_setAnimation(dst->m_AnimationStateInstance, trackIndex, animation, loop);
+
+            // Now copy the state of the animation
+            dst->m_AnimationInstance->trackTime = src->m_AnimationInstance->trackTime;
+            dst->m_AnimationInstance->reverse = src->m_AnimationInstance->reverse;
+        }
+    }
+
+    return dst;
+}
+
+
+
 static void GuiSetProperty(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameSystem::CustomNodeCtx* nodectx, dmhash_t name_hash, const dmGuiDDF::PropertyVariant* variant)
 {
     dmLogWarning("MAWE %s %d %016llX %s  type: %d",  __FUNCTION__, __LINE__, name_hash, dmHashReverseSafe64(name_hash), variant->m_Type);
@@ -391,37 +478,42 @@ static void GuiSetProperty(const dmGameSystem::CompGuiNodeContext* ctx, const dm
     if (SPINE_SCENE == name_hash)
     {
         dmhash_t name_hash = dmHashString64(variant->m_VString);
-        node->m_SpineScene = (SpineSceneResource*)ctx->m_GetResourceFn(ctx->m_GetResourceContext, name_hash);
+        //node->m_SpineScene = (SpineSceneResource*)ctx->m_GetResourceFn(ctx->m_GetResourceContext, name_hash);
 
-        node->m_SkeletonInstance = spSkeleton_create(node->m_SpineScene->m_Skeleton);
-        if (!node->m_SkeletonInstance)
-        {
-            dmLogError("%s: Failed to create skeleton instance", __FUNCTION__);
-            DestroyNode(node);
-            return;
-        }
-
-        SetSkin(node->m_GuiScene, node->m_GuiNode, 0);
-
-        node->m_AnimationStateInstance = spAnimationState_create(node->m_SpineScene->m_AnimationStateData);
-        if (!node->m_AnimationStateInstance)
-        {
-            dmLogError("%s: Failed to create animation state instance", __FUNCTION__);
-            DestroyNode(node);
-            return;
-        }
-
-        node->m_AnimationStateInstance->userData = node;
-        node->m_AnimationStateInstance->listener = SpineEventListener;
-
-        spSkeleton_setToSetupPose(node->m_SkeletonInstance);
-        spSkeleton_updateWorldTransform(node->m_SkeletonInstance);
-
-        node->m_Transform = dmVMath::Matrix4::identity();
-
+        SpineSceneResource* resource = (SpineSceneResource*)ctx->m_GetResourceFn(ctx->m_GetResourceContext, name_hash);
+        SetupNode(name_hash, resource, node);
         dmLogWarning("    spine_scene: %s  %p", variant->m_VString, node->m_SpineScene);
 
-        dmGui::SetNodeTexture(node->m_GuiScene, node->m_GuiNode, dmGui::NODE_TEXTURE_TYPE_TEXTURE_SET, node->m_SpineScene->m_TextureSet);
+
+        // node->m_SkeletonInstance = spSkeleton_create(node->m_SpineScene->m_Skeleton);
+        // if (!node->m_SkeletonInstance)
+        // {
+        //     dmLogError("%s: Failed to create skeleton instance", __FUNCTION__);
+        //     DestroyNode(node);
+        //     return;
+        // }
+
+        // SetSkin(node->m_GuiScene, node->m_GuiNode, 0);
+
+        // node->m_AnimationStateInstance = spAnimationState_create(node->m_SpineScene->m_AnimationStateData);
+        // if (!node->m_AnimationStateInstance)
+        // {
+        //     dmLogError("%s: Failed to create animation state instance", __FUNCTION__);
+        //     DestroyNode(node);
+        //     return;
+        // }
+
+        // node->m_AnimationStateInstance->userData = node;
+        // node->m_AnimationStateInstance->listener = SpineEventListener;
+
+        // spSkeleton_setToSetupPose(node->m_SkeletonInstance);
+        // spSkeleton_updateWorldTransform(node->m_SkeletonInstance);
+
+        // node->m_Transform = dmVMath::Matrix4::identity();
+
+        // dmLogWarning("    spine_scene: %s  %p", variant->m_VString, node->m_SpineScene);
+
+        // dmGui::SetNodeTexture(node->m_GuiScene, node->m_GuiNode, dmGui::NODE_TEXTURE_TYPE_TEXTURE_SET, node->m_SpineScene->m_TextureSet);
     }
     else if (SPINE_DEFAULT_ANIMATION == name_hash)
     {
@@ -483,6 +575,7 @@ static dmGameObject::Result GuiNodeTypeSpineCreate(const dmGameSystem::CompGuiNo
 
     dmGameSystem::CompGuiNodeTypeSetCreateFn(type, GuiCreate);
     dmGameSystem::CompGuiNodeTypeSetDestroyFn(type, GuiDestroy);
+    dmGameSystem::CompGuiNodeTypeSetCloneFn(type, GuiClone);
     dmGameSystem::CompGuiNodeTypeSetUpdateFn(type, GuiUpdate);
     dmGameSystem::CompGuiNodeTypeSetGetVerticesFn(type, GuiGetVertices);
     dmGameSystem::CompGuiNodeTypeSetSetPropertyFn(type, GuiSetProperty);
