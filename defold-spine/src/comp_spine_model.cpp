@@ -965,7 +965,7 @@ namespace dmSpine
         // }
     }
 
-    static dmGameObject::Result CompSpineModelRegister(const dmGameObject::ComponentTypeCreateCtx* ctx, dmGameObject::ComponentType* type)
+    static dmGameObject::Result ComponentType_Create(const dmGameObject::ComponentTypeCreateCtx* ctx, dmGameObject::ComponentType* type)
     {
         dmLogWarning("MAWE %s", __FUNCTION__);
 
@@ -1008,6 +1008,13 @@ namespace dmSpine
 
         return dmGameObject::RESULT_OK;
     }
+
+    static dmGameObject::Result ComponentType_Destroy(const dmGameObject::ComponentTypeCreateCtx* ctx, dmGameObject::ComponentType* type)
+     {
+         SpineModelContext* spinemodelctx = (SpineModelContext*)ComponentTypeGetContext(type);
+         delete spinemodelctx;
+         return dmGameObject::RESULT_OK;
+     }
 
     // ******************************************************************************
     // SCRIPTING HELPER FUNCTIONS
@@ -1136,4 +1143,4 @@ namespace dmSpine
     }
 }
 
-DM_DECLARE_COMPONENT_TYPE(ComponentTypeSpineModelExt, "spinemodelc", dmSpine::CompSpineModelRegister);
+DM_DECLARE_COMPONENT_TYPE(ComponentTypeSpineModelExt, "spinemodelc", dmSpine::ComponentType_Create, dmSpine::ComponentType_Destroy);
