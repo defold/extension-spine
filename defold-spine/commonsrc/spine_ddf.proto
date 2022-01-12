@@ -40,6 +40,7 @@ message SpinePlayAnimation
     optional float blend_duration = 3 [default = 0.0];
     optional float offset = 4 [default = 0.0];
     optional float playback_rate = 5 [default = 1.0];
+    optional int32 track = 6 [default = 0];
 }
 
 /*# Spine model API documentation
@@ -67,6 +68,7 @@ message SpinePlayAnimation
  * @name spine_animation_done
  * @param animation_id [type:hash] the id of the completed animation
  * @param playback [type:constant] the playback mode of the completed animation
+ * @param track [type:number] the playback mode of the completed animation
  * @examples
  *
  * ```lua
@@ -84,11 +86,12 @@ message SpineAnimationDone
     required uint64 animation_id = 1;
     // matches dmGameObject::Playback in dmsdk/gameobject/gameobject.h
     required uint32 playback = 2;
-    optional uint32 track = 3 [default = 0];
+    required int32 track = 3 [default = 1];
 }
 
 message SpineCancelAnimation
 {
+    optional int32 track = 1 [default = -1];
 }
 
 /*# reports an incoming event from the Spine animation
@@ -130,8 +133,9 @@ message SpineEvent
     required uint64 animation_id = 2;
     required float t = 3;
     required float blend_weight = 4;
-    optional int32 integer = 5 [default = 0];
-    optional float float = 6 [default = 0.0];
-    optional uint64 string = 7 [default = 0];
-    optional dmScriptDDF.LuaRef node = 8;
+    required int32 track = 5 [default = 1];
+    optional int32 integer = 6 [default = 0];
+    optional float float = 7 [default = 0.0];
+    optional uint64 string = 8 [default = 0];
+    optional dmScriptDDF.LuaRef node = 9;
 }

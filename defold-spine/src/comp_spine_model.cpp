@@ -263,8 +263,18 @@ namespace dmSpine
                 playback == dmGameObject::PLAYBACK_ONCE_PINGPONG;
     }
 
+    static void ClearCompletionCallback(SpineAnimationTrack* track)
+    {
+        if (track->m_AnimationCallbackRef)
+        {
+            dmScript::UnrefInInstance(track->m_Context, track->m_AnimationCallbackRef);
+            track->m_AnimationCallbackRef = 0;
+        }
+        dmMessage::ResetURL(&track->m_Listener);
+    }
+
     static bool PlayAnimation(SpineModelComponent* component, dmhash_t animation_id, dmGameObject::Playback playback,
-        float blend_duration, float offset, float playback_rate)
+        float blend_duration, float offset, float playback_rate, int track_index)
     {
         uint32_t index = FindAnimationIndex(component, animation_id);
         if (index == INVALID_ANIMATION_INDEX)
@@ -276,7 +286,6 @@ namespace dmSpine
         SpineModelResource* spine_model = component->m_Resource;
         SpineSceneResource* spine_scene = spine_model->m_SpineScene;
 
-        int trackIndex = 0;
         int loop = IsLooping(playback);
         if (index >= spine_scene->m_Skeleton->animationsCount)
         {
@@ -286,21 +295,62 @@ namespace dmSpine
 
         spAnimation* animation = spine_scene->m_Skeleton->animations[index];
 
-        component->m_AnimationId = animation_id;
-        component->m_AnimationInstance = spAnimationState_setAnimation(component->m_AnimationStateInstance, trackIndex, animation, loop);
+        if (track_index < 0)
+        {
+            dmLogError("Invalid track index %d", track_index);
+            return false;
+        }
 
-        component->m_Playback = playback;
-        component->m_AnimationInstance->timeScale = playback_rate;
-        component->m_AnimationInstance->reverse = IsReverse(playback);
-        component->m_AnimationInstance->mixDuration = blend_duration;
-        component->m_Playing = 1;
+        while (track_index >= component->m_AnimationTracks.Capacity())
+            component->m_AnimationTracks.SetCapacity(component->m_AnimationTracks.Capacity() * 2);
+        while (track_index >= component->m_AnimationTracks.Size())
+        {
+            SpineAnimationTrack track;
+            track.m_AnimationInstance = nullptr;
+            track.m_Playback = dmGameObject::PLAYBACK_NONE;
+            track.m_AnimationId = 0;
+            track.m_AnimationCallbackRef = 0;
+            dmMessage::ResetURL(&track.m_Listener);
+            component->m_AnimationTracks.Push(track);
+        }
+        SpineAnimationTrack& track = component->m_AnimationTracks[track_index];
+
+        track.m_AnimationId = animation_id;
+        track.m_AnimationInstance = spAnimationState_setAnimation(component->m_AnimationStateInstance, track_index, animation, loop);
+
+        track.m_Playback = playback;
+        track.m_AnimationInstance->timeScale = playback_rate;
+        track.m_AnimationInstance->reverse = IsReverse(playback);
+        track.m_AnimationInstance->mixDuration = blend_duration;
+
+        ClearCompletionCallback(&track);
 
         return true;
     }
 
-    static void CancelAnimations(SpineModelComponent* component)
+    static void CancelTrackAnimation(SpineModelComponent* component, int32_t track_index)
     {
-        component->m_Playing = 0;
+        if (track_index < 0 || track_index >= component->m_AnimationTracks.Size())
+            return;
+
+        SpineAnimationTrack& track = component->m_AnimationTracks[track_index];
+        if (!track.m_AnimationInstance)
+            return;
+
+        spAnimationState_clearTrack(component->m_AnimationStateInstance, track.m_AnimationInstance->trackIndex);
+        track.m_AnimationInstance = nullptr;
+
+        track.m_Playback = dmGameObject::PLAYBACK_NONE;
+        track.m_AnimationId = 0;
+
+        ClearCompletionCallback(&track);
+    }
+
+    static void CancelAllAnimations(SpineModelComponent* component)
+    {
+        for (int32_t i = 0; i < component->m_AnimationTracks.Size(); i++) {
+            CancelTrackAnimation(component, i);
+        }
     }
 
     static bool GetSender(SpineModelComponent* component, dmMessage::URL* out_sender)
@@ -322,8 +372,10 @@ namespace dmSpine
 
     static void SendAnimationDone(SpineModelComponent* component, const spAnimationState* state, const spTrackEntry* entry, const spEvent* event)
     {
+        SpineAnimationTrack& track = component->m_AnimationTracks[entry->trackIndex];
+
         dmMessage::URL sender;
-        dmMessage::URL receiver = component->m_Listener;
+        dmMessage::URL receiver = track.m_Listener;
 
         if (!GetSender(component, &sender))
         {
@@ -333,10 +385,10 @@ namespace dmSpine
 
         dmGameSystemDDF::SpineAnimationDone message;
         message.m_AnimationId = dmHashString64(entry->animation->name);
-        message.m_Playback    = component->m_Playback;
-        message.m_Track       = entry->trackIndex;
+        message.m_Playback    = track.m_Playback;
+        message.m_Track       = entry->trackIndex + 1;
 
-        dmGameObject::Result result = dmGameObject::PostDDF(&message, &sender, &receiver, component->m_AnimationCallbackRef, false);
+        dmGameObject::Result result = dmGameObject::PostDDF(&message, &sender, &receiver, track.m_AnimationCallbackRef, false);
         if (result != dmGameObject::RESULT_OK)
         {
             dmLogError("Could not send animation_done to listener: %d", result);
@@ -345,8 +397,10 @@ namespace dmSpine
 
     static void SendSpineEvent(SpineModelComponent* component, const spAnimationState* state, const spTrackEntry* entry, const spEvent* event)
     {
+        SpineAnimationTrack& track = component->m_AnimationTracks[entry->trackIndex];
+
         dmMessage::URL sender;
-        dmMessage::URL receiver = component->m_Listener;
+        dmMessage::URL receiver = track.m_Listener;
 
         if (!GetSender(component, &sender))
         {
@@ -370,8 +424,9 @@ namespace dmSpine
         message.m_String      = dmHashString64(event->stringValue?event->stringValue:"");
         message.m_Node.m_Ref  = 0;
         message.m_Node.m_ContextTableRef = 0;
+        message.m_Track       = entry->trackIndex + 1;
 
-        dmGameObject::Result result = dmGameObject::PostDDF(&message, &sender, &receiver, component->m_AnimationCallbackRef, false);
+        dmGameObject::Result result = dmGameObject::PostDDF(&message, &sender, &receiver, track.m_AnimationCallbackRef, false);
         if (result != dmGameObject::RESULT_OK)
         {
             dmLogError("Could not send animation event '%s' from animation '%s' to listener: %d", entry->animation->name, event->data->name, result);
@@ -395,29 +450,38 @@ namespace dmSpine
         //     break;
             case SP_ANIMATION_COMPLETE:
             {
+                SpineAnimationTrack& track = component->m_AnimationTracks[entry->trackIndex];
+
                 // Should we look at the looping state?
-                if (!IsLooping(component->m_Playback))
+                if (!IsLooping(track.m_Playback))
                 {
                     // We only send the event if it's not looping (same behavior as before)
                     SendAnimationDone(component, state, entry, event);
 
-                    dmMessage::ResetURL(&component->m_Listener); // The animation has ended, so we won't send any more on this
+                    // The animation has ended, so we won't send any more on this
+                    ClearCompletionCallback(&track);
                 }
 
-                if (IsPingPong(component->m_Playback))
+                if (IsPingPong(track.m_Playback))
                 {
-                    component->m_AnimationInstance->reverse = !component->m_AnimationInstance->reverse;
+                    track.m_AnimationInstance->reverse = !track.m_AnimationInstance->reverse;
                 }
+                break;
             }
-            break;
-        // case SP_ANIMATION_DISPOSE:
-        //     printf("Track entry for animation %s disposed on track %i\n", entry->animation->name, entry->trackIndex);
-        //     break;
-        case SP_ANIMATION_EVENT:
-            SendSpineEvent(component, state, entry, event);
-            break;
-        default:
-            break;
+            case SP_ANIMATION_DISPOSE:
+            {
+                if (entry->trackIndex <= 0 || entry->trackIndex >= component->m_AnimationTracks.Size())
+                    return;
+                SpineAnimationTrack& track = component->m_AnimationTracks[entry->trackIndex];
+                if (track.m_AnimationInstance == entry)
+                    track.m_AnimationInstance = nullptr;
+                break;
+            }
+            case SP_ANIMATION_EVENT:
+                SendSpineEvent(component, state, entry, event);
+                break;
+            default:
+                break;
         }
     }
 
@@ -441,15 +505,12 @@ namespace dmSpine
         component->m_Instance = params.m_Instance;
         component->m_Transform = dmTransform::Transform(Vector3(params.m_Position), params.m_Rotation, 1.0f);
         component->m_Resource = (SpineModelResource*)params.m_Resource;
-        dmMessage::ResetURL(&component->m_Listener);
 
         component->m_ComponentIndex = params.m_ComponentIndex;
         component->m_Enabled = 1;
         component->m_World = Matrix4::identity();
         component->m_DoRender = 0;
         component->m_RenderConstants = 0;
-        component->m_AnimationCallbackRef = 0;
-        component->m_UseCursor = 0;
 
         component->m_SkeletonInstance = spSkeleton_create(spine_scene->m_Skeleton);
         if (!component->m_SkeletonInstance)
@@ -471,6 +532,8 @@ namespace dmSpine
         component->m_AnimationStateInstance->userData = component;
         component->m_AnimationStateInstance->listener = SpineEventListener;
 
+        component->m_AnimationTracks.SetCapacity(8);
+
         spSkeleton_setToSetupPose(component->m_SkeletonInstance);
         spSkeleton_updateWorldTransform(component->m_SkeletonInstance);
 
@@ -484,7 +547,7 @@ namespace dmSpine
         }
 
         dmhash_t animation_id = dmHashString64(component->m_Resource->m_Ddf->m_DefaultAnimation);
-        PlayAnimation(component, animation_id, dmGameObject::PLAYBACK_LOOP_FORWARD, 0.0f, 0.0f, 1.0f); // TODO: Is the default playmode specified anywhere?
+        PlayAnimation(component, animation_id, dmGameObject::PLAYBACK_LOOP_FORWARD, 0.0f, 0.0f, 1.0f, 0); // TODO: Is the default playmode specified anywhere?
 
         component->m_ReHash = 1;
 
@@ -498,6 +561,7 @@ namespace dmSpine
         dmGameObject::DeleteBones(component->m_Instance);
         // If we're going to use memset, then we should explicitly clear pose and instance arrays.
         component->m_BoneInstances.SetCapacity(0);
+        component->m_AnimationTracks.SetCapacity(0);
         if (component->m_Material)
         {
             dmResource::Release(world->m_Factory, (void*)component->m_Material);
@@ -588,18 +652,9 @@ namespace dmSpine
 
             ++num_active;
 
-            float anim_dt = component.m_UseCursor ? 0.0f : dt;
-            component.m_UseCursor = 0;
-
-            if (component.m_Playing)
-            {
-                spAnimationState_update(component.m_AnimationStateInstance, anim_dt);
-            }
-
+            spAnimationState_update(component.m_AnimationStateInstance, dt);
             spAnimationState_apply(component.m_AnimationStateInstance, component.m_SkeletonInstance);
             spSkeleton_updateWorldTransform(component.m_SkeletonInstance);
-
-            component.m_UseCursor = 0;
 
             UpdateBones(&component);
 
@@ -764,23 +819,28 @@ namespace dmSpine
         component->m_ReHash = 1;
     }
 
-    bool CompSpineModelPlayAnimation(SpineModelComponent* component, dmGameSystemDDF::SpinePlayAnimation* message, dmMessage::URL* sender, int callback_ref)
+    bool CompSpineModelPlayAnimation(SpineModelComponent* component, dmGameSystemDDF::SpinePlayAnimation* message, dmMessage::URL* sender, int callback_ref, lua_State* L)
     {
         bool result = PlayAnimation(component, message->m_AnimationId, (dmGameObject::Playback)message->m_Playback, message->m_BlendDuration,
-                                                message->m_Offset, message->m_PlaybackRate);
+                                                message->m_Offset, message->m_PlaybackRate, message->m_Track - 1);
         if (result)
         {
-            component->m_Listener = *sender;
-            component->m_AnimationCallbackRef = callback_ref;
+            SpineAnimationTrack& track = component->m_AnimationTracks[message->m_Track - 1];
+            track.m_Listener = *sender;
+            track.m_Context = L;
+            track.m_AnimationCallbackRef = callback_ref;
         }
         return result;
     }
 
     bool CompSpineModelCancelAnimation(SpineModelComponent* component, dmGameSystemDDF::SpineCancelAnimation* message)
     {
-        // Currently, we only have one track and one animation
-        (void)message;
-        CancelAnimations(component);
+        if (message->m_Track == ALL_TRACKS)
+        {
+            CancelAllAnimations(component);
+        } else {
+            CancelTrackAnimation(component, message->m_Track - 1);
+        }
         return true;
     }
 
@@ -845,6 +905,22 @@ namespace dmSpine
         (void)OnResourceReloaded(world, component, index);
     }
 
+#define GET_TRACK_INDEX() \
+    if (params.m_Options.m_HasKey) \
+        return dmGameObject::PROPERTY_RESULT_INVALID_KEY; \
+    int32_t trackIndex = params.m_Options.m_Index;
+
+#define GET_TRACK() \
+    GET_TRACK_INDEX(); \
+    if (trackIndex < 0 || trackIndex >= component->m_AnimationTracks.Size()) \
+        return dmGameObject::PROPERTY_RESULT_INVALID_INDEX; \
+    SpineAnimationTrack& track = component->m_AnimationTracks[trackIndex];
+
+#define IF_CAN_GET_TRACK() \
+    GET_TRACK_INDEX(); \
+    SpineAnimationTrack* track = nullptr; \
+    if (trackIndex >= 0 && trackIndex < component->m_AnimationTracks.Size() && (track = &component->m_AnimationTracks[trackIndex], true))
+
     dmGameObject::PropertyResult CompSpineModelGetProperty(const dmGameObject::ComponentGetPropertyParams& params, dmGameObject::PropertyDesc& out_value)
     {
         SpineModelContext* context = (SpineModelContext*)params.m_Context;
@@ -858,32 +934,47 @@ namespace dmSpine
         }
         else if (params.m_PropertyId == PROP_ANIMATION)
         {
-            out_value.m_Variant = dmGameObject::PropertyVar(component->m_AnimationId);
+            dmhash_t value = 0;
+            IF_CAN_GET_TRACK()
+            {
+                value = track->m_AnimationId;
+            }
+
+            out_value.m_Variant = dmGameObject::PropertyVar(value);
+            out_value.m_ValueType = dmGameObject::PROP_VALUE_ARRAY;
             return dmGameObject::PROPERTY_RESULT_OK;
         }
         else if (params.m_PropertyId == PROP_CURSOR)
         {
             float unit = 0.0f;
-            spTrackEntry* entry = component->m_AnimationInstance;
-            if (entry)
+            IF_CAN_GET_TRACK()
             {
-                float duration = entry->animationEnd - entry->animationStart;
-                if (duration != 0)
+                spTrackEntry* entry = track->m_AnimationInstance;
+                if (entry)
                 {
-                    unit = fmodf(entry->trackTime, duration) / duration;
+                    float duration = entry->animationEnd - entry->animationStart;
+                    if (duration != 0)
+                    {
+                        unit = fmodf(entry->trackTime, duration) / duration;
+                    }
                 }
             }
 
             out_value.m_Variant = dmGameObject::PropertyVar(unit);
+            out_value.m_ValueType = dmGameObject::PROP_VALUE_ARRAY;
             return dmGameObject::PROPERTY_RESULT_OK;
         }
         else if (params.m_PropertyId == PROP_PLAYBACK_RATE)
         {
             float value = 0.0f;
-            if (component->m_AnimationInstance)
-                value = component->m_AnimationInstance->timeScale;
+            IF_CAN_GET_TRACK()
+            {
+                if (track->m_AnimationInstance)
+                    value = track->m_AnimationInstance->timeScale;
+            }
 
             out_value.m_Variant = dmGameObject::PropertyVar(value);
+            out_value.m_ValueType = dmGameObject::PROP_VALUE_ARRAY;
             return dmGameObject::PROPERTY_RESULT_OK;
         }
         else if (params.m_PropertyId == PROP_MATERIAL)
@@ -918,7 +1009,9 @@ namespace dmSpine
             if (params.m_Value.m_Type != dmGameObject::PROPERTY_TYPE_NUMBER)
                 return dmGameObject::PROPERTY_RESULT_TYPE_MISMATCH;
 
-            if (!component->m_AnimationInstance)
+            GET_TRACK();
+
+            if (!track.m_AnimationInstance)
             {
                 dmLogError("Could not set cursor since no animation is playing");
                 return dmGameObject::PROPERTY_RESULT_UNSUPPORTED_VALUE;
@@ -926,11 +1019,10 @@ namespace dmSpine
 
             float unit_0_1 = fmodf(params.m_Value.m_Number + 1.0f, 1.0f);
 
-            float duration = component->m_AnimationInstance->animationEnd - component->m_AnimationInstance->animationStart;
+            float duration = track.m_AnimationInstance->animationEnd - track.m_AnimationInstance->animationStart;
             float t = unit_0_1 * duration;
 
-            component->m_AnimationInstance->trackTime = t;
-            component->m_UseCursor = 1;
+            track.m_AnimationInstance->trackTime = t;
             return dmGameObject::PROPERTY_RESULT_OK;
         }
         else if (params.m_PropertyId == PROP_PLAYBACK_RATE)
@@ -938,7 +1030,9 @@ namespace dmSpine
             if (params.m_Value.m_Type != dmGameObject::PROPERTY_TYPE_NUMBER)
                 return dmGameObject::PROPERTY_RESULT_TYPE_MISMATCH;
 
-            component->m_AnimationInstance->timeScale = params.m_Value.m_Number;
+            GET_TRACK();
+
+            track.m_AnimationInstance->timeScale = params.m_Value.m_Number;
             return dmGameObject::PROPERTY_RESULT_OK;
         }
         else if (params.m_PropertyId == PROP_MATERIAL)

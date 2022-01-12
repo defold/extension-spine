@@ -17,6 +17,12 @@
 
 #include <dmsdk/sdk.h>
 
+// Not in dmSDK yet
+namespace dmScript
+{
+    bool GetURL(lua_State* L, dmMessage::URL* out_url);
+}
+
 namespace dmSpine
 {
     static const char* SPINE_MODEL_EXT = "spinemodelc";
@@ -253,6 +259,7 @@ namespace dmSpine
 
         dmhash_t anim_id = dmScript::CheckHashOrString(L, 2);
         lua_Integer playback = luaL_checkinteger(L, 3);
+        lua_Integer track = 1;
         lua_Number blend_duration = 0.0, offset = 0.0, playback_rate = 1.0;
 
         if (top > 3) // table with args
@@ -270,6 +277,10 @@ namespace dmSpine
 
             lua_getfield(L, -1, "playback_rate");
             playback_rate = lua_isnil(L, -1) ? 1.0 : luaL_checknumber(L, -1);
+            lua_pop(L, 1);
+
+            lua_getfield(L, -1, "track");
+            track = lua_isnil(L, -1) ? 1 : luaL_checkinteger(L, -1);
             lua_pop(L, 1);
 
             lua_pop(L, 1);
@@ -292,9 +303,11 @@ namespace dmSpine
         msg.m_BlendDuration = blend_duration;
         msg.m_Offset = offset;
         msg.m_PlaybackRate = playback_rate;
+        msg.m_Track = track;
 
-        dmMessage::URL sender; // defaults to 0, which will resolve to this script instance, which is the context of the function callback
-        if (!CompSpineModelPlayAnimation(component, &msg, &sender, functionref))
+        dmMessage::URL sender;
+        dmScript::GetURL(L, &sender);
+        if (!CompSpineModelPlayAnimation(component, &msg, &sender, functionref, L))
         {
             char buffer[128];
             return DM_LUA_ERROR("Failed to run animation '%s' on component '%s'", lua_tostring(L, 2), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
@@ -323,12 +336,28 @@ namespace dmSpine
     static int SpineComp_Cancel(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 0);
+        int top = lua_gettop(L);
 
         SpineModelComponent* component = 0;
         dmMessage::URL receiver;
         dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
 
-        dmGameSystemDDF::SpineCancelAnimation msg; // currently empty but we'll keep it for later use if we wich to pass special options
+        lua_Integer track = dmSpine::ALL_TRACKS;
+        if (top > 1) // Options table
+        {
+            luaL_checktype(L, 2, LUA_TTABLE);
+            lua_pushvalue(L, 2);
+
+            lua_getfield(L, -1, "track");
+            track = lua_isnil(L, -1) ? dmSpine::ALL_TRACKS : luaL_checkinteger(L, -1);
+            lua_pop(L, 1);
+
+            lua_pop(L, 1);
+        }
+
+        dmGameSystemDDF::SpineCancelAnimation msg;
+        msg.m_Track = track;
+
         if (!CompSpineModelCancelAnimation(component, &msg))
         {
             char buffer[128];
