@@ -525,7 +525,7 @@ namespace dmSpine
         dmhash_t ik_constraint_id = dmScript::CheckHashOrString(L, 2);
         Vectormath::Aos::Vector3* position = dmScript::CheckVector3(L, 3);
 
-        if (!CompSpineModelSetIKTargetPosition(component, ik_constraint_id, 1.0f, (Point3)*position))
+        if (!CompSpineModelSetIKTargetPosition(component, ik_constraint_id, 1.0f, (dmVMath::Point3)*position))
         {
             return DM_LUA_ERROR("the IK constraint target '%s' could not be found", lua_tostring(L, 2));
         }
