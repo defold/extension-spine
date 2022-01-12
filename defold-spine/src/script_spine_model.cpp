@@ -55,6 +55,10 @@ namespace dmSpine
      * function init(self)
      *   -- Get the cursor value on component "spine"
      *   cursor = go.get("#spine", "cursor")
+     *   -- Get the cursor value for the second animation track
+     *   cursor = go.get("#spine", "cursor", { index = 2 })
+     *   -- Set the cursor value for the second animation track
+     *   go.set("#spine", "cursor", 0.0, { index = 2 })
      * end
      * ```
      *
@@ -62,7 +66,7 @@ namespace dmSpine
      *
      * ```lua
      * function init(self)
-     *   -- Get the current value on component "spine"
+     *   -- Set the cursor value on component "spine"
      *   go.set("#spine", "cursor", 0.0)
      *   -- Animate the cursor value
      *   go.animate("#spine", "cursor", go.PLAYBACK_LOOP_FORWARD, 1.0, go.EASING_LINEAR, 2)
@@ -89,6 +93,11 @@ namespace dmSpine
      *   playback_rate = go.get("#spine", "playback_rate")
      *   -- Set the playback_rate to double the previous value.
      *   go.set("#spine", "playback_rate", playback_rate * 2)
+     *
+     *   -- Get the playback_rate on the second animation track.
+     *   playback_rate = go.get("#spine", "playback_rate", { index = 2 })
+     *   -- Set the playback_rate to double the previous value.
+     *   go.set("#spine", "playback_rate", playback_rate * 2, { index = 2 })
      * end
      * ```
      */
@@ -109,6 +118,8 @@ namespace dmSpine
      * function init(self)
      *   -- Get the current animation on component "spinemodel"
      *   local animation = go.get("#spinemodel", "animation")
+     *   -- Get the current animation on the second animation track
+     *   local animation = go.get("#spinemodel", "animation", { index = 2 })
      * end
      * ```
      */
@@ -195,24 +206,26 @@ namespace dmSpine
      * `playback_rate`
      * : [type:number] the rate with which the animation will be played. Must be positive.
      *
-     * @param [complete_function] [type:function(self, message_id, message, sender))] function to call when the animation has completed.
+     * @param [callback_function] [type:function(self, message_id, message, sender))] function to call when the animation has completed or a Spine event occured.
      *
      * `self`
      * : [type:object] The current object.
      *
      * `message_id`
-     * : [type:hash] The name of the completion message, `"spine_animation_done"` or `"spine_event"`.
+     * : [type:hash] The name of the message, `"spine_animation_done"` or `"spine_event"`.
      *
      * `message`
      * : [type:table] Information for spine_animation_done:
      *
      * - [type:hash] `animation_id` - the animation that was completed.
      * - [type:constant] `playback` - the playback mode for the animation.
+     * - [type:int] `track` - the index of the track that finished animating.
      *
      * : [type:table] Information for spine_event:
      *
      * - [type:hash]  `animation_id` - the animation that triggered the event.
      * - [type:hash]  `event_id`     - the event that was triggered.
+     * - [type:int]   `track`        - the index of the track that issued the event.
      * - [type:float] `t`            - the time at which the event occurred (seconds)
      * - [type:int]   `integer`      - a custom integer associated with the event (0 by default).
      * - [type:float] `float`        - a custom float associated with the event (0 by default)
@@ -321,6 +334,11 @@ namespace dmSpine
      *
      * @name spine.cancel
      * @param url [type:string|hash|url] the spine model for which to cancel the animation
+     * @param [cancel_properties] [type:table] optional table with properties:
+     *
+     * `track`
+     * : [type:number] track to cancel animation on. cancels animations on all tracks by default.
+     *
      * @examples
      *
      * The following examples assumes that the spine model has id "spinemodel".
@@ -332,6 +350,15 @@ namespace dmSpine
      *   spine.cancel("#spinemodel")
      * end
      * ```
+     *
+     * How to cancel animation on track 2 only:
+     *
+     * ```lua
+     * function init(self)
+     *   spine.cancel("#spinemodel", { track = 2 })
+     * end
+     * ```
+     *
      */
     static int SpineComp_Cancel(lua_State* L)
     {

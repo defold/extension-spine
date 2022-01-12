@@ -45,9 +45,9 @@
             type: constant
             desc: The rate with which the animation will be played. Must be positive.
 
-      - name: complete_function
+      - name: callback_function
         type: function
-        desc: function to call when the animation has completed
+        desc: function to call when the animation has completed or a Spine event occured
         parameters:
           - name: self
             type: object
@@ -55,7 +55,7 @@
 
           - name: message_id
             type: hash
-            desc: The name of the completion message ("Spine_animation_done")
+            desc: The name of the message ("spine_animation_done" or "spine_event")
 
           - name: message
             type: table
@@ -63,11 +63,15 @@
             parameters:
               - name: animation_id
                 type: hash
-                desc: the animation that was completed
+                desc: The animation that was completed
 
               - name: playback
                 type: constant
-                desc: the playback mode for the animation
+                desc: The playback mode for the animation
+
+              - name: track
+                type: number
+                desc: The track index of the animation
 
           - name: sender
             type: url
@@ -84,6 +88,14 @@
       - name: url
         type: string|hash|url
         desc: The Spine model for which to cancel the animation
+
+      - name: options
+        type: table
+        desc: Cancel options
+        parameters:
+          - name: track
+            type: number
+            desc: The index of the track which to cancel the animation on. Defaults to all animations on all tracks.
 
 #*****************************************************************************************************
 
@@ -164,6 +176,18 @@
 - name: spine_animation_done
   type: message
   desc: The animation has been finished. Only received if there is no callback set!
+  parameters:
+    - name: animation_id
+      type: hash
+      desc: The animation that was completed
+
+    - name: playback
+      type: constant
+      desc: The playback mode for the animation
+
+    - name: track
+      type: number
+      desc: The track index of the animation
 
 - name: spine_event
   type: message
