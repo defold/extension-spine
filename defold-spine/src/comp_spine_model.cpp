@@ -31,6 +31,7 @@ extern "C" {
 #include <dmsdk/dlib/array.h>
 #include <dmsdk/dlib/log.h>
 #include <dmsdk/dlib/math.h>
+#include <dmsdk/dlib/vmath.h>
 #include <dmsdk/dlib/object_pool.h>
 #include <dmsdk/gameobject/component.h>
 #include <dmsdk/gamesys/property.h>
