@@ -142,11 +142,6 @@ namespace dmSpine
             if (lua_isfunction(L, 5))
             {
                 cbk = dmScript::CreateCallback(L, 5);
-
-                // lua_rawgeti(L, LUA_REGISTRYINDEX, scene->m_ContextTableReference);
-                // lua_pushvalue(L, 1);
-                // node_ref = luaL_ref(L, -2);
-                // lua_pop(L, 1);
             }
         }
 // TODO: Q: Should we support this? If so, then it's in the MVP2
@@ -460,9 +455,9 @@ namespace dmSpine
         {"new_spine_node", NewSpineNode},
         {"play_spine_anim",     PlaySpineAnim},
         {"cancel_spine",        CancelSpine},
-        // {"get_spine_bone",      GetSpineBone},   // MVP2
-        {"set_spine_scene",     SetSpineScene},  // MVP2
-        {"get_spine_scene",     GetSpineScene},   // MVP2
+        // {"get_spine_bone",      GetSpineBone},   // TODO: MVP2
+        {"set_spine_scene",     SetSpineScene},
+        {"get_spine_scene",     GetSpineScene},
         {"set_spine_skin",      SetSpineSkin},
         {"get_spine_skin",      GetSpineSkin},
         {"get_spine_animation", GetSpineAnimation},
