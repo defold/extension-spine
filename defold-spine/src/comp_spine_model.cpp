@@ -263,14 +263,20 @@ namespace dmSpine
                 playback == dmGameObject::PLAYBACK_ONCE_PINGPONG;
     }
 
+    static SpineAnimationTrack* GetTrackFromIndex(SpineModelComponent* component, int track_index)
+    {
+        if (track_index < 0 || track_index >= component->m_AnimationTracks.Size())
+            return nullptr;
+        return &component->m_AnimationTracks[track_index];
+    }
+
     static void ClearCompletionCallback(SpineAnimationTrack* track)
     {
-        if (track->m_AnimationCallbackRef)
+        if (track->m_AnimationInstance && track->m_AnimationCallbackRef)
         {
             dmScript::UnrefInInstance(track->m_Context, track->m_AnimationCallbackRef);
             track->m_AnimationCallbackRef = 0;
         }
-        dmMessage::ResetURL(&track->m_Listener);
     }
 
     static bool PlayAnimation(SpineModelComponent* component, dmhash_t animation_id, dmGameObject::Playback playback,
@@ -316,10 +322,11 @@ namespace dmSpine
             SpineAnimationTrack track;
             track.m_AnimationInstance = nullptr;
             track.m_AnimationId = 0;
-            track.m_AnimationCallbackRef = 0;
             component->m_AnimationTracks.Push(track);
         }
         SpineAnimationTrack& track = component->m_AnimationTracks[track_index];
+
+        ClearCompletionCallback(&track);
 
         track.m_AnimationId = animation_id;
         track.m_AnimationInstance = spAnimationState_setAnimation(component->m_AnimationStateInstance, track_index, animation, loop);
@@ -329,27 +336,22 @@ namespace dmSpine
         track.m_AnimationInstance->reverse = IsReverse(playback);
         track.m_AnimationInstance->mixDuration = blend_duration;
 
-        ClearCompletionCallback(&track);
+        track.m_AnimationCallbackRef = 0;
+        dmMessage::ResetURL(&track.m_Listener);
 
         return true;
     }
 
     static void CancelTrackAnimation(SpineModelComponent* component, int32_t track_index)
     {
-        if (track_index < 0 || track_index >= component->m_AnimationTracks.Size())
+        SpineAnimationTrack* track = GetTrackFromIndex(component, track_index);
+        if (!track || !track->m_AnimationInstance)
             return;
 
-        SpineAnimationTrack& track = component->m_AnimationTracks[track_index];
-        if (!track.m_AnimationInstance)
-            return;
+        spAnimationState_clearTrack(component->m_AnimationStateInstance, track->m_AnimationInstance->trackIndex);
 
-        spAnimationState_clearTrack(component->m_AnimationStateInstance, track.m_AnimationInstance->trackIndex);
-        track.m_AnimationInstance = nullptr;
-
-        track.m_Playback = dmGameObject::PLAYBACK_NONE;
-        track.m_AnimationId = 0;
-
-        ClearCompletionCallback(&track);
+        ClearCompletionCallback(track);
+        track->m_AnimationInstance = nullptr;
     }
 
     static void CancelAllAnimations(SpineModelComponent* component)
@@ -466,6 +468,7 @@ namespace dmSpine
 
                     // The animation has ended, so we won't send any more on this
                     ClearCompletionCallback(&track);
+                    track.m_AnimationInstance = nullptr;
                 }
 
                 if (IsPingPong(track.m_Playback))
@@ -476,13 +479,11 @@ namespace dmSpine
             }
             case SP_ANIMATION_DISPOSE:
             {
-                if (entry->trackIndex <= 0 || entry->trackIndex >= component->m_AnimationTracks.Size())
-                    return;
-                SpineAnimationTrack& track = component->m_AnimationTracks[entry->trackIndex];
-                if (track.m_AnimationInstance == entry)
+                SpineAnimationTrack* track = GetTrackFromIndex(component, entry->trackIndex);
+                if (track && track->m_AnimationInstance == entry)
                 {
-                    track.m_AnimationInstance = nullptr;
-                    ClearCompletionCallback(&track);
+                    ClearCompletionCallback(track);
+                    track->m_AnimationInstance = nullptr;
                 }
                 break;
             }
@@ -912,13 +913,6 @@ namespace dmSpine
         SpineModelComponent* component = GetComponentFromIndex(world, index);
         component->m_Resource = (SpineModelResource*)params.m_Resource;
         (void)OnResourceReloaded(world, component, index);
-    }
-
-    static SpineAnimationTrack* GetTrackFromIndex(SpineModelComponent* component, int track_index)
-    {
-        if (track_index < 0 || track_index >= component->m_AnimationTracks.Size())
-            return nullptr;
-        return &component->m_AnimationTracks[track_index];
     }
 
     dmGameObject::PropertyResult CompSpineModelGetProperty(const dmGameObject::ComponentGetPropertyParams& params, dmGameObject::PropertyDesc& out_value)
