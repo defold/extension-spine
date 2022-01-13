@@ -321,7 +321,6 @@ namespace dmSpine
         {
             SpineAnimationTrack track;
             track.m_AnimationInstance = nullptr;
-            track.m_AnimationId = 0;
             component->m_AnimationTracks.Push(track);
         }
         SpineAnimationTrack& track = component->m_AnimationTracks[track_index];
@@ -934,7 +933,7 @@ namespace dmSpine
                 return dmGameObject::PROPERTY_RESULT_INVALID_KEY;
 
             SpineAnimationTrack* track = GetTrackFromIndex(component, params.m_Options.m_Index);
-            if (track)
+            if (track && track->m_AnimationInstance)
             {
                 value = track->m_AnimationId;
             }
