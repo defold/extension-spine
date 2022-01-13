@@ -30,9 +30,21 @@ struct spAnimationState;
 struct spBone;
 struct spSkeleton;
 struct spTrackEntry;
+struct lua_State;
 
 namespace dmSpine
 {
+    const int32_t ALL_TRACKS = -1;
+
+    struct SpineAnimationTrack {
+        spTrackEntry*                           m_AnimationInstance;
+        dmhash_t                                m_AnimationId;
+        dmGameObject::Playback                  m_Playback;
+        dmMessage::URL                          m_Listener;
+        lua_State*                              m_Context;
+        int                                     m_AnimationCallbackRef;
+    };
+
     struct SpineModelComponent
     {
         dmGameObject::HInstance                 m_Instance;
@@ -41,29 +53,23 @@ namespace dmSpine
         SpineModelResource*                     m_Resource;
         spSkeleton*                             m_SkeletonInstance;
         spAnimationState*                       m_AnimationStateInstance;
-        spTrackEntry*                           m_AnimationInstance;
-        dmhash_t                                m_AnimationId;
-        dmMessage::URL                          m_Listener;
+        dmArray<dmSpine::SpineAnimationTrack>   m_AnimationTracks;
         dmGameSystem::HComponentRenderConstants m_RenderConstants;
         dmRender::HMaterial                     m_Material;
         /// Node instances corresponding to the bones
         dmArray<dmGameObject::HInstance>        m_BoneInstances;
         dmArray<spBone*>                        m_Bones;                        // We shouldn't really have to have a duplicate array of these
         dmHashTable64<uint32_t>                 m_BoneNameToNodeInstanceIndex;  // should really be in the spine_scene
-        dmGameObject::Playback                  m_Playback;
-        int                                     m_AnimationCallbackRef;
         uint32_t                                m_MixedHash;
         uint16_t                                m_ComponentIndex;
         uint8_t                                 m_Enabled : 1;
         uint8_t                                 m_DoRender : 1;
         uint8_t                                 m_AddedToUpdate : 1;
         uint8_t                                 m_ReHash : 1;
-        uint8_t                                 m_UseCursor : 1;
-        uint8_t                                 m_Playing : 1;
     };
 
     // For scripting
-    bool CompSpineModelPlayAnimation(SpineModelComponent* component, dmGameSystemDDF::SpinePlayAnimation* message, dmMessage::URL* sender, int callback_ref);
+    bool CompSpineModelPlayAnimation(SpineModelComponent* component, dmGameSystemDDF::SpinePlayAnimation* message, dmMessage::URL* sender, int callback_ref, lua_State* L);
     bool CompSpineModelCancelAnimation(SpineModelComponent* component, dmGameSystemDDF::SpineCancelAnimation* message);
 
     bool CompSpineModelSetConstant(SpineModelComponent* component, dmGameSystemDDF::SetConstant* message);
