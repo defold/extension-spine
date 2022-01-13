@@ -307,14 +307,9 @@ namespace dmSpine
             return false;
         }
 
-        uint32_t trackCapacity = component->m_AnimationTracks.Capacity();
-        while (track_index >= trackCapacity)
+        if (track_index >= component->m_AnimationTracks.Capacity())
         {
-            trackCapacity *= 2;
-        }
-        if (component->m_AnimationTracks.Capacity() != trackCapacity)
-        {
-            component->m_AnimationTracks.SetCapacity(trackCapacity);
+            component->m_AnimationTracks.SetCapacity(track_index + 4);
         }
 
         while (track_index >= component->m_AnimationTracks.Size())
