@@ -42,6 +42,10 @@ namespace dmSpine
      *
      * The normalized animation cursor. The type of the property is number.
      *
+     * If you intend to manually animate the cursor with go.animate(),
+     * you should set the playback_rate of the animation to 0 so that the cursor
+     * won't "run away" as you're trying to animate it.
+     *
      * [icon:attention] Please note that spine events may not fire as expected when the cursor is manipulated directly.
      *
      * @name cursor
