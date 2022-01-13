@@ -301,16 +301,22 @@ namespace dmSpine
             return false;
         }
 
-        while (track_index >= component->m_AnimationTracks.Capacity())
-            component->m_AnimationTracks.SetCapacity(component->m_AnimationTracks.Capacity() * 2);
+        uint32_t trackCapacity = component->m_AnimationTracks.Capacity();
+        while (track_index >= trackCapacity)
+        {
+            trackCapacity *= 2;
+        }
+        if (component->m_AnimationTracks.Capacity() != trackCapacity)
+        {
+            component->m_AnimationTracks.SetCapacity(trackCapacity);
+        }
+
         while (track_index >= component->m_AnimationTracks.Size())
         {
             SpineAnimationTrack track;
             track.m_AnimationInstance = nullptr;
-            track.m_Playback = dmGameObject::PLAYBACK_NONE;
             track.m_AnimationId = 0;
             track.m_AnimationCallbackRef = 0;
-            dmMessage::ResetURL(&track.m_Listener);
             component->m_AnimationTracks.Push(track);
         }
         SpineAnimationTrack& track = component->m_AnimationTracks[track_index];
@@ -474,7 +480,10 @@ namespace dmSpine
                     return;
                 SpineAnimationTrack& track = component->m_AnimationTracks[entry->trackIndex];
                 if (track.m_AnimationInstance == entry)
+                {
                     track.m_AnimationInstance = nullptr;
+                    ClearCompletionCallback(&track);
+                }
                 break;
             }
             case SP_ANIMATION_EVENT:
@@ -905,21 +914,12 @@ namespace dmSpine
         (void)OnResourceReloaded(world, component, index);
     }
 
-#define GET_TRACK_INDEX() \
-    if (params.m_Options.m_HasKey) \
-        return dmGameObject::PROPERTY_RESULT_INVALID_KEY; \
-    int32_t trackIndex = params.m_Options.m_Index;
-
-#define GET_TRACK() \
-    GET_TRACK_INDEX(); \
-    if (trackIndex < 0 || trackIndex >= component->m_AnimationTracks.Size()) \
-        return dmGameObject::PROPERTY_RESULT_INVALID_INDEX; \
-    SpineAnimationTrack& track = component->m_AnimationTracks[trackIndex];
-
-#define IF_CAN_GET_TRACK() \
-    GET_TRACK_INDEX(); \
-    SpineAnimationTrack* track = nullptr; \
-    if (trackIndex >= 0 && trackIndex < component->m_AnimationTracks.Size() && (track = &component->m_AnimationTracks[trackIndex], true))
+    static SpineAnimationTrack* GetTrackFromIndex(SpineModelComponent* component, int track_index)
+    {
+        if (track_index < 0 || track_index >= component->m_AnimationTracks.Size())
+            return nullptr;
+        return &component->m_AnimationTracks[track_index];
+    }
 
     dmGameObject::PropertyResult CompSpineModelGetProperty(const dmGameObject::ComponentGetPropertyParams& params, dmGameObject::PropertyDesc& out_value)
     {
@@ -935,7 +935,12 @@ namespace dmSpine
         else if (params.m_PropertyId == PROP_ANIMATION)
         {
             dmhash_t value = 0;
-            IF_CAN_GET_TRACK()
+
+            if (params.m_Options.m_HasKey)
+                return dmGameObject::PROPERTY_RESULT_INVALID_KEY;
+
+            SpineAnimationTrack* track = GetTrackFromIndex(component, params.m_Options.m_Index);
+            if (track)
             {
                 value = track->m_AnimationId;
             }
@@ -947,7 +952,13 @@ namespace dmSpine
         else if (params.m_PropertyId == PROP_CURSOR)
         {
             float unit = 0.0f;
-            IF_CAN_GET_TRACK()
+
+            if (params.m_Options.m_HasKey)
+                return dmGameObject::PROPERTY_RESULT_INVALID_KEY;
+
+            SpineAnimationTrack* track = GetTrackFromIndex(component, params.m_Options.m_Index);
+
+            if (track)
             {
                 spTrackEntry* entry = track->m_AnimationInstance;
                 if (entry)
@@ -967,10 +978,15 @@ namespace dmSpine
         else if (params.m_PropertyId == PROP_PLAYBACK_RATE)
         {
             float value = 0.0f;
-            IF_CAN_GET_TRACK()
+
+            if (params.m_Options.m_HasKey)
+                return dmGameObject::PROPERTY_RESULT_INVALID_KEY;
+
+            SpineAnimationTrack* track = GetTrackFromIndex(component, params.m_Options.m_Index);
+
+            if (track && track->m_AnimationInstance)
             {
-                if (track->m_AnimationInstance)
-                    value = track->m_AnimationInstance->timeScale;
+                value = track->m_AnimationInstance->timeScale;
             }
 
             out_value.m_Variant = dmGameObject::PropertyVar(value);
@@ -1009,9 +1025,14 @@ namespace dmSpine
             if (params.m_Value.m_Type != dmGameObject::PROPERTY_TYPE_NUMBER)
                 return dmGameObject::PROPERTY_RESULT_TYPE_MISMATCH;
 
-            GET_TRACK();
+            if (params.m_Options.m_HasKey)
+                return dmGameObject::PROPERTY_RESULT_INVALID_KEY;
 
-            if (!track.m_AnimationInstance)
+            SpineAnimationTrack* track = GetTrackFromIndex(component, params.m_Options.m_Index);
+            if (!track)
+                return dmGameObject::PROPERTY_RESULT_INVALID_INDEX;
+
+            if (!track->m_AnimationInstance)
             {
                 dmLogError("Could not set cursor since no animation is playing");
                 return dmGameObject::PROPERTY_RESULT_UNSUPPORTED_VALUE;
@@ -1019,10 +1040,10 @@ namespace dmSpine
 
             float unit_0_1 = fmodf(params.m_Value.m_Number + 1.0f, 1.0f);
 
-            float duration = track.m_AnimationInstance->animationEnd - track.m_AnimationInstance->animationStart;
+            float duration = track->m_AnimationInstance->animationEnd - track->m_AnimationInstance->animationStart;
             float t = unit_0_1 * duration;
 
-            track.m_AnimationInstance->trackTime = t;
+            track->m_AnimationInstance->trackTime = t;
             return dmGameObject::PROPERTY_RESULT_OK;
         }
         else if (params.m_PropertyId == PROP_PLAYBACK_RATE)
@@ -1030,9 +1051,14 @@ namespace dmSpine
             if (params.m_Value.m_Type != dmGameObject::PROPERTY_TYPE_NUMBER)
                 return dmGameObject::PROPERTY_RESULT_TYPE_MISMATCH;
 
-            GET_TRACK();
+            if (params.m_Options.m_HasKey)
+                return dmGameObject::PROPERTY_RESULT_INVALID_KEY;
 
-            track.m_AnimationInstance->timeScale = params.m_Value.m_Number;
+            SpineAnimationTrack* track = GetTrackFromIndex(component, params.m_Options.m_Index);
+            if (!track)
+                return dmGameObject::PROPERTY_RESULT_INVALID_INDEX;
+
+            track->m_AnimationInstance->timeScale = params.m_Value.m_Number;
             return dmGameObject::PROPERTY_RESULT_OK;
         }
         else if (params.m_PropertyId == PROP_MATERIAL)

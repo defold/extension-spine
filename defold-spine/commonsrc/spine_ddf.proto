@@ -86,7 +86,7 @@ message SpineAnimationDone
     required uint64 animation_id = 1;
     // matches dmGameObject::Playback in dmsdk/gameobject/gameobject.h
     required uint32 playback = 2;
-    required int32 track = 3 [default = 1];
+    required int32 track = 3 [default = 0];
 }
 
 message SpineCancelAnimation
