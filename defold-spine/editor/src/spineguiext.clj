@@ -120,7 +120,7 @@
                         :adjust-mode :clipping :visible-clipper :inverted-clipper]))
 
   (output spine-anim-ids gui/GuiResourceNames (g/fnk [spine-scene-element-ids spine-scene gui-scene]
-                                                     (prn "MAWE spine-anim-ids: gui-scene: " gui-scene)
+                                                     (prn "MAWE spine-anim-ids: " (spine-scene-element-ids spine-scene))
                                                      (:spine-anim-ids (or (spine-scene-element-ids spine-scene)
                                                                           (spine-scene-element-ids "")))))
   (output spine-skin-ids gui/GuiResourceNames (g/fnk [spine-scene-element-ids spine-scene]
@@ -248,7 +248,7 @@
                                                             (resource/openable-resource? spine-scene-resource) (assoc :link spine-scene-resource :outline-show-link? true))))
   (output pb-msg g/Any (g/fnk [name spine-scene]
                               {:name name
-                               :spine-scene (resource/resource->proj-path spine-scene)}))
+                               :path (resource/resource->proj-path spine-scene)}))
   (output spine-scene-element-ids SpineSceneElementIds :cached produce-spine-scene-element-ids)
   (output spine-scene-infos SpineSceneInfos :cached produce-spine-scene-infos)
   (output spine-scene-names gui/GuiResourceNames (g/fnk [name] (sorted-set name)))
@@ -260,6 +260,7 @@
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
 (defn- attach-spine-scene
+  ;; self is the GuiSceneNode
   ([self spine-scenes-node spine-scene]
    (attach-spine-scene self spine-scenes-node spine-scene false))
   ([self spine-scenes-node spine-scene internal?]
@@ -271,7 +272,7 @@
       (concat
        (g/connect spine-scene :spine-scene-names self :spine-scene-names)
        (g/connect spine-scene :dep-build-targets self :dep-build-targets)
-       (g/connect spine-scene :pb-msg self :spine-scene-msgs)
+       (g/connect spine-scene :pb-msg self :resource-msgs)
        (g/connect spine-scene :build-errors spine-scenes-node :build-errors)
        (g/connect spine-scene :node-outline spine-scenes-node :child-outlines)
        (g/connect spine-scene :name spine-scenes-node :names)
@@ -307,7 +308,6 @@
   (g/make-nodes graph-id [spine-scenes-node SpineScenesNode
                           no-spine-scene [SpineSceneNode
                                           :name ""]]
-                (g/connect spine-scenes-node :_node-id self :spine-scenes-node)
                 (g/connect spine-scenes-node :_node-id self :nodes)
                 (g/connect spine-scenes-node :build-errors self :build-errors)
                 (g/connect spine-scenes-node :node-outline self :child-outlines)
@@ -326,16 +326,13 @@
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
 
-(defn register-gui-resource-types [workspace]
+(defn register-gui-resource-types! [workspace]
   (gui/register-resource-type! :type-spine SpineNode)
-  (gui/register-gui-scene-loader! load-gui-scene-spine)
-  (prn "MAWE testing!")
-  )
-
+  (gui/register-gui-scene-loader! load-gui-scene-spine))
 
 ; The plugin
 (defn load-plugin-spine-gui [workspace]
-  (g/transact (concat (register-gui-resource-types workspace))))
+  (register-gui-resource-types! workspace))
 
 (defn return-plugin []
   (fn [x] (load-plugin-spine-gui x)))
