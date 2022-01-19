@@ -485,7 +485,7 @@
 (defn- is-root-bone? [bone]
   (= -1 (.-parent bone)))
 
-(defn- create-bone [project parent-id spine-bone]
+(defn- create-bone [parent-id spine-bone]
   (let [name (.-name spine-bone)
         x (.-posX spine-bone)
         y (.-posY spine-bone)
@@ -504,20 +504,20 @@
 (defn- tx-first-created [tx-data]
   (get-in (first tx-data) [:node :_node-id]))
 
-(defn- create-bone-hierarchy [project parent-id bones bone]
-  (let [bone-tx-data (create-bone project parent-id bone)
+(defn- create-bone-hierarchy [parent-id bones bone]
+  (let [bone-tx-data (create-bone parent-id bone)
         bone-id (tx-first-created bone-tx-data)
         child-bones (map (fn [index] (get bones index)) (.-children bone))
-        children-tx-data (mapcat (fn [child] (create-bone-hierarchy project bone-id bones child)) child-bones)]
+        children-tx-data (mapcat (fn [child] (create-bone-hierarchy bone-id bones child)) child-bones)]
     (concat bone-tx-data children-tx-data)))
 
 (set! *warn-on-reflection* true)
 
 (set! *warn-on-reflection* true)
 
-(defn- create-bones [project parent-id bones]
+(defn- create-bones [parent-id bones]
   (let [root-bones (filter is-root-bone? bones)
-        tx-data (mapcat (fn [bone] (create-bone-hierarchy project parent-id bones bone)) root-bones)]
+        tx-data (mapcat (fn [bone] (create-bone-hierarchy parent-id bones bone)) root-bones)]
     tx-data))
 
 ;; (defn- update-transforms [^Matrix4d parent bone]
@@ -541,26 +541,27 @@
 
 ; Loads the .spinejson file
 (defn- load-spine-json
-  [project node-id resource]
-  (let [content (resource->bytes resource)
-        path (resource/resource->proj-path resource)
-        spine-instance (plugin-load-file-from-buffer content path)
-        animations (sort (vec (plugin-get-animations spine-instance)))
-        bones (plugin-get-bones spine-instance)
-        skins (sort (vec (plugin-get-skins spine-instance)))
+  ([node-id resource]
+   (load-spine-json nil node-id resource))
+  ([project node-id resource]
+   (let [content (resource->bytes resource)
+         path (resource/resource->proj-path resource)
+         spine-instance (plugin-load-file-from-buffer content path)
+         animations (sort (vec (plugin-get-animations spine-instance)))
+         bones (plugin-get-bones spine-instance)
+         skins (sort (vec (plugin-get-skins spine-instance)))
 
-        tx-data (concat
-                 (g/set-property node-id :content content)
-                 (g/set-property node-id :animations animations)
-                 (g/set-property node-id :skins skins)
-                 (g/set-property node-id :bones bones))
+         tx-data (concat
+                  (g/set-property node-id :content content)
+                  (g/set-property node-id :animations animations)
+                  (g/set-property node-id :skins skins)
+                  (g/set-property node-id :bones bones))
 
-        all-tx-data (concat tx-data (create-bones project node-id bones))]
+         all-tx-data (concat tx-data (create-bones node-id bones))
+         x (prn "MAWE load-spine-json" node-id resource path animations skins)]
+     all-tx-data)))
 
-    all-tx-data))
-
-(defn- build-spine-json
-  [resource dep-resources user-data]
+(defn- build-spine-json [resource dep-resources user-data]
   {:resource resource :content (resource->bytes (:resource resource))})
 
 (g/defnk produce-spine-json-build-targets [_node-id resource]

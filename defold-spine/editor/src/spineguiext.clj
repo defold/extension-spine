@@ -58,8 +58,9 @@
 
 (g/deftype ^:private SpineSceneElementIds s/Any #_{s/Str {:spine-anim-ids (sorted-set s/Str)
                                                           :spine-skin-ids (sorted-set s/Str)}})
-(g/deftype ^:private SpineSceneInfos s/Any #_{s/Str {:spine-scene-scene (s/maybe {s/Keyword s/Any})
-                                                     :spine-scene-structure (s/maybe {s/Keyword s/Any})
+(g/deftype ^:private SpineSceneInfos s/Any #_{s/Str {:spine-instance (s/maybe {s/Keyword s/Any})
+                                                     :spine-bones (s/maybe {s/Keyword s/Any})
+                                                     :spine-scene-scene (s/maybe {s/Keyword s/Any})
                                                      :spine-scene-pb (s/maybe {s/Keyword s/Any})}})
 
 ; Plugin functions (from Spine.java)
@@ -120,7 +121,6 @@
                         :adjust-mode :clipping :visible-clipper :inverted-clipper]))
 
   (output spine-anim-ids gui/GuiResourceNames (g/fnk [spine-scene-element-ids spine-scene gui-scene]
-                                                     (prn "MAWE spine-anim-ids: " (spine-scene-element-ids spine-scene))
                                                      (:spine-anim-ids (or (spine-scene-element-ids spine-scene)
                                                                           (spine-scene-element-ids "")))))
   (output spine-skin-ids gui/GuiResourceNames (g/fnk [spine-scene-element-ids spine-scene]
@@ -129,12 +129,17 @@
   (output spine-scene-scene g/Any (g/fnk [spine-scene-infos spine-scene]
                                          (:spine-scene-scene (or (spine-scene-infos spine-scene)
                                                                  (spine-scene-infos "")))))
-  (output spine-scene-structure g/Any (g/fnk [spine-scene-infos spine-scene]
-                                             (:spine-scene-structure (or (spine-scene-infos spine-scene)
-                                                                         (spine-scene-infos "")))))
+  ;; (output spine-scene-structure g/Any (g/fnk [spine-scene-infos spine-scene]
+  ;;                                            (:spine-scene-structure (or (spine-scene-infos spine-scene)
+  ;;                                                                        (spine-scene-infos "")))))
+  (output spine-scene-bones g/Any (g/fnk [spine-scene-infos spine-scene]
+                                         (:spine-bones (or (spine-scene-infos spine-scene)
+                                                           (spine-scene-infos "")))))
+
   (output spine-scene-pb g/Any (g/fnk [spine-scene-infos spine-scene]
                                       (:spine-scene-pb (or (spine-scene-infos spine-scene)
                                                            (spine-scene-infos "")))))
+    
   (output gpu-texture TextureLifecycle (g/constantly nil))
 
   (output aabb g/Any (g/fnk [spine-scene-infos spine-scene spine-skin pivot]
@@ -150,25 +155,26 @@
                                                               (not= :clipping-mode-none clipping-mode)
                                                               (assoc :clipping {:mode clipping-mode :inverted clipping-inverted :visible clipping-visible})))))
 
-  (output bone-node-msgs g/Any :cached (g/fnk [node-msgs spine-scene-structure spine-scene-pb adjust-mode]
-                                              (let [pb-msg (first node-msgs)
-                                                    gui-node-id (:id pb-msg)
-                                                    id-fn (fn [b] (format "%s/%s" gui-node-id (:name b)))
-                                                    bones (tree-seq :children :children (:skeleton spine-scene-structure))
-                                                    bone-order (zipmap (map id-fn (-> spine-scene-pb :skeleton :bones)) (range))
-                                                    child-to-parent (reduce (fn [m b] (into m (map (fn [c] [(:name c) b]) (:children b)))) {} bones)
-                                                    bone-msg {:spine-node-child true
-                                                              :size [0.0 0.0 0.0 0.0]
-                                                              :position [0.0 0.0 0.0 0.0]
-                                                              :scale [1.0 1.0 1.0 0.0]
-                                                              :type :type-box
-                                                              :adjust-mode adjust-mode}
-                                                    bone-msgs (mapv (fn [b] (assoc bone-msg :id (id-fn b) :parent (if (contains? child-to-parent (:name b))
-                                                                                                                    (id-fn (get child-to-parent (:name b)))
-                                                                                                                    gui-node-id))) bones)]
-                                           ;; Bone nodes need to be sorted in same order as bones in rig scene
-                                                (sort-by #(bone-order (:id %)) bone-msgs))))
-
+  ;; (output bone-node-msgs g/Any :cached (g/fnk [node-msgs spine-scene-structure spine-scene-pb adjust-mode]
+  ;;                                             (let [pb-msg (first node-msgs)
+  ;;                                                   gui-node-id (:id pb-msg)
+  ;;                                                   id-fn (fn [b] (format "%s/%s" gui-node-id (:name b)))
+  ;;                                                   bones (tree-seq :children :children (:skeleton spine-scene-structure))
+  ;;                                                   bone-order (zipmap (map id-fn (-> spine-scene-pb :skeleton :bones)) (range))
+  ;;                                                   child-to-parent (reduce (fn [m b] (into m (map (fn [c] [(:name c) b]) (:children b)))) {} bones)
+  ;;                                                   bone-msg {:spine-node-child true
+  ;;                                                             :size [0.0 0.0 0.0 0.0]
+  ;;                                                             :position [0.0 0.0 0.0 0.0]
+  ;;                                                             :scale [1.0 1.0 1.0 0.0]
+  ;;                                                             :type :type-box
+  ;;                                                             :adjust-mode adjust-mode}
+  ;;                                                   bone-msgs (mapv (fn [b] (assoc bone-msg :id (id-fn b) :parent (if (contains? child-to-parent (:name b))
+  ;;                                                                                                                   (id-fn (get child-to-parent (:name b)))
+  ;;                                                                                                                   gui-node-id))) bones)]
+  ;;                                          ;; Bone nodes need to be sorted in same order as bones in rig scene
+  ;;                                               (sort-by #(bone-order (:id %)) bone-msgs))))
+  (output bone-node-msgs g/Any :cached [])
+        
   (output node-rt-msgs g/Any :cached
           (g/fnk [node-msgs node-rt-msgs bone-node-msgs spine-skin-ids]
                  (let [pb-msg (first node-msgs)
@@ -184,27 +190,28 @@
 
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
-(g/defnk produce-spine-scene-element-ids [name spine-anim-ids spine-scene spine-scene-structure]
+(g/defnk produce-spine-scene-element-ids [name spine-instance spine-anim-ids spine-skins spine-scene]
   ;; If the referenced spine-scene-resource is missing, we don't return an entry.
   ;; This will cause every usage to fall back on the no-spine-scene entry for "".
   ;; NOTE: the no-spine-scene entry uses an instance of SpineSceneNode with an empty name.
   ;; It does not have any data, but it should still return an entry.
   (when (or (and (= "" name) (nil? spine-scene))
-            (every? some? [spine-anim-ids spine-scene-structure]))
+            (every? some? [spine-instance spine-anim-ids spine-skins]))
     {name {:spine-anim-ids (into (sorted-set) spine-anim-ids)
-           :spine-skin-ids (into (sorted-set) (:skins spine-scene-structure))}}))
+           :spine-skin-ids (into (sorted-set) spine-skins)}}))
 
-(g/defnk produce-spine-scene-infos [_node-id name spine-scene spine-scene-pb spine-scene-scene spine-scene-structure spine-skin-aabbs]
+(g/defnk produce-spine-scene-infos [_node-id name spine-instance spine-scene spine-bones spine-scene-pb spine-scene-scene spine-skin-aabbs]
   ;; If the referenced spine-scene-resource is missing, we don't return an entry.
   ;; This will cause every usage to fall back on the no-spine-scene entry for "".
   ;; NOTE: the no-spine-scene entry uses an instance of SpineSceneNode with an empty name.
   ;; It does not have any data, but it should still return an entry.
   (when (or (and (= "" name) (nil? spine-scene))
-            (every? some? [spine-scene-pb spine-scene-scene spine-scene-structure]))
-    {name {:spine-skin-aabbs spine-skin-aabbs
+            (every? some? [spine-instance spine-scene-pb spine-scene-scene]))
+    {name {:spine-instance spine-instance
+           :spine-bones spine-bones
+           :spine-skin-aabbs spine-skin-aabbs
            :spine-scene-pb spine-scene-pb
-           :spine-scene-scene spine-scene-scene
-           :spine-scene-structure spine-scene-structure}}))
+           :spine-scene-scene spine-scene-scene}}))
 
 (g/defnode SpineSceneNode
   (inherits outline/OutlineNode)
@@ -218,28 +225,39 @@
                     evaluation-context self old-value new-value
                     [:resource :spine-scene-resource]
                     [:build-targets :dep-build-targets]
-                    [:spine-anim-ids :spine-anim-ids]
+                    ;;[:spine-anim-ids :spine-anim-ids]
                     [:scene :spine-scene-scene]
                     [:skin-aabbs :spine-skin-aabbs]
                     [:scene-structure :spine-scene-structure]
-                    [:spine-scene-pb :spine-scene-pb])))
+                    [:spine-scene-pb :spine-scene-pb]
+                    [:spine-instance :spine-instance]
+                    [:animations :spine-anim-ids]
+                    [:skins :spine-skins]
+                    [:bones :spine-bones])))
             (dynamic error (g/fnk [_node-id spine-scene]
                                   (gui/prop-resource-error _node-id :spine-scene spine-scene "Spine Scene")))
             (dynamic edit-type (g/constantly
                                 {:type resource/Resource
                                  :ext ["spinescene"]})))
 
+  (input dep-build-targets g/Any)
   (input name-counts gui/NameCounts)
   (input spine-scene-resource resource/Resource)
+  
+  (input spine-instance g/Any) ; The c++ pointer
+  (output spine-instance g/Any (gu/passthrough spine-instance))
+
   (input spine-anim-ids g/Any :substitute (constantly nil))
-  (input dep-build-targets g/Any)
+  (input spine-skins g/Any :substitute (constantly nil))
+  (input spine-bones g/Any :substitute (constantly nil))
+
   (input spine-scene-scene g/Any :substitute (constantly nil))
   (input spine-skin-aabbs g/Any :substitute (constantly nil))
   (input spine-scene-structure g/Any :substitute (constantly nil))
   (input spine-scene-pb g/Any :substitute (constantly nil))
 
   (output dep-build-targets g/Any (gu/passthrough dep-build-targets))
-  (output node-outline outline/OutlineData :cached (g/fnk [_node-id name spine-scene-resource build-errors]
+  (output node-outline outline/OutlineData :cached (g/fnk [_node-id name spine-scene-resource build-errors spine-skins spine-anim-ids]
                                                           (cond-> {:node-id _node-id
                                                                    :node-outline-key name
                                                                    :label name
@@ -278,7 +296,7 @@
        (g/connect spine-scene :name spine-scenes-node :names)
        (g/connect spine-scenes-node :name-counts spine-scene :name-counts))))))
 
-(defn add-spine-scene [scene spine-scenes-node resource name]
+(defn- add-spine-scene [scene spine-scenes-node resource name]
   (g/make-nodes (g/node-id->graph-id scene) [node [SpineSceneNode :name name :spine-scene resource]]
                 (attach-spine-scene scene spine-scenes-node node)))
 
@@ -293,7 +311,7 @@
   (output name-counts gui/NameCounts :cached (g/fnk [names] (frequencies names)))
   (input build-errors g/Any :array)
   (output build-errors g/Any (gu/passthrough build-errors))
-  (output node-outline outline/OutlineData :cached (gui/gen-outline-fnk "Spine Scenes" "Spine Scenes" 5 false []))
+  (output node-outline outline/OutlineData :cached (gui/gen-outline-fnk "Spine Scenes" "Spine Scenes" 6 false []))
   (output add-handler-info g/Any
           (g/fnk [_node-id]
                  [_node-id "Spine Scenes..." spineext/spine-scene-icon add-spine-scenes-handler {}])))
