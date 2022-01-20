@@ -343,10 +343,20 @@
       
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
-
 (defn register-gui-resource-types! [workspace]
-  (gui/register-resource-type! :type-spine SpineNode)
-  (gui/register-gui-scene-loader! load-gui-scene-spine))
+  (gui/register-gui-scene-loader! load-gui-scene-spine)
+  (let [info {:node-type :type-custom
+              :node-cls SpineNode
+              :display-name "Spine"
+              :output-type :type-custom
+              :custom-type (murmur/hash32 "Spine")
+              :icon spineext/spine-scene-icon}
+        info-depr (merge info {:node-type :type-spine
+                               :custom-type 0
+                               :deprecated true})]
+    (gui/register-node-type-info! info)
+    ; Register :type-spine with custom type 0 in order to be able to read old files
+    (gui/register-node-type-info! info-depr)))
 
 ; The plugin
 (defn load-plugin-spine-gui [workspace]

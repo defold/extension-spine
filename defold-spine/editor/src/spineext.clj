@@ -557,8 +557,7 @@
                   (g/set-property node-id :skins skins)
                   (g/set-property node-id :bones bones))
 
-         all-tx-data (concat tx-data (create-bones node-id bones))
-         x (prn "MAWE load-spine-json" node-id resource path animations skins)]
+         all-tx-data (concat tx-data (create-bones node-id bones))]
      all-tx-data)))
 
 (defn- build-spine-json [resource dep-resources user-data]
