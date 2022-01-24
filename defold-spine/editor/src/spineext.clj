@@ -248,7 +248,6 @@
 (defn renderable->render-objects [renderable]
   (let [handle (renderable->handle renderable)
         vb-data (plugin-get-vertex-buffer-data handle)
-        ;_ (prn "MAWE" "vb-data count" (count vb-data))
         vb-data-transformed (transform-vertices-as-vec vb-data)
         vb (generate-vertex-buffer vb-data-transformed)
         render-objects (plugin-get-render-objects handle)]

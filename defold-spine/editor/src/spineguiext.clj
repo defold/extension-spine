@@ -12,12 +12,9 @@
 
 (ns editor.spineguiext
   (:require [schema.core :as s]
-            [clojure.java.io :as io]
             [clojure.string :as str]
-            [editor.protobuf :as protobuf]
             [dynamo.graph :as g]
             [util.murmur :as murmur]
-            [editor.build-target :as bt]
             [editor.graph-util :as gu]
             [editor.geom :as geom]
             [editor.material :as material]
@@ -40,18 +37,13 @@
             [editor.properties :as properties]
             [editor.gui :as gui]
             [editor.spineext :as spineext])
-  (:import [com.dynamo.gamesys.proto Gui$SceneDesc Gui$SceneDesc$AdjustReference Gui$NodeDesc Gui$NodeDesc$Type Gui$NodeDesc$XAnchor Gui$NodeDesc$YAnchor
-            Gui$NodeDesc$Pivot Gui$NodeDesc$AdjustMode Gui$NodeDesc$BlendMode Gui$NodeDesc$ClippingMode Gui$NodeDesc$PieBounds Gui$NodeDesc$SizeMode]
-           [com.dynamo.bob.textureset TextureSetGenerator$UVTransform]
-           [com.dynamo.bob.util BezierUtil RigUtil$Transform]
+  (:import [com.dynamo.gamesys.proto Gui$NodeDesc$ClippingMode]
+           ;;[com.dynamo.bob.textureset TextureSetGenerator$UVTransform]
+           ;;[com.dynamo.bob.util BezierUtil RigUtil$Transform]
            [editor.gl.shader ShaderLifecycle]
            [editor.gl.texture TextureLifecycle]
            [editor.types AABB]
-           [com.jogamp.opengl GL GL2 GLContext]
-           [org.apache.commons.io IOUtils]
-           [java.io IOException]
-           [java.util HashSet]
-           [java.net URL]
+           ;[com.jogamp.opengl GL GL2 GLContext]
            [javax.vecmath Matrix4d Vector3d Vector4d]))
 
 
@@ -130,9 +122,6 @@
   (output spine-scene-scene g/Any (g/fnk [spine-scene-infos spine-scene]
                                          (:spine-scene-scene (or (spine-scene-infos spine-scene)
                                                                  (spine-scene-infos "")))))
-  ;; (output spine-scene-structure g/Any (g/fnk [spine-scene-infos spine-scene]
-  ;;                                            (:spine-scene-structure (or (spine-scene-infos spine-scene)
-  ;;                                                                        (spine-scene-infos "")))))
   (output spine-scene-bones g/Any (g/fnk [spine-scene-infos spine-scene]
                                          (:spine-bones (or (spine-scene-infos spine-scene)
                                                            (spine-scene-infos "")))))
@@ -140,13 +129,13 @@
   (output spine-scene-pb g/Any (g/fnk [spine-scene-infos spine-scene]
                                       (:spine-scene-pb (or (spine-scene-infos spine-scene)
                                                            (spine-scene-infos "")))))
-    
-  (output gpu-texture TextureLifecycle (g/constantly nil))
 
   (output aabb g/Any (g/fnk [spine-scene-infos spine-scene spine-skin pivot]
                             (or (get-in spine-scene-infos [spine-scene :spine-skin-aabbs (if (= spine-skin "") "default" spine-skin)])
                                 geom/empty-bounding-box)))
 
+  ; Overloaded outputs from VisualNode
+  (output gpu-texture TextureLifecycle (g/constantly nil))
   (output scene-renderable-user-data g/Any :cached (g/fnk [spine-scene-scene spine-skin color+alpha clipping-mode clipping-inverted clipping-visible]
                                                           (let [user-data (assoc (get-in spine-scene-scene [:renderable :user-data])
                                                                                  :color color+alpha
@@ -229,7 +218,6 @@
                     ;;[:spine-anim-ids :spine-anim-ids]
                     [:scene :spine-scene-scene]
                     [:skin-aabbs :spine-skin-aabbs]
-                    [:scene-structure :spine-scene-structure]
                     [:spine-scene-pb :spine-scene-pb]
                     [:spine-instance :spine-instance]
                     [:animations :spine-anim-ids]
@@ -254,7 +242,6 @@
 
   (input spine-scene-scene g/Any :substitute (constantly nil))
   (input spine-skin-aabbs g/Any :substitute (constantly nil))
-  (input spine-scene-structure g/Any :substitute (constantly nil))
   (input spine-scene-pb g/Any :substitute (constantly nil))
 
   (output dep-build-targets g/Any (gu/passthrough dep-build-targets))
