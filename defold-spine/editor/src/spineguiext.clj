@@ -31,27 +31,20 @@
             [editor.render :as render]
             [editor.validation :as validation]
             [editor.workspace :as workspace]
-            [editor.gl.pass :as pass]
             [editor.types :as types]
             [editor.outline :as outline]
             [editor.properties :as properties]
             [editor.gui :as gui]
             [editor.spineext :as spineext])
   (:import [com.dynamo.gamesys.proto Gui$NodeDesc$ClippingMode]
-           ;;[com.dynamo.bob.textureset TextureSetGenerator$UVTransform]
-           ;;[com.dynamo.bob.util BezierUtil RigUtil$Transform]
-           [editor.gl.shader ShaderLifecycle]
-           [editor.gl.texture TextureLifecycle]
-           [editor.types AABB]
-           ;[com.jogamp.opengl GL GL2 GLContext]
-           [javax.vecmath Matrix4d Vector3d Vector4d]))
+           [editor.gl.texture TextureLifecycle]))
 
 
 (set! *warn-on-reflection* true)
 
 (g/deftype ^:private SpineSceneElementIds s/Any #_{s/Str {:spine-anim-ids (sorted-set s/Str)
                                                           :spine-skin-ids (sorted-set s/Str)}})
-(g/deftype ^:private SpineSceneInfos s/Any #_{s/Str {:spine-instance (s/maybe {s/Keyword s/Any})
+(g/deftype ^:private SpineSceneInfos s/Any #_{s/Str {:spine-data-handle (s/maybe {s/Int s/Any})
                                                      :spine-bones (s/maybe {s/Keyword s/Any})
                                                      :spine-scene-scene (s/maybe {s/Keyword s/Any})
                                                      :spine-scene-pb (s/maybe {s/Keyword s/Any})}})
@@ -81,6 +74,17 @@
 (defn- validate-spine-skin [node-id spine-scene-names spine-skin-ids spine-skin spine-scene]
   (when-not (g/error? (validate-spine-scene node-id spine-scene-names spine-scene))
     (spineext/validate-skin node-id :spine-skin spine-skin-ids spine-skin)))
+
+(defn- renderable->vertices [renderable]
+  (let [handle (spineext/renderable->handle renderable)
+        vb-data (spineext/plugin-get-vertex-buffer-data handle)
+        vb-data-transformed (spineext/transform-vertices-as-vec vb-data)]
+    vb-data-transformed))
+
+(defn- gen-vb [renderables]
+  (let [vertices (mapcat renderable->vertices renderables)
+        vb-out (spineext/generate-vertex-buffer vertices)]
+    vb-out))
 
 (g/defnode SpineNode
   (inherits gui/VisualNode)
@@ -129,18 +133,24 @@
   (output spine-scene-pb g/Any (g/fnk [spine-scene-infos spine-scene]
                                       (:spine-scene-pb (or (spine-scene-infos spine-scene)
                                                            (spine-scene-infos "")))))
-
+  ;; The handle to the C++ resource
+  (output spine-data-handle g/Any (g/fnk [spine-scene-infos spine-scene]
+                                         (:spine-data-handle (or (spine-scene-infos spine-scene)
+                                                              (spine-scene-infos "")))))
+  
   (output aabb g/Any (g/fnk [spine-scene-infos spine-scene spine-skin pivot]
                             (or (get-in spine-scene-infos [spine-scene :spine-skin-aabbs (if (= spine-skin "") "default" spine-skin)])
                                 geom/empty-bounding-box)))
 
   ; Overloaded outputs from VisualNode
   (output gpu-texture TextureLifecycle (g/constantly nil))
-  (output scene-renderable-user-data g/Any :cached (g/fnk [spine-scene-scene spine-skin color+alpha clipping-mode clipping-inverted clipping-visible]
+  (output scene-renderable-user-data g/Any :cached (g/fnk [spine-scene-scene spine-skin spine-data-handle color+alpha clipping-mode clipping-inverted clipping-visible]
                                                           (let [user-data (assoc (get-in spine-scene-scene [:renderable :user-data])
                                                                                  :color color+alpha
                                                                                  :renderable-tags #{:gui-spine}
-                                                                                 :skin spine-skin)]
+                                                                                 :skin spine-skin
+                                                                                 :gen-vb gen-vb
+                                                                                 :spine-data-handle spine-data-handle)]
                                                             (cond-> user-data
                                                               (not= :clipping-mode-none clipping-mode)
                                                               (assoc :clipping {:mode clipping-mode :inverted clipping-inverted :visible clipping-visible})))))
@@ -180,24 +190,24 @@
 
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
-(g/defnk produce-spine-scene-element-ids [name spine-instance spine-anim-ids spine-skins spine-scene]
+(g/defnk produce-spine-scene-element-ids [name spine-data-handle spine-anim-ids spine-skins spine-scene]
   ;; If the referenced spine-scene-resource is missing, we don't return an entry.
   ;; This will cause every usage to fall back on the no-spine-scene entry for "".
   ;; NOTE: the no-spine-scene entry uses an instance of SpineSceneNode with an empty name.
   ;; It does not have any data, but it should still return an entry.
   (when (or (and (= "" name) (nil? spine-scene))
-            (every? some? [spine-instance spine-anim-ids spine-skins]))
+            (every? some? [spine-data-handle spine-anim-ids spine-skins]))
     {name {:spine-anim-ids (into (sorted-set) spine-anim-ids)
            :spine-skin-ids (into (sorted-set) spine-skins)}}))
 
-(g/defnk produce-spine-scene-infos [_node-id name spine-instance spine-scene spine-bones spine-scene-pb spine-scene-scene spine-skin-aabbs]
+(g/defnk produce-spine-scene-infos [_node-id name spine-data-handle spine-scene spine-bones spine-scene-pb spine-scene-scene spine-skin-aabbs]
   ;; If the referenced spine-scene-resource is missing, we don't return an entry.
   ;; This will cause every usage to fall back on the no-spine-scene entry for "".
   ;; NOTE: the no-spine-scene entry uses an instance of SpineSceneNode with an empty name.
   ;; It does not have any data, but it should still return an entry.
   (when (or (and (= "" name) (nil? spine-scene))
-            (every? some? [spine-instance spine-scene-pb spine-scene-scene]))
-    {name {:spine-instance spine-instance
+            (every? some? [spine-data-handle spine-scene-pb spine-scene-scene]))
+    {name {:spine-data-handle spine-data-handle
            :spine-bones spine-bones
            :spine-skin-aabbs spine-skin-aabbs
            :spine-scene-pb spine-scene-pb
@@ -219,7 +229,7 @@
                     [:scene :spine-scene-scene]
                     [:skin-aabbs :spine-skin-aabbs]
                     [:spine-scene-pb :spine-scene-pb]
-                    [:spine-instance :spine-instance]
+                    [:spine-data-handle :spine-data-handle]
                     [:animations :spine-anim-ids]
                     [:skins :spine-skins]
                     [:bones :spine-bones])))
@@ -233,8 +243,8 @@
   (input name-counts gui/NameCounts)
   (input spine-scene-resource resource/Resource)
   
-  (input spine-instance g/Any) ; The c++ pointer
-  (output spine-instance g/Any (gu/passthrough spine-instance))
+  (input spine-data-handle g/Any) ; The c++ pointer
+  (output spine-data-handle g/Any (gu/passthrough spine-data-handle))
 
   (input spine-anim-ids g/Any :substitute (constantly nil))
   (input spine-skins g/Any :substitute (constantly nil))
