@@ -58,7 +58,7 @@ nodes {
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT
 max_nodes: 512
-spine_scenes {
+resources {
   name: "spineboy"
-  spine_scene: "/assets/spineboy/spineboy.spinescene"
+  path: "/assets/spineboy/spineboy.spinescene"
 }

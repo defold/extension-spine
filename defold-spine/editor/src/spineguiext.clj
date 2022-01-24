@@ -13,6 +13,7 @@
 (ns editor.spineguiext
   (:require [schema.core :as s]
             [clojure.java.io :as io]
+            [clojure.string :as str]
             [editor.protobuf :as protobuf]
             [dynamo.graph :as g]
             [util.murmur :as murmur]
@@ -331,14 +332,22 @@
                 (g/connect spine-scenes-node :node-outline self :child-outlines)
                 (g/connect spine-scenes-node :add-handler-info self :handler-infos)
                 (attach-spine-scene self spine-scenes-node no-spine-scene true)
-                (let [prop-keys (g/declared-property-labels SpineSceneNode)]
+                (let [spine-scene-node-prop-keys (g/declared-property-labels SpineSceneNode)
+                      resource-node-prop-keys (g/declared-property-labels gui/ResourceNode)]
                   (for [spine-scene-desc (:spine-scenes scene)
-                        :let [spine-scene-desc (select-keys spine-scene-desc prop-keys)]]
+                        :let [spine-scene-desc (select-keys spine-scene-desc spine-scene-node-prop-keys)]]
                     (g/make-nodes graph-id [spine-scene [SpineSceneNode
                                                          :name (:name spine-scene-desc)
                                                          :spine-scene (workspace/resolve-resource resource (:spine-scene spine-scene-desc))]]
-                                  (attach-spine-scene self spine-scenes-node spine-scene)))))
-  )
+                                  (attach-spine-scene self spine-scenes-node spine-scene)))
+                  ;; spine-scene-ext
+                  (for [resources-desc (:resources scene)
+                        :let [resource-desc (select-keys resources-desc resource-node-prop-keys)]]
+                    (g/make-nodes graph-id [spine-scene [SpineSceneNode
+                                                         :name (:name resource-desc)
+                                                         :spine-scene (workspace/resolve-resource resource (:path resource-desc))]]
+                                  (when (str/ends-with? (:path resource-desc) spineext/spine-scene-ext)
+                                    (attach-spine-scene self spine-scenes-node spine-scene)))))))
 
       
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
