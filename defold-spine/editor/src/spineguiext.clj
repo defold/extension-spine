@@ -83,18 +83,19 @@
         _ (.transform m4d p)]
     [(.x p) (.y p) (.z p) u v r g b a]))
 
+(defn- produce-local-vertices [handle skin anim dt]
+  (let [_ (if (not (str/blank? skin)) (spineext/plugin-set-skin handle skin))
+        _ (if (not (str/blank? anim)) (spineext/plugin-set-animation handle anim))
+        _ (spineext/plugin-update-vertices handle dt)
+        vb-data (spineext/plugin-get-vertex-buffer-data handle) ; list of SpineVertex
+        vb-data-vec (spineext/transform-vertices-as-vec vb-data)] ; unpacked into lists of lists [[x y z u v r g b a]])
+    vb-data-vec))
+
 (defn- renderable->vertices [user-data renderable]
   (let [handle (spineext/renderable->handle renderable)
         world-transform (:world-transform renderable)
-        ; Set the correct state (skin, animation)
-        skin (:spine-skin user-data)
-        anim (:spine-default-animation user-data)
-        _ (if (not (str/blank? skin)) (spineext/plugin-set-skin handle skin))
-        _ (if (not (str/blank? anim)) (spineext/plugin-set-animation handle anim))
-        _ (spineext/plugin-update-vertices handle 0.0)
-        vb-data (spineext/plugin-get-vertex-buffer-data handle) ; list of SpineVertex
-        vb-data-vec (spineext/transform-vertices-as-vec vb-data) ; unpacked into lists of lists [[x y z u v r g b a]]
-        vb-data-transformed (map (fn [vtx] (transform-vtx world-transform vtx)) vb-data-vec)]
+        vertex-buffer (:spine-vertex-buffer user-data)
+        vb-data-transformed (map (fn [vtx] (transform-vtx world-transform vtx)) vertex-buffer)]
     vb-data-transformed))
 
 (defn- gen-vb [user-data renderables]
@@ -154,20 +155,21 @@
                                          (:spine-data-handle (or (spine-scene-infos spine-scene)
                                                               (spine-scene-infos "")))))
   
+  (output spine-vertex-buffer g/Any :cached (g/fnk [spine-scene spine-data-handle spine-skin spine-default-animation]
+                                                   (produce-local-vertices spine-data-handle spine-skin spine-default-animation 0.0)))
+  
   (output aabb g/Any (g/fnk [spine-scene-infos spine-scene spine-skin pivot]
                             (or (get-in spine-scene-infos [spine-scene :spine-skin-aabbs (if (= spine-skin "") "default" spine-skin)])
                                 geom/empty-bounding-box)))
 
   ; Overloaded outputs from VisualNode
   (output gpu-texture TextureLifecycle (g/constantly nil))
-  (output scene-renderable-user-data g/Any :cached (g/fnk [spine-scene-scene spine-skin spine-default-animation spine-data-handle color+alpha clipping-mode clipping-inverted clipping-visible]
+  (output scene-renderable-user-data g/Any :cached (g/fnk [spine-scene-scene spine-vertex-buffer color+alpha clipping-mode clipping-inverted clipping-visible]
                                                           (let [user-data (assoc (get-in spine-scene-scene [:renderable :user-data])
                                                                                  :color color+alpha
                                                                                  :renderable-tags #{:gui-spine}
-                                                                                 :spine-skin spine-skin
-                                                                                 :spine-default-animation spine-default-animation
                                                                                  :gen-vb gen-vb
-                                                                                 :spine-data-handle spine-data-handle)]
+                                                                                 :spine-vertex-buffer spine-vertex-buffer)]
                                                             (cond-> user-data
                                                               (not= :clipping-mode-none clipping-mode)
                                                               (assoc :clipping {:mode clipping-mode :inverted clipping-inverted :visible clipping-visible})))))

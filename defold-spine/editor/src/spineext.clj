@@ -12,6 +12,7 @@
 
 (ns editor.spineext
   (:require [clojure.java.io :as io]
+            [clojure.string :as str]
             [editor.protobuf :as protobuf]
             [dynamo.graph :as g]
             [util.murmur :as murmur]
@@ -591,8 +592,8 @@
   (let [spine-json-path (resource/resource->proj-path spine-json-resource)
         atlas-path (resource/resource->proj-path atlas-resource)
         spine-data-handle (plugin-load-file-from-buffer spine-json-content spine-json-path texture-set-pb atlas-path)
-        _ (if (not= default-animation nil) (plugin-set-animation spine-data-handle default-animation))
-        _ (if (not= skin nil) (plugin-set-skin spine-data-handle skin))
+        _ (if (not (str/blank? default-animation)) (plugin-set-animation spine-data-handle default-animation))
+        _ (if (not (str/blank? skin)) (plugin-set-skin spine-data-handle skin))
         _ (plugin-update-vertices spine-data-handle 0.0)]
     spine-data-handle))
 
