@@ -102,20 +102,20 @@
 (defn- plugin-get-aabb [handle]
   (plugin-invoke-static spine-plugin-cls "SPINE_GetAABB" (into-array Class [spine-plugin-pointer-cls]) [handle]))
 
-(defn- plugin-set-skin [handle ^String skin]
+(defn plugin-set-skin [handle ^String skin]
   (plugin-invoke-static spine-plugin-cls "SPINE_SetSkin" (into-array Class [spine-plugin-pointer-cls String]) [handle skin]))
 
-(defn- plugin-set-animation [handle ^String animation]
+(defn plugin-set-animation [handle ^String animation]
   (plugin-invoke-static spine-plugin-cls "SPINE_SetAnimation" (into-array Class [spine-plugin-pointer-cls String]) [handle animation]))
 
-(defn- plugin-update-vertices [handle dt]
+(defn plugin-update-vertices [handle dt]
   (plugin-invoke-static spine-plugin-cls "SPINE_UpdateVertices" (into-array Class [spine-plugin-pointer-cls Float/TYPE]) [handle (float dt)]))
 
 ;(defn- plugin-get-bones ^"[Lcom.dynamo.bob.pipeline.Spine$Bone;" [handle]
-(defn- plugin-get-bones [handle]
+(defn plugin-get-bones [handle]
   (plugin-invoke-static spine-plugin-cls "SPINE_GetBones" (into-array Class [spine-plugin-pointer-cls]) [handle]))
 
-(defn- plugin-get-skins [handle]
+(defn plugin-get-skins [handle]
   (plugin-invoke-static spine-plugin-cls "SPINE_GetSkins" (into-array Class [spine-plugin-pointer-cls]) [handle]))
 
 ;(defn- plugin-get-vertex-buffer-data ^"[Lcom.dynamo.bob.pipeline.Spine$RiveVertex;" [handle]

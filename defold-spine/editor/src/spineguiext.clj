@@ -37,7 +37,8 @@
             [editor.gui :as gui]
             [editor.spineext :as spineext])
   (:import [com.dynamo.gamesys.proto Gui$NodeDesc$ClippingMode]
-           [editor.gl.texture TextureLifecycle]))
+           [editor.gl.texture TextureLifecycle]
+           [javax.vecmath Matrix4d Point3d]))
 
 
 (set! *warn-on-reflection* true)
@@ -75,14 +76,29 @@
   (when-not (g/error? (validate-spine-scene node-id spine-scene-names spine-scene))
     (spineext/validate-skin node-id :spine-skin spine-skin-ids spine-skin)))
 
-(defn- renderable->vertices [renderable]
+(defn- transform-vtx [^Matrix4d m4d vtx]
+  (let [p (Point3d.)
+        [x y z u v r g b a] vtx
+        _ (.set p x y z)
+        _ (.transform m4d p)]
+    [(.x p) (.y p) (.z p) u v r g b a]))
+
+(defn- renderable->vertices [user-data renderable]
   (let [handle (spineext/renderable->handle renderable)
-        vb-data (spineext/plugin-get-vertex-buffer-data handle)
-        vb-data-transformed (spineext/transform-vertices-as-vec vb-data)]
+        world-transform (:world-transform renderable)
+        ; Set the correct state (skin, animation)
+        skin (:spine-skin user-data)
+        anim (:spine-default-animation user-data)
+        _ (if (not (str/blank? skin)) (spineext/plugin-set-skin handle skin))
+        _ (if (not (str/blank? anim)) (spineext/plugin-set-animation handle anim))
+        _ (spineext/plugin-update-vertices handle 0.0)
+        vb-data (spineext/plugin-get-vertex-buffer-data handle) ; list of SpineVertex
+        vb-data-vec (spineext/transform-vertices-as-vec vb-data) ; unpacked into lists of lists [[x y z u v r g b a]]
+        vb-data-transformed (map (fn [vtx] (transform-vtx world-transform vtx)) vb-data-vec)]
     vb-data-transformed))
 
-(defn- gen-vb [renderables]
-  (let [vertices (mapcat renderable->vertices renderables)
+(defn- gen-vb [user-data renderables]
+  (let [vertices (mapcat (fn [renderable] (renderable->vertices user-data renderable)) renderables)
         vb-out (spineext/generate-vertex-buffer vertices)]
     vb-out))
 
@@ -144,11 +160,12 @@
 
   ; Overloaded outputs from VisualNode
   (output gpu-texture TextureLifecycle (g/constantly nil))
-  (output scene-renderable-user-data g/Any :cached (g/fnk [spine-scene-scene spine-skin spine-data-handle color+alpha clipping-mode clipping-inverted clipping-visible]
+  (output scene-renderable-user-data g/Any :cached (g/fnk [spine-scene-scene spine-skin spine-default-animation spine-data-handle color+alpha clipping-mode clipping-inverted clipping-visible]
                                                           (let [user-data (assoc (get-in spine-scene-scene [:renderable :user-data])
                                                                                  :color color+alpha
                                                                                  :renderable-tags #{:gui-spine}
-                                                                                 :skin spine-skin
+                                                                                 :spine-skin spine-skin
+                                                                                 :spine-default-animation spine-default-animation
                                                                                  :gen-vb gen-vb
                                                                                  :spine-data-handle spine-data-handle)]
                                                             (cond-> user-data
