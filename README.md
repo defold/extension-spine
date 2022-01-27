@@ -51,7 +51,9 @@ Happy Defolding!
 ### GUI
 
 * [ ] - Create bone nodes
-* [ ] - Script: on_message callback if no callback function was used
 * [ ] - Script: Get bone node
-* [ ] - Script: Set spine scene
-* [ ] - Script: Get spine scene
+* [ ] - Script: on_message callback if no callback function was used
+
+## MVP3
+
+* [ ] - Truly generic custom properties

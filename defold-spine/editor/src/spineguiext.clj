@@ -84,12 +84,14 @@
     [(.x p) (.y p) (.z p) u v r g b a]))
 
 (defn- produce-local-vertices [handle skin anim dt]
-  (let [_ (if (not (str/blank? skin)) (spineext/plugin-set-skin handle skin))
-        _ (if (not (str/blank? anim)) (spineext/plugin-set-animation handle anim))
-        _ (spineext/plugin-update-vertices handle dt)
-        vb-data (spineext/plugin-get-vertex-buffer-data handle) ; list of SpineVertex
-        vb-data-vec (spineext/transform-vertices-as-vec vb-data)] ; unpacked into lists of lists [[x y z u v r g b a]])
-    vb-data-vec))
+  (if (not= handle nil)
+    (let [_ (if (not (str/blank? skin)) (spineext/plugin-set-skin handle skin))
+          _ (if (not (str/blank? anim)) (spineext/plugin-set-animation handle anim))
+          _ (spineext/plugin-update-vertices handle dt)
+          vb-data (spineext/plugin-get-vertex-buffer-data handle) ; list of SpineVertex
+          vb-data-vec (spineext/transform-vertices-as-vec vb-data)] ; unpacked into lists of lists [[x y z u v r g b a]])
+      vb-data-vec)
+    []))
 
 (defn- renderable->vertices [user-data renderable]
   (let [handle (spineext/renderable->handle renderable)
@@ -148,8 +150,10 @@
                                                            (spine-scene-infos "")))))
 
   (output spine-scene-pb g/Any (g/fnk [spine-scene-infos spine-scene]
-                                      (:spine-scene-pb (or (spine-scene-infos spine-scene)
-                                                           (spine-scene-infos "")))))
+                                      (let [pb (:spine-scene-pb (or (spine-scene-infos spine-scene)
+                                                                    (spine-scene-infos "")))
+                                            _ (prn "MAWE spine-scene-pb" pb)]
+                                        pb)))
   ;; The handle to the C++ resource
   (output spine-data-handle g/Any (g/fnk [spine-scene-infos spine-scene]
                                          (:spine-data-handle (or (spine-scene-infos spine-scene)
@@ -368,16 +372,30 @@
       
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
-(defn register-gui-resource-types! [workspace]
+(defn- fixup-spine-node [node-type-info node-desc]
+  (let [node-type (:type node-desc)
+        patch (if (= node-type :type-spine)
+                {:type (:output-node-type node-type-info)
+                 :custom-type (:output-custom-type node-type-info)}
+                {})
+        constants {:size [1.0 1.0 0.0 1.0]
+                   :size-mode :size-mode-auto}
+        out (merge node-desc patch constants)]
+    out))
+
+    
+(defn- register-gui-resource-types! [workspace]
   (gui/register-gui-scene-loader! load-gui-scene-spine)
   (let [info {:node-type :type-custom
               :node-cls SpineNode
               :display-name "Spine"
-              :output-type :type-custom
               :custom-type (murmur/hash32 "Spine")
-              :icon spineext/spine-scene-icon}
+              :icon spineext/spine-scene-icon
+              :convert-fn fixup-spine-node}
         info-depr (merge info {:node-type :type-spine
                                :custom-type 0
+                               :output-node-type (:node-type info)
+                               :output-custom-type (:custom-type info)
                                :deprecated true})]
     (gui/register-node-type-info! info)
     ; Register :type-spine with custom type 0 in order to be able to read old files

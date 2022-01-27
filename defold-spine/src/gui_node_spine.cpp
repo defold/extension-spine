@@ -498,42 +498,26 @@ static void* GuiClone(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameS
     return dst;
 }
 
-
-
-static void GuiSetProperty(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameSystem::CustomNodeCtx* nodectx, dmhash_t name_hash, const dmGuiDDF::PropertyVariant* variant)
+static void GuiSetNodeDesc(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameSystem::CustomNodeCtx* nodectx, const dmGuiDDF::NodeDesc* node_desc)
 {
-    dmLogWarning("MAWE %s %d %016llX %s  type: %d",  __FUNCTION__, __LINE__, name_hash, dmHashReverseSafe64(name_hash), variant->m_Type);
+    InternalGuiNode* node = (InternalGuiNode*)(nodectx->m_NodeData);
 
-    if (variant->m_Type != dmGuiDDF::PROPERTY_TYPE_STRING)
-    {
-        dmLogError("Property is not of string type");
+    dmhash_t name_hash = dmHashString64(node_desc->m_SpineScene);
+    SpineSceneResource* resource = (SpineSceneResource*)dmGui::GetResource(nodectx->m_Scene, name_hash, SPINE_SCENE_SUFFIX);
+    if (!resource) {
+        dmLogError("Failed to get resource: %s", node_desc->m_SpineScene);
         return;
     }
+    SetupNode(name_hash, resource, node);
 
-    InternalGuiNode* node = (InternalGuiNode*)(nodectx->m_NodeData);
-    if (SPINE_SCENE == name_hash)
-    {
-        dmhash_t name_hash = dmHashString64(variant->m_VString);
-        SpineSceneResource* resource = (SpineSceneResource*)dmGui::GetResource(nodectx->m_Scene, name_hash, SPINE_SCENE_SUFFIX);
-        SetupNode(name_hash, resource, node);
-    }
-    else if (SPINE_DEFAULT_ANIMATION == name_hash)
-    {
-        node->m_AnimationId = dmHashString64(variant->m_VString);
-    }
-    else if (SPINE_SKIN == name_hash)
-    {
-        if (node->m_SkeletonInstance)
-        {
-            dmhash_t skin_id = dmHashString64(variant->m_VString);
-            SetSkin(node->m_GuiScene, node->m_GuiNode, skin_id);
-        }
+    dmhash_t skin_id = dmHashString64(node_desc->m_SpineSkin);
+    if (skin_id) {
+        SetSkin(node->m_GuiScene, node->m_GuiNode, skin_id);
     }
 
-// this state management is a bit awkward. Do we need a a "post create" function?
-    if (node->m_AnimationId != 0 && node->m_AnimationStateInstance != 0)
-    {
 // TODO: Q: Is the default playmode specified anywhere?
+    node->m_AnimationId = dmHashString64(node_desc->m_SpineDefaultAnimation);
+    if (node->m_AnimationId) {
         PlayAnimation(node, node->m_AnimationId, dmGui::PLAYBACK_LOOP_FORWARD, 0.0f, 0.0f, 1.0f, 0);
     }
 }
@@ -574,13 +558,12 @@ static dmGameObject::Result GuiNodeTypeSpineCreate(const dmGameSystem::CompGuiNo
     GuiNodeTypeContext* type_context = new GuiNodeTypeContext;
     dmGameSystem::CompGuiNodeTypeSetContext(type, type_context);
 
-
     dmGameSystem::CompGuiNodeTypeSetCreateFn(type, GuiCreate);
     dmGameSystem::CompGuiNodeTypeSetDestroyFn(type, GuiDestroy);
     dmGameSystem::CompGuiNodeTypeSetCloneFn(type, GuiClone);
     dmGameSystem::CompGuiNodeTypeSetUpdateFn(type, GuiUpdate);
     dmGameSystem::CompGuiNodeTypeSetGetVerticesFn(type, GuiGetVertices);
-    dmGameSystem::CompGuiNodeTypeSetSetPropertyFn(type, GuiSetProperty);
+    dmGameSystem::CompGuiNodeTypeSetNodeDescFn(type, GuiSetNodeDesc);
 
     lua_State* L = dmGameSystem::GetLuaState(ctx);
     ScriptSpineGuiRegister(L);
@@ -590,7 +573,6 @@ static dmGameObject::Result GuiNodeTypeSpineCreate(const dmGameSystem::CompGuiNo
 
 static dmGameObject::Result GuiNodeTypeSpineDestroy(const dmGameSystem::CompGuiNodeTypeCtx* ctx, dmGameSystem::CompGuiNodeType* type)
 {
-    dmLogWarning("MAWE: %s", __FUNCTION__);
     GuiNodeTypeContext* type_context = (GuiNodeTypeContext*)dmGameSystem::CompGuiNodeTypeGetContext(type);
     delete type_context;
     return dmGameObject::RESULT_OK;
