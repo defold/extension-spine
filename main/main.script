@@ -77,9 +77,19 @@ function init(self)
 
 	--spine.set_skin(self.url, "not_exist")
 
-
 	self.bone = bone
 
+	-- multi-track
+	spine.play_anim(self.url, "shoot", go.PLAYBACK_ONCE_FORWARD, { track = 2 })
+	print("2nd track animation", go.get(self.url, "animation", { index = 2 }))
+	print("2nd track playback rate", go.get(self.url, "playback_rate", { index = 2 }))
+	print("2nd track cursor", go.get(self.url, "cursor", { index = 2 }))
+
+	go.set(self.url, "playback_rate", 0.05, { index = 2 })
+	go.set(self.url, "cursor", 0.2, { index = 2 })
+
+	print("2nd track cursor", go.get(self.url, "cursor", { index = 2 }))
+	print("2nd track playback rate", go.get(self.url, "playback_rate", { index = 2 }))
 end
 
 function final(self)
@@ -102,11 +112,13 @@ end
 function on_input(self, action_id, action)
 	if action_id == hash("touch") and action.pressed then
 		if self.is_playing then
-			spine.cancel(self.url)
+			spine.cancel(self.url, { track = 1 })
 			self.is_playing = false
 		else
 			play_animation(self)
 		end
+	elseif action_id == hash("mouse_button_2") and action.pressed then
+		spine.play_anim(self.url, "shoot", go.PLAYBACK_ONCE_FORWARD, { track = 2 })
 	end
 	-- Add input-handling code here. The game object this script is attached to
 	-- must have acquired input focus:

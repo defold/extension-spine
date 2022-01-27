@@ -18,6 +18,12 @@
 
 #include <dmsdk/sdk.h>
 
+// Not in dmSDK yet
+namespace dmScript
+{
+    bool GetURL(lua_State* L, dmMessage::URL* out_url);
+}
+
 namespace dmSpine
 {
     using namespace dmVMath;
@@ -39,6 +45,10 @@ namespace dmSpine
      *
      * The normalized animation cursor. The type of the property is number.
      *
+     * If you intend to manually animate the cursor with go.animate(),
+     * you should set the playback_rate of the animation to 0 so that the cursor
+     * won't "run away" as you're trying to animate it.
+     *
      * [icon:attention] Please note that spine events may not fire as expected when the cursor is manipulated directly.
      *
      * @name cursor
@@ -52,6 +62,10 @@ namespace dmSpine
      * function init(self)
      *   -- Get the cursor value on component "spine"
      *   cursor = go.get("#spine", "cursor")
+     *   -- Get the cursor value for the second animation track
+     *   cursor = go.get("#spine", "cursor", { index = 2 })
+     *   -- Set the cursor value for the second animation track
+     *   go.set("#spine", "cursor", 0.0, { index = 2 })
      * end
      * ```
      *
@@ -59,7 +73,7 @@ namespace dmSpine
      *
      * ```lua
      * function init(self)
-     *   -- Get the current value on component "spine"
+     *   -- Set the cursor value on component "spine"
      *   go.set("#spine", "cursor", 0.0)
      *   -- Animate the cursor value
      *   go.animate("#spine", "cursor", go.PLAYBACK_LOOP_FORWARD, 1.0, go.EASING_LINEAR, 2)
@@ -86,6 +100,11 @@ namespace dmSpine
      *   playback_rate = go.get("#spine", "playback_rate")
      *   -- Set the playback_rate to double the previous value.
      *   go.set("#spine", "playback_rate", playback_rate * 2)
+     *
+     *   -- Get the playback_rate on the second animation track.
+     *   playback_rate = go.get("#spine", "playback_rate", { index = 2 })
+     *   -- Set the playback_rate to double the previous value.
+     *   go.set("#spine", "playback_rate", playback_rate * 2, { index = 2 })
      * end
      * ```
      */
@@ -106,6 +125,8 @@ namespace dmSpine
      * function init(self)
      *   -- Get the current animation on component "spinemodel"
      *   local animation = go.get("#spinemodel", "animation")
+     *   -- Get the current animation on the second animation track
+     *   local animation = go.get("#spinemodel", "animation", { index = 2 })
      * end
      * ```
      */
@@ -192,24 +213,26 @@ namespace dmSpine
      * `playback_rate`
      * : [type:number] the rate with which the animation will be played. Must be positive.
      *
-     * @param [complete_function] [type:function(self, message_id, message, sender))] function to call when the animation has completed.
+     * @param [callback_function] [type:function(self, message_id, message, sender))] function to call when the animation has completed or a Spine event occured.
      *
      * `self`
      * : [type:object] The current object.
      *
      * `message_id`
-     * : [type:hash] The name of the completion message, `"spine_animation_done"` or `"spine_event"`.
+     * : [type:hash] The name of the message, `"spine_animation_done"` or `"spine_event"`.
      *
      * `message`
      * : [type:table] Information for spine_animation_done:
      *
      * - [type:hash] `animation_id` - the animation that was completed.
      * - [type:constant] `playback` - the playback mode for the animation.
+     * - [type:int] `track` - the index of the track that finished animating.
      *
      * : [type:table] Information for spine_event:
      *
      * - [type:hash]  `animation_id` - the animation that triggered the event.
      * - [type:hash]  `event_id`     - the event that was triggered.
+     * - [type:int]   `track`        - the index of the track that issued the event.
      * - [type:float] `t`            - the time at which the event occurred (seconds)
      * - [type:int]   `integer`      - a custom integer associated with the event (0 by default).
      * - [type:float] `float`        - a custom float associated with the event (0 by default)
@@ -256,6 +279,7 @@ namespace dmSpine
 
         dmhash_t anim_id = dmScript::CheckHashOrString(L, 2);
         lua_Integer playback = luaL_checkinteger(L, 3);
+        lua_Integer track = 1;
         lua_Number blend_duration = 0.0, offset = 0.0, playback_rate = 1.0;
 
         if (top > 3) // table with args
@@ -273,6 +297,10 @@ namespace dmSpine
 
             lua_getfield(L, -1, "playback_rate");
             playback_rate = lua_isnil(L, -1) ? 1.0 : luaL_checknumber(L, -1);
+            lua_pop(L, 1);
+
+            lua_getfield(L, -1, "track");
+            track = lua_isnil(L, -1) ? 1 : luaL_checkinteger(L, -1);
             lua_pop(L, 1);
 
             lua_pop(L, 1);
@@ -295,9 +323,11 @@ namespace dmSpine
         msg.m_BlendDuration = blend_duration;
         msg.m_Offset = offset;
         msg.m_PlaybackRate = playback_rate;
+        msg.m_Track = track;
 
-        dmMessage::URL sender; // defaults to 0, which will resolve to this script instance, which is the context of the function callback
-        if (!CompSpineModelPlayAnimation(component, &msg, &sender, functionref))
+        dmMessage::URL sender;
+        dmScript::GetURL(L, &sender);
+        if (!CompSpineModelPlayAnimation(component, &msg, &sender, functionref, L))
         {
             char buffer[128];
             return DM_LUA_ERROR("Failed to run animation '%s' on component '%s'", lua_tostring(L, 2), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
@@ -311,6 +341,11 @@ namespace dmSpine
      *
      * @name spine.cancel
      * @param url [type:string|hash|url] the spine model for which to cancel the animation
+     * @param [cancel_properties] [type:table] optional table with properties:
+     *
+     * `track`
+     * : [type:number] track to cancel animation on. cancels animations on all tracks by default.
+     *
      * @examples
      *
      * The following examples assumes that the spine model has id "spinemodel".
@@ -322,16 +357,41 @@ namespace dmSpine
      *   spine.cancel("#spinemodel")
      * end
      * ```
+     *
+     * How to cancel animation on track 2 only:
+     *
+     * ```lua
+     * function init(self)
+     *   spine.cancel("#spinemodel", { track = 2 })
+     * end
+     * ```
+     *
      */
     static int SpineComp_Cancel(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 0);
+        int top = lua_gettop(L);
 
         SpineModelComponent* component = 0;
         dmMessage::URL receiver;
         dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
 
-        dmGameSystemDDF::SpineCancelAnimation msg; // currently empty but we'll keep it for later use if we wich to pass special options
+        lua_Integer track = dmSpine::ALL_TRACKS;
+        if (top > 1) // Options table
+        {
+            luaL_checktype(L, 2, LUA_TTABLE);
+            lua_pushvalue(L, 2);
+
+            lua_getfield(L, -1, "track");
+            track = lua_isnil(L, -1) ? dmSpine::ALL_TRACKS : luaL_checkinteger(L, -1);
+            lua_pop(L, 1);
+
+            lua_pop(L, 1);
+        }
+
+        dmGameSystemDDF::SpineCancelAnimation msg;
+        msg.m_Track = track;
+
         if (!CompSpineModelCancelAnimation(component, &msg))
         {
             char buffer[128];
