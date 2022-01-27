@@ -224,16 +224,11 @@
 
 (defn generate-vertex-buffer [verts]
   ; verts should be in the format [[x y z u v r g b a] [x y z...] ...]
-  ;(prn "MAWE generate-vertex-buffer" verts)
   (let [vcount (count verts)]
     (when (> vcount 0)
       (let [vb (->vtx-pos-tex-col vcount)
             vb-out (persistent! (reduce conj! vb verts))]
         vb-out))))
-    ;; (when (= vcount 0)
-    ;;   (prn "MAWE vb-out length" 0)
-    ;;   (persistent! (->vtx-pos-tex-col 0)))
-    
 
 (set! *warn-on-reflection* false)
 

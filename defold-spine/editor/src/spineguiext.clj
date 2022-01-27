@@ -150,10 +150,9 @@
                                                            (spine-scene-infos "")))))
 
   (output spine-scene-pb g/Any (g/fnk [spine-scene-infos spine-scene]
-                                      (let [pb (:spine-scene-pb (or (spine-scene-infos spine-scene)
-                                                                    (spine-scene-infos "")))
-                                            _ (prn "MAWE spine-scene-pb" pb)]
-                                        pb)))
+                                      (:spine-scene-pb (or (spine-scene-infos spine-scene)
+                                                           (spine-scene-infos "")))))
+  
   ;; The handle to the C++ resource
   (output spine-data-handle g/Any (g/fnk [spine-scene-infos spine-scene]
                                          (:spine-data-handle (or (spine-scene-infos spine-scene)
