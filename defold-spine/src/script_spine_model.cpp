@@ -560,16 +560,14 @@ namespace dmSpine
     {
         DM_LUA_STACK_CHECK(L, 0);
 
-        dmMessage::URL target_url;
         SpineModelComponent* component = 0;
-        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &target_url);
+        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, 0);
 
         dmhash_t ik_constraint_id = dmScript::CheckHashOrString(L, 2);
 
-        // dmMessage::URL sender;
-        // dmScript::GetURL(L, &sender);
-        // dmMessage::URL target;
-        // dmScript::ResolveURL(L, 3, &target, &sender);
+        dmMessage::URL sender;
+        dmMessage::URL target;
+        dmScript::ResolveURL(L, 3, &target, &sender);
         // if (target.m_Socket != dmGameObject::GetMessageSocket(collection))
         // {
         //     return luaL_error(L, "spine.set_ik_target can only use instances within the same collection.");
@@ -578,7 +576,7 @@ namespace dmSpine
         // if (target_instance == 0)
         //     return luaL_error(L, "Could not find any instance with id '%s'.", dmHashReverseSafe64(target.m_Path));
 
-        if (!CompSpineModelSetIKTargetInstance(component, ik_constraint_id, 1.0f, target_url.m_Path))
+        if (!CompSpineModelSetIKTargetInstance(component, ik_constraint_id, 1.0f, target.m_Path))
         {
             char str[128];
             return DM_LUA_ERROR("the IK constraint target '%s' could not be found", dmScript::GetStringFromHashOrString(L, 2, str, sizeof(str)));
