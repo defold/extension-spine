@@ -1105,10 +1105,8 @@ namespace dmSpine
         // }
     }
 
-    static dmGameObject::Result ComponentType_Create(const dmGameObject::ComponentTypeCreateCtx* ctx, dmGameObject::ComponentType* type)
+    static dmGameObject::Result CompTypeSpineModelCreate(const dmGameObject::ComponentTypeCreateCtx* ctx, dmGameObject::ComponentType* type)
     {
-        dmLogWarning("MAWE %s", __FUNCTION__);
-
         SpineModelContext* spinemodelctx = new SpineModelContext;
         spinemodelctx->m_Factory = ctx->m_Factory;
         spinemodelctx->m_GraphicsContext = *(dmGraphics::HContext*)ctx->m_Contexts.Get(dmHashString64("graphics"));
@@ -1116,6 +1114,11 @@ namespace dmSpine
 
         int32_t max_rig_instance = dmConfigFile::GetInt(ctx->m_Config, "rig.max_instance_count", 128);
         spinemodelctx->m_MaxSpineModelCount = dmMath::Max(dmConfigFile::GetInt(ctx->m_Config, "spine.max_count", 128), max_rig_instance);
+
+        // Spine system setup
+        spBone_setYDown(0); // so we'll only call it once
+
+        // Component type setup
 
         // Ideally, we'd like to move this priority a lot earlier
         // We sould be able to avoid doing UpdateTransforms again in the Render() function
@@ -1144,8 +1147,13 @@ namespace dmSpine
             // ComponentTypeSetPropertyIteratorFn(type, CompSpineModelIterProperties);
         ComponentTypeSetGetFn(type, CompSpineModelGetComponent);
 
-        spBone_setYDown(0); // so we'll only call it once
+        return dmGameObject::RESULT_OK;
+    }
 
+    static dmGameObject::Result CompTypeSpineModelDestroy(const dmGameObject::ComponentTypeCreateCtx* ctx, dmGameObject::ComponentType* type)
+    {
+        SpineModelContext* spinemodelctx = (SpineModelContext*)ComponentTypeGetContext(type);
+        delete spinemodelctx;
         return dmGameObject::RESULT_OK;
     }
 
@@ -1300,4 +1308,4 @@ namespace dmSpine
     }
 }
 
-DM_DECLARE_COMPONENT_TYPE(ComponentTypeSpineModelExt, "spinemodelc", dmSpine::ComponentType_Create, dmSpine::ComponentType_Destroy);
+DM_DECLARE_COMPONENT_TYPE(ComponentTypeSpineModelExt, "spinemodelc", dmSpine::CompTypeSpineModelCreate, dmSpine::CompTypeSpineModelDestroy);
