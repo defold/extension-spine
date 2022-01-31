@@ -103,6 +103,17 @@ namespace dmSpine
             }
         }
 
+        {
+            uint32_t count = resource->m_Skeleton->ikConstraintsCount;
+            resource->m_IKNameToIndex.SetCapacity(dmMath::Max(1U, count/3), count);
+            for (int n = 0; n < count; ++n)
+            {
+                dmhash_t name_hash = dmHashString64(resource->m_Skeleton->ikConstraints[n]->name);
+                resource->m_IKNameToIndex.Put(name_hash, n);
+                DEBUGLOG("ik: %d %s", n, resource->m_Skeleton->ikConstraints[n]->name);
+            }
+        }
+
         return dmResource::RESULT_OK;
     }
 

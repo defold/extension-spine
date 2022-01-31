@@ -622,6 +622,32 @@ namespace dmSpine
         return dmGameObject::CREATE_RESULT_OK;
     }
 
+    static void ApplyIKTargets(SpineModelComponent* component)
+    {
+        uint32_t count = component->m_IKTargetPositions.Size();
+        for (uint32_t i = 0; i < count; ++i)
+        {
+            const IKTarget& target = component->m_IKTargetPositions[i];
+            dmVMath::Vector3 model_pos = (dmVMath::Vector3)dmTransform::Apply(dmTransform::Inv(dmTransform::Mul(dmGameObject::GetWorldTransform(component->m_Instance), component->m_Transform)), target.m_Position);
+
+            target.m_Constraint->target->x = model_pos.getX();
+            target.m_Constraint->target->y = model_pos.getY();
+        }
+        component->m_IKTargetPositions.SetSize(0);
+
+        count = component->m_IKTargets.Size();
+        for (uint32_t i = 0; i < count; ++i)
+        {
+            const IKTarget& target = component->m_IKTargets[i];
+
+            dmVMath::Vector3 model_pos = (dmVMath::Vector3)dmTransform::Apply(dmTransform::Inv(dmTransform::Mul(dmGameObject::GetWorldTransform(component->m_Instance), component->m_Transform)),
+                                                                              dmGameObject::GetWorldPosition(target.m_Target));
+
+            target.m_Constraint->target->x = model_pos.getX();
+            target.m_Constraint->target->y = model_pos.getY();
+        }
+    }
+
     dmGameObject::UpdateResult CompSpineModelUpdate(const dmGameObject::ComponentsUpdateParams& params, dmGameObject::ComponentsUpdateResult& update_result)
     {
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
@@ -657,10 +683,15 @@ namespace dmSpine
 
             ++num_active;
 
+            // docs: http://esotericsoftware.com/spine-runtime-skeletons
             spAnimationState_update(component.m_AnimationStateInstance, dt);
             spAnimationState_apply(component.m_AnimationStateInstance, component.m_SkeletonInstance);
+
+            ApplyIKTargets(&component);
+
             spSkeleton_updateWorldTransform(component.m_SkeletonInstance);
 
+            // Update the game world objects
             UpdateBones(&component);
 
             if (component.m_ReHash || (component.m_RenderConstants && dmGameSystem::AreRenderConstantsUpdated(component.m_RenderConstants)))
@@ -1129,55 +1160,72 @@ namespace dmSpine
     // SCRIPTING HELPER FUNCTIONS
     // ******************************************************************************
 
-    static Vector3 UpdateIKInstanceCallback(dmRig::IKTarget* ik_target)
-    {
-        SpineModelComponent* component = (SpineModelComponent*)ik_target->m_UserPtr;
-        dmhash_t target_instance_id = ik_target->m_UserHash;
-        dmGameObject::HInstance target_instance = dmGameObject::GetInstanceFromIdentifier(dmGameObject::GetCollection(component->m_Instance), target_instance_id);
-        if(target_instance == 0x0)
-        {
-            // instance have been removed, disable animation
-            dmLogError("Could not get IK position for target %s, removed?", dmHashReverseSafe64(target_instance_id))
-            ik_target->m_Callback = 0x0;
-            ik_target->m_Mix = 0x0;
-            return Vector3(0.0f);
-        }
-        return (Vector3)dmTransform::Apply(dmTransform::Inv(dmTransform::Mul(dmGameObject::GetWorldTransform(component->m_Instance), component->m_Transform)), dmGameObject::GetWorldPosition(target_instance));
-    }
-
-    static Vector3 UpdateIKPositionCallback(dmRig::IKTarget* ik_target)
-    {
-        SpineModelComponent* component = (SpineModelComponent*)ik_target->m_UserPtr;
-        return (Vector3)dmTransform::Apply(dmTransform::Inv(dmTransform::Mul(dmGameObject::GetWorldTransform(component->m_Instance), component->m_Transform)), (Point3)ik_target->m_Position);
-    }
-
     bool CompSpineModelSetIKTargetInstance(SpineModelComponent* component, dmhash_t constraint_id, float mix, dmhash_t instance_id)
     {
-        return false;
-        // dmRig::IKTarget* target = dmRig::GetIKTarget(component->m_RigInstance, constraint_id);
-        // if (!target) {
-        //     return false;
-        // }
+        SpineModelResource* spine_model = component->m_Resource;
+        SpineSceneResource* spine_scene = spine_model->m_SpineScene;
 
-        // target->m_Callback = UpdateIKInstanceCallback;
-        // target->m_Mix = mix;
-        // target->m_UserPtr = component;
-        // target->m_UserHash = instance_id;
-        // return true;
+        if (instance_id == 0)
+        {
+            // Remove the constraint
+            for (uint32_t i = 0; i < component->m_IKTargets.Size(); ++i)
+            {
+                if (constraint_id == component->m_IKTargets[i].m_ConstraintHash)
+                {
+                    component->m_IKTargets.EraseSwap(i);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+
+        uint32_t* index = spine_scene->m_IKNameToIndex.Get(constraint_id);
+        if (!index)
+            return false;
+        if (*index > component->m_SkeletonInstance->ikConstraintsCount)
+            return false;
+
+        if (component->m_IKTargets.Full())
+            component->m_IKTargets.OffsetCapacity(2);
+
+        // Convert game world space to model space
+        spIkConstraint* constraint = component->m_SkeletonInstance->ikConstraints[*index];
+
+        IKTarget target;
+        target.m_ConstraintHash = constraint_id; // for removing a constraint from this list
+        target.m_Constraint = component->m_SkeletonInstance->ikConstraints[*index];
+        target.m_Position = dmVMath::Point3(0,0,0); // unused
+        target.m_Target = dmGameObject::GetInstanceFromIdentifier(dmGameObject::GetCollection(component->m_Instance), instance_id);
+        component->m_IKTargets.Push(target);
+
+        return true;
     }
 
     bool CompSpineModelSetIKTargetPosition(SpineModelComponent* component, dmhash_t constraint_id, float mix, Point3 position)
     {
-        return false;
-        // dmRig::IKTarget* target = dmRig::GetIKTarget(component->m_RigInstance, constraint_id);
-        // if (!target) {
-        //     return false;
-        // }
-        // target->m_Callback = UpdateIKPositionCallback;
-        // target->m_Mix = mix;
-        // target->m_UserPtr = component;
-        // target->m_Position = (Vector3)position;
-        // return true;
+        SpineModelResource* spine_model = component->m_Resource;
+        SpineSceneResource* spine_scene = spine_model->m_SpineScene;
+        uint32_t* index = spine_scene->m_IKNameToIndex.Get(constraint_id);
+        if (!index)
+            return false;
+        if (*index > component->m_SkeletonInstance->ikConstraintsCount)
+            return false;
+
+        if (component->m_IKTargetPositions.Full())
+            component->m_IKTargetPositions.OffsetCapacity(2);
+
+        // Convert game world space to model space
+        spIkConstraint* constraint = component->m_SkeletonInstance->ikConstraints[*index];
+
+        IKTarget target;
+        target.m_ConstraintHash = constraint_id; // for debugging
+        target.m_Constraint = component->m_SkeletonInstance->ikConstraints[*index];
+        target.m_Position = position;
+        target.m_Target = 0;
+        component->m_IKTargetPositions.Push(target);
+
+        return true;
     }
 
     bool CompSpineModelResetIKTarget(SpineModelComponent* component, dmhash_t constraint_id)

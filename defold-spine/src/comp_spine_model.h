@@ -30,6 +30,7 @@ struct spAnimationState;
 struct spBone;
 struct spSkeleton;
 struct spTrackEntry;
+struct spIkConstraint;
 struct lua_State;
 
 namespace dmSpine
@@ -43,6 +44,14 @@ namespace dmSpine
         dmMessage::URL                          m_Listener;
         lua_State*                              m_Context;
         int                                     m_AnimationCallbackRef;
+    };
+
+    struct IKTarget
+    {
+        dmhash_t                                m_ConstraintHash;
+        spIkConstraint*                         m_Constraint;
+        dmGameObject::HInstance                 m_Target;
+        dmVMath::Point3                         m_Position;
     };
 
     struct SpineModelComponent
@@ -60,6 +69,9 @@ namespace dmSpine
         dmArray<dmGameObject::HInstance>        m_BoneInstances;
         dmArray<spBone*>                        m_Bones;                        // We shouldn't really have to have a duplicate array of these
         dmHashTable64<uint32_t>                 m_BoneNameToNodeInstanceIndex;  // should really be in the spine_scene
+
+        dmArray<dmSpine::IKTarget>              m_IKTargets;
+        dmArray<dmSpine::IKTarget>              m_IKTargetPositions;
         uint32_t                                m_MixedHash;
         uint16_t                                m_ComponentIndex;
         uint8_t                                 m_Enabled : 1;

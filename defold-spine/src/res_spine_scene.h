@@ -33,6 +33,7 @@ namespace dmSpine
         dmHashTable64<uint32_t>             m_AnimationNameToIndex;
         dmHashTable64<uint32_t>             m_SkinNameToIndex;
         dmHashTable64<uint32_t>             m_SlotNameToIndex;
+        dmHashTable64<uint32_t>             m_IKNameToIndex;
         dmHashTable64<const char*>          m_AttachmentHashToName; // makes it easy for us to do a reverse hash for attachments
     };
 }
