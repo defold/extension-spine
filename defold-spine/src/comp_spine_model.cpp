@@ -1170,23 +1170,13 @@ namespace dmSpine
 
     bool CompSpineModelSetIKTargetInstance(SpineModelComponent* component, dmhash_t constraint_id, float mix, dmhash_t instance_id)
     {
-        SpineModelResource* spine_model = component->m_Resource;
-        SpineSceneResource* spine_scene = spine_model->m_SpineScene;
-
         if (instance_id == 0)
         {
-            // Remove the constraint
-            for (uint32_t i = 0; i < component->m_IKTargets.Size(); ++i)
-            {
-                if (constraint_id == component->m_IKTargets[i].m_ConstraintHash)
-                {
-                    component->m_IKTargets.EraseSwap(i);
-                    return true;
-                }
-            }
-            return false;
+            return CompSpineModelResetIKTarget(component, constraint_id);
         }
 
+        SpineModelResource* spine_model = component->m_Resource;
+        SpineSceneResource* spine_scene = spine_model->m_SpineScene;
 
         uint32_t* index = spine_scene->m_IKNameToIndex.Get(constraint_id);
         if (!index)
@@ -1238,8 +1228,16 @@ namespace dmSpine
 
     bool CompSpineModelResetIKTarget(SpineModelComponent* component, dmhash_t constraint_id)
     {
+        // Remove the constraint
+        for (uint32_t i = 0; i < component->m_IKTargets.Size(); ++i)
+        {
+            if (constraint_id == component->m_IKTargets[i].m_ConstraintHash)
+            {
+                component->m_IKTargets.EraseSwap(i);
+                return true;
+            }
+        }
         return false;
-        //return dmRig::ResetIKTarget(component->m_RigInstance, constraint_id);
     }
 
     bool CompSpineModelSetSkin(SpineModelComponent* component, dmhash_t skin_id)
