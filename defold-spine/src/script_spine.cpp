@@ -620,10 +620,9 @@ namespace dmSpine
 
         dmhash_t ik_constraint_id = dmScript::CheckHashOrString(L, 2);
 
-        // dmMessage::URL sender;
-        // dmScript::GetURL(L, &sender);
-        // dmMessage::URL target;
-        // dmScript::ResolveURL(L, 3, &target, &sender);
+        dmMessage::URL sender;
+        dmMessage::URL target;
+        dmScript::ResolveURL(L, 3, &target, &sender);
         // if (target.m_Socket != dmGameObject::GetMessageSocket(collection))
         // {
         //     return luaL_error(L, "spine.set_ik_target can only use instances within the same collection.");
@@ -632,7 +631,7 @@ namespace dmSpine
         // if (target_instance == 0)
         //     return luaL_error(L, "Could not find any instance with id '%s'.", dmHashReverseSafe64(target.m_Path));
 
-        if (!CompSpineModelSetIKTargetInstance(component, ik_constraint_id, 1.0f, target_url.m_Path))
+        if (!CompSpineModelSetIKTargetInstance(component, ik_constraint_id, 1.0f, target.m_Path))
         {
             char str[128];
             return DM_LUA_ERROR("the IK constraint target '%s' could not be found", dmScript::GetStringFromHashOrString(L, 2, str, sizeof(str)));
@@ -773,16 +772,16 @@ namespace dmSpine
 
     static const luaL_reg SPINE_COMP_FUNCTIONS[] =
     {
-            {"play_anim", SpineComp_PlayAnim},
-            {"cancel",  SpineComp_Cancel},
-            {"get_go",  SpineComp_GetGO},
-            {"set_skin",  SpineComp_SetSkin},
-            {"set_attachment",  SpineComp_SetAttachment},
-            {"set_ik_target_position", SpineComp_SetIKTargetPosition},
-            {"set_ik_target",   SpineComp_SetIKTarget},
-            {"reset_ik_target",        SpineComp_ResetIK},
-            {"set_constant",    SpineComp_SetConstant},
-            {"reset_constant",  SpineComp_ResetConstant},
+            {"play_anim",               SpineComp_PlayAnim},
+            {"cancel",                  SpineComp_Cancel},
+            {"get_go",                  SpineComp_GetGO},
+            {"set_skin",                SpineComp_SetSkin},
+            {"set_attachment",          SpineComp_SetAttachment},
+            {"set_ik_target_position",  SpineComp_SetIKTargetPosition},
+            {"set_ik_target",           SpineComp_SetIKTarget},
+            {"reset_ik_target",         SpineComp_ResetIK},
+            {"set_constant",            SpineComp_SetConstant},
+            {"reset_constant",          SpineComp_ResetConstant},
             {0, 0}
     };
 
