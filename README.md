@@ -23,6 +23,21 @@ Happy Defolding!
 * Update the spine source files to latest version
     - The new runtime is based on Spine 4.0+
 
+    - NOTE: The old spine version json files won't work as they are too old!
+
+* Update the `.spinescene` files in the project replacing the `.json` reference to the corresponding `.spinejson` file
+
+    * Either manually update your `.spinescene` files in the editor
+
+    * Use search-and-replace in a text editor
+
+    * Use this [python3 script](./defold-spine/misc/migrate.py) to update do the search and replace for you. The script only replaces
+    the suffix from `.json` to `.spinejson`:
+
+        `<project root>: python3 ./defold-spine/misc/migrate.py`
+
+* TIP: It's easiest if the new files has the same name and casing as the old files!
+
 ## GameObject
 
 * `spine.set_skin(name)` now only takes one argument
