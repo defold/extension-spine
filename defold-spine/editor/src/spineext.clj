@@ -111,7 +111,9 @@
   (plugin-invoke-static spine-plugin-cls "SPINE_SetSkin" (into-array Class [spine-plugin-pointer-cls String]) [handle skin]))
 
 (defn plugin-set-animation [handle ^String animation]
-  (plugin-invoke-static spine-plugin-cls "SPINE_SetAnimation" (into-array Class [spine-plugin-pointer-cls String]) [handle animation]))
+  (let [valid-anims (vec (plugin-get-animations handle))]
+    (when (contains? valid-anims animation)      
+      (plugin-invoke-static spine-plugin-cls "SPINE_SetAnimation" (into-array Class [spine-plugin-pointer-cls String]) [handle animation]))))
 
 (defn plugin-update-vertices [handle dt]
   (plugin-invoke-static spine-plugin-cls "SPINE_UpdateVertices" (into-array Class [spine-plugin-pointer-cls Float/TYPE]) [handle (float dt)]))
