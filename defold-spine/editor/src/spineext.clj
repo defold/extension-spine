@@ -92,9 +92,13 @@
 (defn- plugin-load-file-from-buffer
   ; The instance is garbage collected by Java
   ([bytes-json path-json bytes-texture-set path-texture-set]
-   (plugin-invoke-static spine-plugin-cls "SPINE_LoadFileFromBuffer" (into-array Class [byte-array-cls String byte-array-cls String]) [bytes-json path-json bytes-texture-set path-texture-set]))
+   (if (instance? byte-array-cls bytes-json)
+     (plugin-invoke-static spine-plugin-cls "SPINE_LoadFileFromBuffer" (into-array Class [byte-array-cls String byte-array-cls String]) [bytes-json path-json bytes-texture-set path-texture-set])
+     (throw (IOException. (str "Couldn't read data from " path-json)))))
   ([bytes-json path-json]
-   (plugin-invoke-static spine-plugin-cls "SPINE_LoadFileFromBuffer" (into-array Class [byte-array-cls String]) [bytes-json path-json])))
+   (if (instance? byte-array-cls bytes-json)
+     (plugin-invoke-static spine-plugin-cls "SPINE_LoadFileFromBuffer" (into-array Class [byte-array-cls String]) [bytes-json path-json])
+     (throw (IOException. (str "Couldn't read data from " path-json))))))
 
 (defn- plugin-get-animations [handle]
   (plugin-invoke-static spine-plugin-cls "SPINE_GetAnimations" (into-array Class [spine-plugin-pointer-cls]) [handle]))
@@ -135,16 +139,6 @@
         aabb (geom/coords->aabb [(.-minX paabb) (.-minY paabb) 0] [(.-maxX paabb) (.-maxY paabb) 0])]
     aabb))
 
-;; (defn- spine-data-handle->vertices [rive-handle dt]
-;;   (let [vtx-size-bytes (plugin-get-vertex-size) ; size in bytes
-;;         vtx-size (int (/ vtx-size-bytes 9)) ; number of floats per vertex (xyz uv rgba)
-;;         _ (plugin-update-vertices rive-handle dt)
-;;         vtx-count (plugin-get-vertex-count rive-handle)
-;;         vtx-buffer (float-array (* vtx-size vtx-count))
-;;         _ (plugin-get-vertices rive-handle vtx-buffer)
-;;         vertices (partition vtx-size (vec vtx-buffer))]
-;;     vertices))
-
 (set! *warn-on-reflection* true)
 
 (def ^:private ^TextureSetGenerator$UVTransform uv-identity (TextureSetGenerator$UVTransform.))
@@ -157,7 +151,10 @@
   (prop-resource-error :fatal _node-id :atlas atlas "Atlas"))
 
 (defn- validate-scene-spine-json [_node-id spine-json]
-  (prop-resource-error :fatal _node-id :spine-json spine-json "Spine Json"))
+  (or (prop-resource-error :fatal _node-id :spine-json spine-json "Spine Json")
+      (validation/prop-error :fatal _node-id :spine-json (fn [spine-json]
+                                                       (when (not (str/ends-with? spine-json spine-json-ext))
+                                                         (format "Spine json file '%s' doesn't end with '.%s'" spine-json spine-json-ext))) "Spine Json")))
 
 ;; (g/defnk produce-scene-build-targets
 ;;   [_node-id own-build-errors resource spine-scene-pb atlas dep-build-targets]
@@ -539,21 +536,24 @@
   ([node-id resource]
    (load-spine-json nil node-id resource))
   ([project node-id resource]
-   (let [content (resource->bytes resource)
-         path (resource/resource->proj-path resource)
-         spine-data-handle (plugin-load-file-from-buffer content path)
-         animations (sort (vec (plugin-get-animations spine-data-handle)))
-         bones (plugin-get-bones spine-data-handle)
-         skins (sort (vec (plugin-get-skins spine-data-handle)))
+   (try
+     (let [content (resource->bytes resource)
+           path (resource/resource->proj-path resource)
+           spine-data-handle (plugin-load-file-from-buffer content path) ; it throws if it fails to load
+           animations (sort (vec (plugin-get-animations spine-data-handle)))
+           bones (plugin-get-bones spine-data-handle)
+           skins (sort (vec (plugin-get-skins spine-data-handle)))
 
-         tx-data (concat
-                  (g/set-property node-id :content content)
-                  (g/set-property node-id :animations animations)
-                  (g/set-property node-id :skins skins)
-                  (g/set-property node-id :bones bones))
+           tx-data (concat
+                    (g/set-property node-id :content content)
+                    (g/set-property node-id :animations animations)
+                    (g/set-property node-id :skins skins)
+                    (g/set-property node-id :bones bones))
 
-         all-tx-data (concat tx-data (create-bones node-id bones))]
-     all-tx-data)))
+           all-tx-data (concat tx-data (create-bones node-id bones))]
+       all-tx-data)
+     (catch IOException error
+       (g/->error node-id :resource :fatal resource (format "Couldn't read %s file %s" spine-json-ext (resource/resource->proj-path resource)))))))
 
 (defn- build-spine-json [resource dep-resources user-data]
   {:resource resource :content (resource->bytes (:resource resource))})
@@ -582,15 +582,18 @@
 
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
-(g/defnk load-spine-data-handle [spine-json-resource spine-json-content atlas-resource texture-set-pb default-animation skin]
+(g/defnk load-spine-data-handle [_node-id spine-json-resource spine-json-content atlas-resource texture-set-pb default-animation skin]
   ; The paths are used for error reporting if any loading goes wrong
-  (let [spine-json-path (resource/resource->proj-path spine-json-resource)
-        atlas-path (resource/resource->proj-path atlas-resource)
-        spine-data-handle (plugin-load-file-from-buffer spine-json-content spine-json-path texture-set-pb atlas-path)
-        _ (if (not (str/blank? default-animation)) (plugin-set-animation spine-data-handle default-animation))
-        _ (if (not (str/blank? skin)) (plugin-set-skin spine-data-handle skin))
-        _ (plugin-update-vertices spine-data-handle 0.0)]
-    spine-data-handle))
+  (try
+    (let [spine-json-path (resource/resource->proj-path spine-json-resource)
+          atlas-path (resource/resource->proj-path atlas-resource)
+          spine-data-handle (plugin-load-file-from-buffer spine-json-content spine-json-path texture-set-pb atlas-path) ; it throws if it fails to load
+          _ (if (not (str/blank? default-animation)) (plugin-set-animation spine-data-handle default-animation))
+          _ (if (not (str/blank? skin)) (plugin-set-skin spine-data-handle skin))
+          _ (plugin-update-vertices spine-data-handle 0.0)]
+          spine-data-handle)
+    (catch IOException error
+      (g/->error _node-id :resource :fatal spine-json-resource (format "Couldn't read %s file %s" spine-json-ext (resource/resource->proj-path spine-json-resource))))))
 
 (defn- load-spine-scene [project self resource spine]
   (let [spine-resource (workspace/resolve-resource resource (:spine-json spine))
@@ -718,8 +721,10 @@
   (output skin g/Str (g/fnk [skins] (first skins)))
   (output default-animation g/Str (g/fnk [animations] (first animations)))
 
-  (output spine-data-handle g/Any load-spine-data-handle) ; The c++ pointer
-  (output aabb AABB :cached (g/fnk [spine-data-handle] (get-aabb spine-data-handle)))
+  (output spine-data-handle g/Any :cached load-spine-data-handle) ; The c++ pointer
+  (output aabb AABB :cached (g/fnk [spine-data-handle] (if (not (nil? spine-data-handle))
+                                                         (get-aabb spine-data-handle)
+                                                         geom/empty-bounding-box)))
 
   (input texture-set-pb g/Any)
   (output texture-set-pb g/Any :cached (gu/passthrough texture-set-pb))
@@ -812,13 +817,14 @@
 
 (defn- step-animation
   [state dt spine-data-handle animation skin]
-  (plugin-set-skin spine-data-handle skin)
-  (plugin-set-animation spine-data-handle animation)
-  (plugin-update-vertices spine-data-handle dt)
+  (when (not (nil? spine-data-handle))
+    (plugin-set-skin spine-data-handle skin)
+    (plugin-set-animation spine-data-handle animation)
+    (plugin-update-vertices spine-data-handle dt))
   state)
 
 (g/defnk produce-spine-data-handle-updatable [_node-id spine-data-handle default-animation skin]
-  (when (and spine-data-handle default-animation skin)
+  (when (and (not (nil? spine-data-handle)) default-animation skin)
     {:node-id       _node-id
      :name          "Spine Scene Updater"
      :update-fn     (fn [state {:keys [dt]}] (step-animation state dt spine-data-handle default-animation skin))
@@ -884,8 +890,10 @@
   (input texture-set-pb g/Any)
   (input spine-json-content g/Any)
 
-  (output spine-data-handle g/Any load-spine-data-handle) ; The c++ pointer
-  (output aabb AABB :cached (g/fnk [spine-data-handle] (get-aabb spine-data-handle)))
+  (output spine-data-handle g/Any :cached load-spine-data-handle) ; The c++ pointer
+  (output aabb AABB :cached (g/fnk [spine-data-handle] (if (not (nil? spine-data-handle))
+                                                         (get-aabb spine-data-handle)
+                                                         geom/empty-bounding-box)))
 
   (output tex-params g/Any (g/fnk [material-samplers default-tex-params]
                                   (or (some-> material-samplers first material/sampler->tex-params)
