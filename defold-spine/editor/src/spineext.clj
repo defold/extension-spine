@@ -150,11 +150,14 @@
 (defn- validate-scene-atlas [_node-id atlas]
   (prop-resource-error :fatal _node-id :atlas atlas "Atlas"))
 
+(defn- is-spine-scene-json-name? [resource prop-name]
+  (let [path (resource/resource->proj-path resource)]
+    (when (not (str/ends-with? path spine-json-ext))
+      (format "%s file '%s' doesn't end with '.%s'" prop-name path spine-json-ext))))
+
 (defn- validate-scene-spine-json [_node-id spine-json]
   (or (prop-resource-error :fatal _node-id :spine-json spine-json "Spine Json")
-      (validation/prop-error :fatal _node-id :spine-json (fn [spine-json]
-                                                       (when (not (str/ends-with? spine-json spine-json-ext))
-                                                         (format "Spine json file '%s' doesn't end with '.%s'" spine-json spine-json-ext))) "Spine Json")))
+      (validation/prop-error :fatal _node-id :spine-json is-spine-scene-json-name? spine-json "Spine Json")))
 
 ;; (g/defnk produce-scene-build-targets
 ;;   [_node-id own-build-errors resource spine-scene-pb atlas dep-build-targets]
