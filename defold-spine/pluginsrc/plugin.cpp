@@ -20,6 +20,7 @@
 #include <dmsdk/dlib/array.h>
 #include <dmsdk/dlib/log.h>
 #include <dmsdk/dlib/math.h>
+#include <dmsdk/dlib/dstrings.h>
 #include <dmsdk/dlib/shared_library.h>
 #include <dmsdk/dlib/static_assert.h>
 #include <dmsdk/ddf/ddf.h>
@@ -68,7 +69,25 @@ struct SpineFile
     dmArray<dmSpinePlugin::RenderObject>    m_RenderObjects;
     dmhash_t                                m_CurrentSkin;
     dmhash_t                                m_CurrentAnimation;
+
+    const char*                             m_Error;
+
+    SpineFile()
+    : m_Path(0)
+    , m_AtlasRegions(0)
+    , m_SkeletonData(0)
+    , m_AnimationStateData(0)
+    , m_AttachmentLoader(0)
+    , m_SkeletonInstance(0)
+    , m_AnimationStateInstance(0)
+    , m_CurrentSkin(0)
+    , m_CurrentAnimation(0)
+    , m_Error(0)
+    {
+    }
 };
+
+char g_LastSpineError[1024] = {0};
 
 typedef SpineFile* HSpineFile;
 
@@ -167,6 +186,24 @@ static void SetupBones(SpineFile* file)
 
 extern "C" DM_DLLEXPORT void SPINE_Destroy(void* _file);
 
+
+extern "C" DM_DLLEXPORT const char* SPINE_GetLastError()
+{
+    return g_LastSpineError;
+}
+
+static void SPINE_SetLastError(const char* str)
+{
+    dmSnPrintf(g_LastSpineError, sizeof(g_LastSpineError), "%s", str);
+    dmLogError("%s", g_LastSpineError);
+}
+
+static void SPINE_SetLastError(spAttachmentLoader* loader)
+{
+    dmSnPrintf(g_LastSpineError, sizeof(g_LastSpineError), "%s %s", loader->error1?loader->error1:"", loader->error2?loader->error2:"");
+    dmLogError("%s", g_LastSpineError);
+}
+
 static dmGameSystemDDF::TextureSet* LoadAtlasFromBuffer(void* buffer, size_t buffer_size, const char* path)
 {
     dmGameSystemDDF::TextureSet* texture_set_ddf;
@@ -219,9 +256,13 @@ extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* json, size_t json_size,
     }
 
     // Create the spine resource
-    file->m_SkeletonData = dmSpine::ReadSkeletonJsonData((spAttachmentLoader*)file->m_AttachmentLoader, path, json);
+    spAttachmentLoader* attachment_loader = (spAttachmentLoader*)file->m_AttachmentLoader;
+    file->m_SkeletonData = dmSpine::ReadSkeletonJsonData(attachment_loader, path, json);
     if (!file->m_SkeletonData)
     {
+        if (attachment_loader->error1 || attachment_loader->error2)
+            SPINE_SetLastError(attachment_loader);
+
         dmLogError("Failed to load Spine skeleton from json file %s", path);
         SPINE_Destroy(file);
         return 0;

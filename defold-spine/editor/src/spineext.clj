@@ -75,6 +75,7 @@
 ; https://nakkaya.com/2009/11/16/java-native-access-from-clojure/
 
 (def spine-plugin-cls (workspace/load-class! "com.dynamo.bob.pipeline.Spine"))
+(def spine-plugin-exception-cls (workspace/load-class! "com.dynamo.bob.pipeline.Spine$SpineException"))
 (def spine-plugin-pointer-cls (workspace/load-class! "com.dynamo.bob.pipeline.Spine$SpinePointer"))
 (def spine-plugin-aabb-cls (workspace/load-class! "com.dynamo.bob.pipeline.Spine$AABB"))
 (def spine-plugin-blendmode-cls (workspace/load-class! "com.dynamo.spine.proto.Spine$SpineModelDesc$BlendMode"))
@@ -536,6 +537,21 @@
   (with-open [in (io/input-stream resource)]
     (IOUtils/toByteArray in)))
 
+(defn- handle-read-error [error node-id resource]
+  (let [error (if (instance? java.lang.reflect.InvocationTargetException error) (.getCause error) error)
+        msg (.getMessage error)
+        path (resource/resource->proj-path resource)
+        msg-missing-image "Region not found"]
+    (cond
+      (and (instance? spine-plugin-exception-cls error) (.contains msg msg-missing-image))
+      (g/->error node-id :atlas :fatal resource (format "Atlas is missing image: %s" (subs msg (+ (count msg-missing-image) (str/index-of msg msg-missing-image) ))))
+
+      (instance? spine-plugin-exception-cls error)
+      (g/->error node-id :resource :fatal resource (format "Failed reading %s: %s" path msg))
+
+      :else
+      (g/->error node-id :resource :fatal resource (format "Couldn't read %s file %s: %s" spine-json-ext path msg)))))
+
 ; Loads the .spinejson file
 (defn- load-spine-json
   ([node-id resource]
@@ -557,8 +573,8 @@
 
            all-tx-data (concat tx-data (create-bones node-id bones))]
        all-tx-data)
-     (catch IOException error
-       (g/->error node-id :resource :fatal resource (format "Couldn't read %s file %s" spine-json-ext (resource/resource->proj-path resource)))))))
+     (catch Exception error
+       (handle-read-error error node-id resource)))))
 
 (defn- build-spine-json [resource dep-resources user-data]
   {:resource resource :content (resource->bytes (:resource resource))})
@@ -570,8 +586,8 @@
         :resource (workspace/make-build-resource resource)
         :build-fn build-spine-json
         :user-data {:content-hash (resource/resource->sha1-hex resource)}})]
-    (catch IOException e
-      (g/->error _node-id :resource :fatal resource (format "Couldn't read json file %s" (resource/resource->proj-path resource))))))
+    (catch Exception error
+      (handle-read-error error _node-id resource))))
 
 (g/defnode SpineSceneJson
   (inherits resource-node/ResourceNode)
@@ -596,9 +612,9 @@
           _ (if (not (str/blank? default-animation)) (plugin-set-animation spine-data-handle default-animation))
           _ (if (not (str/blank? skin)) (plugin-set-skin spine-data-handle skin))
           _ (plugin-update-vertices spine-data-handle 0.0)]
-          spine-data-handle)
-    (catch IOException error
-      (g/->error _node-id :resource :fatal spine-json-resource (format "Couldn't read %s file %s" spine-json-ext (resource/resource->proj-path spine-json-resource))))))
+      spine-data-handle)
+    (catch Exception error
+      (handle-read-error error _node-id spine-json-resource))))
 
 (defn- load-spine-scene [project self resource spine]
   (let [spine-resource (workspace/resolve-resource resource (:spine-json spine))

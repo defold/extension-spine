@@ -41,6 +41,12 @@ public class Spine {
         }
     }
 
+    public static class SpineException extends Exception {
+        public SpineException(String errorMessage) {
+            super(errorMessage);
+        }
+    }
+
     // Type Mapping in JNA
     // https://java-native-access.github.io/jna/3.5.1/javadoc/overview-summary.html#marshalling
 
@@ -281,6 +287,7 @@ public class Spine {
         }
     }
 
+    public static native String SPINE_GetLastError();
     public static native SpineVertex SPINE_GetVertexBufferData(SpinePointer spine, IntByReference objectCount);
     public static native RenderObject SPINE_GetRenderObjectData(SpinePointer spine, IntByReference objectCount);
     public static native NativeString SPINE_GetAnimationData(SpinePointer spine, IntByReference objectCount);
@@ -366,7 +373,7 @@ public class Spine {
 
     ////////////////////////////////////////////////////////////////////////////////
 
-    public static SpinePointer SPINE_LoadFileFromBuffer(byte[] json_buffer, String path, byte[] atlas_buffer, String atlas_path) {
+    public static SpinePointer SPINE_LoadFileFromBuffer(byte[] json_buffer, String path, byte[] atlas_buffer, String atlas_path) throws SpineException {
         if (json_buffer == null || atlas_buffer == null)
         {
             System.out.printf("One of the buffers is null (%s)\n", json_buffer == null ? "json_buffer":"atlas_buffer");
@@ -375,10 +382,13 @@ public class Spine {
         Buffer b = ByteBuffer.wrap(json_buffer);
         Buffer a = ByteBuffer.wrap(atlas_buffer);
         Pointer p = SPINE_LoadFromBuffer(b, b.capacity(), path, a, a.capacity(), atlas_path);
+        if (p == null) {
+            throw new SpineException(String.format("Failed to load spine scene '%s' with atlas '%s': %s", path, atlas_path, SPINE_GetLastError()));
+        }
         return new SpinePointer(p);
     }
 
-    public static SpinePointer SPINE_LoadFileFromBuffer(byte[] json_buffer, String path) {
+    public static SpinePointer SPINE_LoadFileFromBuffer(byte[] json_buffer, String path) throws SpineException {
         if (json_buffer == null)
         {
             System.out.printf("The json buffer is null\n");
@@ -386,6 +396,9 @@ public class Spine {
         }
         Buffer b = ByteBuffer.wrap(json_buffer);
         Pointer p = SPINE_LoadFromBuffer(b, b.capacity(), path, null, 0, null);
+        if (p == null) {
+            throw new SpineException(String.format("Failed to load spine scene '%s': %s", path, SPINE_GetLastError()));
+        }
         return new SpinePointer(p);
     }
 
