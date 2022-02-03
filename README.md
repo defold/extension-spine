@@ -36,7 +36,13 @@ Happy Defolding!
 
         `<project root>: python3 ./defold-spine/misc/migrate.py`
 
-* TIP: It's easiest if the new files has the same name and casing as the old files!
+    * TIP: It's easiest if the new files has the same name and casing as the old files!
+
+* Update any materials if you've made your custom spine materials
+
+    * The materials + shaders now live in the `extension-spine`
+
+    * The material now uses the `world_view_proj` matrix for transforming the vertices
 
 ## GameObject
 
