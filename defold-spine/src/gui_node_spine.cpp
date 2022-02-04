@@ -3,6 +3,7 @@
 #include <common/vertices.h>
 
 #include <dmsdk/dlib/buffer.h>
+#include <dmsdk/dlib/dstrings.h>
 #include <dmsdk/dlib/log.h>
 #include <dmsdk/gameobject/gameobject.h>
 #include <dmsdk/gamesys/gui.h>
@@ -47,12 +48,30 @@ struct InternalGuiNode
     dmGui::Playback     m_Playback;
     dmGui::HScene       m_GuiScene;
     dmGui::HNode        m_GuiNode;
+    dmGui::AdjustMode   m_AdjustMode;
+    const char*         m_Id;
+
+    dmArray<dmGui::HNode>   m_BonesNodes;
+    dmArray<dmhash_t>       m_BonesIds; // Matches 1:1 with m_BoneNodes
+    dmArray<spBone*>        m_Bones; // Matches 1:1 with m_BoneNodes
 
     dmScript::LuaCallbackInfo* m_Callback;
 
     uint8_t             m_Playing : 1;
     uint8_t             m_UseCursor : 1;
     uint8_t             : 6;
+
+    InternalGuiNode()
+    : m_SpinePath(0)
+    , m_SpineScene(0)
+    , m_SkeletonInstance(0)
+    , m_AnimationStateInstance(0)
+    , m_AnimationInstance(0)
+    , m_AnimationId(0)
+    , m_Callback(0)
+    , m_Playing(0)
+    , m_UseCursor(0)
+    {}
 };
 
 static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNode* node);
@@ -282,6 +301,18 @@ dmhash_t GetScene(dmGui::HScene scene, dmGui::HNode hnode)
     return node->m_SpinePath;
 }
 
+dmGui::HNode GetBone(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t bone_id)
+{
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    uint32_t count = node->m_BonesIds.Size();
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        if (node->m_BonesIds[i] == bone_id)
+            return node->m_BonesNodes[i];
+    }
+    return 0;
+}
+
 bool PlayAnimation(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t animation_id, dmGui::Playback playback,
                             float blend_duration, float offset, float playback_rate, dmScript::LuaCallbackInfo* callback)
 {
@@ -382,9 +413,105 @@ float GetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode)
 
 // END SCRIPTING
 
+static void DeleteBones(InternalGuiNode* node)
+{
+    uint32_t count = node->m_BonesNodes.Size();
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        dmGui::DeleteNode(node->m_GuiScene, node->m_GuiNode);
+    }
+    node->m_BonesNodes.SetSize(0);
+    node->m_BonesIds.SetSize(0);
+    node->m_Bones.SetSize(0);
+}
+
+static void UpdateTransform(dmGui::HScene scene, dmGui::HNode node, const spBone* bone)
+{
+    float radians = spBone_getWorldRotationX((spBone*)bone);
+    float sx = spBone_getWorldScaleX((spBone*)bone);
+    float sy = spBone_getWorldScaleY((spBone*)bone);
+
+    dmGui::SetNodeProperty(scene, node, dmGui::PROPERTY_POSITION, dmVMath::Vector4(bone->worldX, bone->worldY, 0, 0));
+    dmGui::SetNodeProperty(scene, node, dmGui::PROPERTY_ROTATION, dmVMath::Vector4(0, 0, radians, 0));
+    dmGui::SetNodeProperty(scene, node, dmGui::PROPERTY_SCALE, dmVMath::Vector4(sx, sy, 1, 0));
+}
+
+static dmGui::HNode CreateBone(dmGui::HScene scene, dmGui::HNode gui_parent, dmGui::AdjustMode adjust_mode, const char* spine_gui_node_id, spBone* bone)
+{
+    dmVMath::Point3 position = dmVMath::Point3(bone->x, bone->y, 0);
+    dmGui::HNode gui_bone = dmGui::NewNode(scene, position, dmVMath::Vector3(0,0,0), dmGui::NODE_TYPE_BOX, 0);
+    if (!gui_bone)
+        return 0;
+
+    char id_str[256];
+    dmSnPrintf(id_str, sizeof(id_str), "%s/%s", spine_gui_node_id, bone->data->name);
+    dmhash_t id = dmHashString64(id_str);
+
+    dmGui::SetNodeId(scene, gui_bone, id);
+    dmGui::SetNodeAdjustMode(scene, gui_bone, adjust_mode);
+    dmGui::SetNodeParent(scene, gui_bone, gui_parent, false);
+    dmGui::SetNodeIsBone(scene, gui_bone, true);
+
+    UpdateTransform(scene, gui_bone, bone);
+
+    return gui_bone;
+}
+
+static bool CreateBones(InternalGuiNode* node, dmGui::HScene scene, dmGui::HNode gui_parent, spBone* bone)
+{
+    dmGui::HNode gui_bone = CreateBone(scene, gui_parent, node->m_AdjustMode, node->m_Id, bone);
+    if (!gui_bone)
+        return false;
+
+    node->m_BonesNodes.Push(gui_bone);
+    node->m_BonesIds.Push(dmGui::GetNodeId(scene, gui_bone));
+    node->m_Bones.Push(bone);
+
+    int count = bone->childrenCount;
+    for (int i = 0; i < count; ++i)
+    {
+        spBone* child_bone = bone->children[i];
+
+        if (!CreateBones(node, scene, gui_parent, child_bone))
+            return false;
+    }
+    return true;
+}
+
+static bool CreateBones(InternalGuiNode* node)
+{
+    DeleteBones(node);
+
+    uint32_t num_bones = (uint32_t)node->m_SkeletonInstance->bonesCount;
+    if (node->m_BonesNodes.Capacity() < num_bones)
+    {
+        node->m_BonesNodes.SetCapacity(num_bones);
+        node->m_BonesIds.SetCapacity(num_bones);
+        node->m_Bones.SetCapacity(num_bones);
+    }
+
+    return CreateBones(node, node->m_GuiScene, node->m_GuiNode, node->m_SkeletonInstance->root);
+}
+
+static void UpdateBones(InternalGuiNode* node)
+{
+    dmGui::HScene scene = node->m_GuiScene;
+    uint32_t num_bones = node->m_BonesNodes.Size();
+
+    dmVMath::Vector4 scale = dmGui::GetNodeProperty(scene, node->m_GuiNode, dmGui::PROPERTY_SCALE);
+    for (uint32_t i = 0; i < num_bones; ++i)
+    {
+        spBone* bone = node->m_Bones[i];
+        dmGui::HNode gui_bone = node->m_BonesNodes[i];
+
+        UpdateTransform(scene, gui_bone, bone);
+    }
+}
+
 static void DestroyNode(InternalGuiNode* node)
 {
-    //node->m_BoneInstances.SetCapacity(0);
+    DeleteBones(node);
+
     if (node->m_Callback)
     {
         dmScript::DestroyCallback(node->m_Callback);
@@ -400,8 +527,7 @@ static void DestroyNode(InternalGuiNode* node)
 
 static void* GuiCreate(const dmGameSystem::CompGuiNodeContext* ctx, void* context, dmGui::HScene scene, dmGui::HNode node, uint32_t custom_type)
 {
-    InternalGuiNode* node_data = new InternalGuiNode;
-    memset(node_data, 0, sizeof(InternalGuiNode));
+    InternalGuiNode* node_data = new InternalGuiNode();
     node_data->m_GuiScene = scene;
     node_data->m_GuiNode = node;
     return node_data;
@@ -411,7 +537,6 @@ static void GuiDestroy(const dmGameSystem::CompGuiNodeContext* ctx, const dmGame
 {
     delete (InternalGuiNode*)(nodectx->m_NodeData);
 }
-
 
 static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNode* node)
 {
@@ -445,6 +570,9 @@ static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNo
     node->m_Transform = dmVMath::Matrix4::identity();
 
     dmGui::SetNodeTexture(node->m_GuiScene, node->m_GuiNode, dmGui::NODE_TEXTURE_TYPE_TEXTURE_SET, node->m_SpineScene->m_TextureSet);
+
+    CreateBones(node);
+
     return true;
 
 }
@@ -452,8 +580,7 @@ static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNo
 static void* GuiClone(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameSystem::CustomNodeCtx* nodectx)
 {
     InternalGuiNode* src = (InternalGuiNode*)nodectx->m_NodeData;
-    InternalGuiNode* dst = new InternalGuiNode;
-    memset(dst, 0, sizeof(InternalGuiNode));
+    InternalGuiNode* dst = new InternalGuiNode();
 
     dst->m_GuiScene = nodectx->m_Scene;
     dst->m_GuiNode = nodectx->m_Node;
@@ -508,6 +635,10 @@ static void GuiSetNodeDesc(const dmGameSystem::CompGuiNodeContext* ctx, const dm
         dmLogError("Failed to get resource: %s", node_desc->m_SpineScene);
         return;
     }
+
+    node->m_Id = node_desc->m_Id;
+    node->m_AdjustMode = (dmGui::AdjustMode)node_desc->m_AdjustMode;
+
     SetupNode(name_hash, resource, node);
 
     dmhash_t skin_id = dmHashString64(node_desc->m_SpineSkin);
@@ -551,6 +682,8 @@ static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
     }
 
     spSkeleton_updateWorldTransform(node->m_SkeletonInstance);
+
+    UpdateBones(node);
 }
 
 static dmGameObject::Result GuiNodeTypeSpineCreate(const dmGameSystem::CompGuiNodeTypeCtx* ctx, dmGameSystem::CompGuiNodeType* type)

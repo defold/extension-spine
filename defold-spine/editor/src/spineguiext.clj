@@ -247,7 +247,6 @@
                     evaluation-context self old-value new-value
                     [:resource :spine-scene-resource]
                     [:build-targets :dep-build-targets]
-                    ;;[:spine-anim-ids :spine-anim-ids]
                     [:scene :spine-scene-scene]
                     [:skin-aabbs :spine-skin-aabbs]
                     [:spine-scene-pb :spine-scene-pb]

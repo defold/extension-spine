@@ -192,37 +192,33 @@ namespace dmSpine
      * @param bone_id [type:string|hash] id of the corresponding bone
      * @return bone [type:node] node corresponding to the spine bone
      */
-    // static int GetSpineBone(lua_State* L)
-    // {
-    //     int top = lua_gettop(L);
-    //     HNode spine_node;
-    //     Scene* scene = GuiScriptInstance_Check(L);
-    //     LuaCheckNode(L, 1, &spine_node);
+    static int GetSpineBone(lua_State* L)
+    {
+        // int top = lua_gettop(L);
+        // HNode spine_node;
+        // Scene* scene = GuiScriptInstance_Check(L);
+        // LuaCheckNode(L, 1, &spine_node);
 
-    //     dmhash_t bone_id;
-    //     if (lua_isstring(L, 2)) {
-    //         const char* bone_id_str = luaL_checkstring(L, 2);
-    //         bone_id = dmHashString64(bone_id_str);
-    //     } else {
-    //         bone_id = dmScript::CheckHash(L, 2);
-    //     }
+        DM_LUA_STACK_CHECK(L, 1);
 
-    //     HNode bone_node = GetNodeSpineBone(scene, spine_node, bone_id);
-    //     if (bone_node == 0)
-    //     {
-    //         char buffer[128];
-    //         return luaL_error(L, "no gui node found for the bone '%s'", dmScript::GetStringFromHashOrString(L, 2, buffer, sizeof(buffer)));
-    //     }
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
 
-    //     NodeProxy* node_proxy = (NodeProxy *)lua_newuserdata(L, sizeof(NodeProxy));
-    //     node_proxy->m_Scene = scene;
-    //     node_proxy->m_Node = bone_node;
-    //     luaL_getmetatable(L, NODE_PROXY_TYPE_NAME);
-    //     lua_setmetatable(L, -2);
+        VERIFY_SPINE_NODE(scene, node);
 
-    //     assert(top + 1 == lua_gettop(L));
-    //     return 1;
-    // }
+        dmhash_t bone_id = dmScript::CheckHashOrString(L, 2);
+
+        dmGui::HNode bone_node = dmSpine::GetBone(scene, node, bone_id);
+        if (bone_node == 0)
+        {
+            char buffer[128];
+            return DM_LUA_ERROR("No gui node found for the bone '%s'", dmHashReverseSafe64(bone_id));
+        }
+
+        dmGui::LuaPushNode(L, scene, bone_node);
+
+        return 1;
+    }
 
     /*# sets the spine scene of a node
      * Set the spine scene on a spine node. The spine scene must be mapped to the gui scene in the gui editor.
@@ -455,7 +451,7 @@ namespace dmSpine
         {"new_spine_node", NewSpineNode},
         {"play_spine_anim",     PlaySpineAnim},
         {"cancel_spine",        CancelSpine},
-        // {"get_spine_bone",      GetSpineBone},   // TODO: MVP2
+        {"get_spine_bone",      GetSpineBone},
         {"set_spine_scene",     SetSpineScene},
         {"get_spine_scene",     GetSpineScene},
         {"set_spine_skin",      SetSpineSkin},

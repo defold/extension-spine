@@ -2,12 +2,83 @@ local function spine_callback(self, node, event, data)
 	--pprint("SPINE CALLBACK", node, event, data)
 end
 
+local bone_names = {
+        "spine/root",
+        "spine/hip",
+        "spine/aim-constraint-target",
+        "spine/rear-thigh",
+        "spine/rear-shin",
+        "spine/rear-foot",
+        "spine/back-foot-tip",
+        "spine/torso",
+        "spine/torso2",
+        "spine/torso3",
+        "spine/front-shoulder",
+        "spine/front-upper-arm",
+        "spine/front-bracer",
+        "spine/front-fist",
+        "spine/back-shoulder",
+        "spine/rear-upper-arm",
+        "spine/rear-bracer",
+        "spine/gun",
+        "spine/gun-tip",
+        "spine/muzzle",
+        -- "spine/muzzle-ring",
+        -- "spine/muzzle-ring2",
+        -- "spine/muzzle-ring3",
+        -- "spine/muzzle-ring4",
+        "spine/neck",
+        "spine/head",
+        "spine/hair1",
+        "spine/hair2",
+        "spine/hair3",
+        "spine/hair4",
+        "spine/head-control",
+        "spine/front-thigh",
+        "spine/front-shin",
+        "spine/front-foot",
+        "spine/front-foot-tip"
+        -- "spine/crosshair",
+        -- "spine/rear-foot-target",
+        -- "spine/rear-leg-target",
+        -- "spine/board-ik",
+        -- "spine/clipping",
+        -- "spine/hoverboard-controller",
+        -- "spine/exhaust1",
+        -- "spine/exhaust2",
+        -- "spine/exhaust3",
+        -- "spine/hoverboard-thruster-front",
+        -- "spine/hoverglow-front",
+        -- "spine/hoverboard-thruster-rear",
+        -- "spine/hoverglow-rear",
+        -- "spine/side-glow1",
+        -- "spine/side-glow2",
+        -- "spine/portal-root",
+        -- "spine/flare1",
+        -- "spine/flare10",
+        -- "spine/flare2",
+        -- "spine/flare3",
+        -- "spine/flare4",
+        -- "spine/flare5",
+        -- "spine/flare6",
+        -- "spine/flare7",
+        -- "spine/flare8",
+        -- "spine/flare9",
+        -- "spine/portal",
+        -- "spine/portal-shade",
+        -- "spine/portal-streaks1",
+        -- "spine/portal-streaks2",
+        -- "spine/front-foot-target",
+        -- "spine/front-leg-target"
+    }
+
 function init(self)
 	print("HELLO FROM GUI!")
 	self.n = gui.get_node("spine")
-	gui.play_spine_anim(self.n, "run", gui.PLAYBACK_LOOP_FORWARD, {}, spine_callback)
-	gui.set_spine_cursor(self.n, 0.5)
-	gui.set_spine_playback_rate(self.n, 1.1)
+	gui.play_spine_anim(self.n, "walk", gui.PLAYBACK_LOOP_FORWARD, {}, spine_callback)
+	--gui.play_spine_anim(self.n, "run", gui.PLAYBACK_LOOP_FORWARD, {}, spine_callback)
+	--gui.set_spine_cursor(self.n, 0.5)
+	gui.set_spine_playback_rate(self.n, 0.5)
 
 
 	-- self.nclone = gui.clone(self.n)
@@ -36,6 +107,25 @@ function init(self)
 	print("gui.get_spine_cursor", gui.get_spine_cursor(self.n))
 	print("gui.get_spine_playback_rate", gui.get_spine_playback_rate(self.n))
 	print("gui.get_spine_scene", gui.get_spine_scene(self.n))
+
+
+
+	-- bones
+	--local bone = gui.get_spine_bone(self.n, "not-exist")
+	--local bone = gui.get_spine_bone(self.n, "spine/gun-tip")
+	--print("bone", bone)
+	--gui.set_parent(bone_sprite, bone)
+
+	local bone_sprite = gui.get_node("bone")
+
+	for i, bone_id in ipairs(bone_names) do
+		--print("SCRIPT bone", bone_id)
+		local bone = gui.get_node(bone_id)
+		local bone_sprite_clone = gui.clone(bone_sprite)
+
+		gui.set_parent(bone_sprite_clone, bone)
+	end
+
 end
 
 function final(self)

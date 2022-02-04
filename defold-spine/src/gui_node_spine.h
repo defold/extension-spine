@@ -27,6 +27,7 @@ float       GetCursor(dmGui::HScene scene, dmGui::HNode hnode);
 bool        SetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode, float playback_rate);
 float       GetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode);
 
+dmGui::HNode GetBone(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t bone_id);
 
 
 } // namespace
