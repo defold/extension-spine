@@ -194,11 +194,6 @@ namespace dmSpine
      */
     static int GetSpineBone(lua_State* L)
     {
-        // int top = lua_gettop(L);
-        // HNode spine_node;
-        // Scene* scene = GuiScriptInstance_Check(L);
-        // LuaCheckNode(L, 1, &spine_node);
-
         DM_LUA_STACK_CHECK(L, 1);
 
         dmGui::HScene scene = dmGui::LuaCheckScene(L);
