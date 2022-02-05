@@ -16,6 +16,7 @@
 extern "C" {
 
 #include <spine/extension.h>
+#include <spine/Bone.h>
 #include <spine/Skeleton.h>
 #include <spine/Slot.h>
 #include <spine/AnimationState.h>
@@ -151,10 +152,13 @@ namespace dmSpine
 
     static void SetTransformFromBone(dmGameObject::HInstance instance, const spBone* bone)
     {
-        const float radians = bone->rotation * M_PI / 180.0f;
-        dmGameObject::SetPosition(instance, dmVMath::Point3(bone->x, bone->y, 0));
+        float radians = spBone_getWorldRotationX((spBone*)bone) * M_PI / 180.0f;
+        float sx = spBone_getWorldScaleX((spBone*)bone);
+        float sy = spBone_getWorldScaleY((spBone*)bone);
+
+        dmGameObject::SetPosition(instance, dmVMath::Point3(bone->worldX, bone->worldY, 0));
         dmGameObject::SetRotation(instance, dmVMath::Quat::rotationZ(radians));
-        dmGameObject::SetScale(instance, dmVMath::Vector3(bone->scaleX, bone->scaleY, 1));
+        dmGameObject::SetScale(instance, dmVMath::Vector3(sx, sy, 1));
     }
 
     static bool CreateGOBone(SpineModelComponent* component, dmGameObject::HCollection collection, dmGameObject::HInstance goparent, spBone* parent, spBone* bone, int indent)
@@ -197,7 +201,11 @@ namespace dmSpine
         // Create the children
         for (int n = 0; n < bone->childrenCount; ++n)
         {
-            if (!CreateGOBone(component, collection, bone_instance, bone, bone->children[n], indent + 2))
+            // Since I haven't figured out how to update the local transforms, we do it in world space
+            // However, that means all bones are parented to the top game object
+
+            if (!CreateGOBone(component, collection, component->m_Instance, bone, bone->children[n], indent + 2))
+            //if (!CreateGOBone(component, collection, bone_instance, bone, bone->children[n], indent + 2))
                 return false;
         }
         return true;

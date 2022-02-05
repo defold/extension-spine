@@ -64,7 +64,7 @@ function init(self)
 
 	-- bones
 	local bone = spine.get_go(self.url, "gun-tip")
-	--local bone = spine.get_go(self.url, "hip")
+	--local bone = spine.get_go(self.url, "front-foot-tip")
 	print("bone", bone)
 
 	go.set_parent("blob", bone)
@@ -81,6 +81,7 @@ function init(self)
 	-- multi-track
 	spine.play_anim(self.url, "idle", go.PLAYBACK_LOOP_FORWARD, { track = 1 })
 	spine.play_anim(self.url, "aim", go.PLAYBACK_LOOP_FORWARD, { track = 2 })
+	spine.set_ik_target(self.url, "aim-ik", "ik-target")
 	
 	--spine.play_anim(self.url, "shoot", go.PLAYBACK_ONCE_FORWARD, { track = 2 })
 	--print("2nd track animation", go.get(self.url, "animation", { index = 2 }))
@@ -91,8 +92,6 @@ function init(self)
 	--print("2nd track cursor", go.get(self.url, "cursor", { index = 2 }))
 	--print("2nd track playback rate", go.get(self.url, "playback_rate", { index = 2 }))
 
-	--spine.set_attachment(self.url, "crosshair", "crosshair")
-	spine.set_ik_target(self.url, "aim-ik", "ik-target")
 	
 end
 
