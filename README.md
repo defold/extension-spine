@@ -71,10 +71,10 @@ Happy Defolding!
 
 ### GUI
 
-* [ ] - Create bone nodes
-* [ ] - Script: Get bone node
+* [x] - Create bone nodes
+* [x] - Script: Get bone node
 * [ ] - Script: on_message callback if no callback function was used
 
 ## MVP3
 
-* [ ] - Truly generic custom properties
+* [ ] - Truly generic custom properties (hopefully not needed)
