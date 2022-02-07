@@ -44,6 +44,10 @@
           - name: playback_rate
             type: constant
             desc: The rate with which the animation will be played. Must be positive.
+            
+          - name: track
+            type: number
+            desc: The track index of the animation. Defaults to 1. Animations on different tracks play in parallel.
 
       - name: callback_function
         type: function
