@@ -42,6 +42,7 @@ struct InternalGuiNode
     spAnimationState*   m_AnimationStateInstance;
     spTrackEntry*       m_AnimationInstance;
     dmhash_t            m_AnimationId;
+    dmhash_t            m_SkinId;
 
     dmVMath::Matrix4    m_Transform; // the world transform
 
@@ -68,6 +69,7 @@ struct InternalGuiNode
     , m_AnimationStateInstance(0)
     , m_AnimationInstance(0)
     , m_AnimationId(0)
+    , m_SkinId(0)
     , m_Callback(0)
     , m_Playing(0)
     , m_UseCursor(0)
@@ -348,10 +350,7 @@ bool SetSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id)
 dmhash_t GetSkin(dmGui::HScene scene, dmGui::HNode hnode)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    if (!node->m_SkeletonInstance)
-        return 0;
-    spSkin* skin = node->m_SkeletonInstance->skin;
-    return dmHashString64(skin->name);
+    return node->m_SkinId;
 }
 
 dmhash_t GetAnimation(dmGui::HScene scene, dmGui::HNode hnode)
@@ -585,6 +584,12 @@ static void* GuiClone(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameS
     dst->m_GuiScene = nodectx->m_Scene;
     dst->m_GuiNode = nodectx->m_Node;
 
+    // We don't get a GuiSetNodeDesc call when cloning, as we should already have the data we need in the node itself
+    dst->m_Id = src->m_Id;
+    dst->m_AdjustMode = src->m_AdjustMode;
+    dst->m_AnimationId = src->m_AnimationId;
+    dst->m_SkinId = src->m_SkinId;
+
     // Setup the spine structures
     SetupNode(src->m_SpinePath, src->m_SpineScene, dst);
 
@@ -594,7 +599,6 @@ static void* GuiClone(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameS
     dst->m_Playing      = src->m_Playing;
     dst->m_UseCursor    = src->m_UseCursor;
 
-    dst->m_AnimationId = src->m_AnimationId;
     uint32_t index = FindAnimationIndex(dst, dst->m_AnimationId);
     if (index == INVALID_ANIMATION_INDEX)
     {
@@ -619,6 +623,7 @@ static void* GuiClone(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameS
             // Now copy the state of the animation
             dst->m_AnimationInstance->trackTime = src->m_AnimationInstance->trackTime;
             dst->m_AnimationInstance->reverse = src->m_AnimationInstance->reverse;
+            dst->m_AnimationInstance->timeScale = src->m_AnimationInstance->timeScale;
         }
     }
 
@@ -638,16 +643,15 @@ static void GuiSetNodeDesc(const dmGameSystem::CompGuiNodeContext* ctx, const dm
 
     node->m_Id = node_desc->m_Id;
     node->m_AdjustMode = (dmGui::AdjustMode)node_desc->m_AdjustMode;
+    node->m_AnimationId = dmHashString64(node_desc->m_SpineDefaultAnimation); // TODO: Q: Is the default playmode specified anywhere?
+    node->m_SkinId = dmHashString64(node_desc->m_SpineSkin);
 
     SetupNode(name_hash, resource, node);
 
-    dmhash_t skin_id = dmHashString64(node_desc->m_SpineSkin);
-    if (skin_id) {
-        SetSkin(node->m_GuiScene, node->m_GuiNode, skin_id);
+    if (node->m_SkinId) {
+        SetSkin(node->m_GuiScene, node->m_GuiNode, node->m_SkinId);
     }
 
-// TODO: Q: Is the default playmode specified anywhere?
-    node->m_AnimationId = dmHashString64(node_desc->m_SpineDefaultAnimation);
     if (node->m_AnimationId) {
         PlayAnimation(node, node->m_AnimationId, dmGui::PLAYBACK_LOOP_FORWARD, 0.0f, 0.0f, 1.0f, 0);
     }
