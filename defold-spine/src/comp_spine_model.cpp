@@ -150,15 +150,21 @@ namespace dmSpine
         component->m_ReHash = 0;
     }
 
-    static void SetTransformFromBone(dmGameObject::HInstance instance, const spBone* bone)
+    static void SetTransformFromBone(dmGameObject::HInstance instance, const dmTransform::Transform& parent, const spBone* bone)
     {
         float radians = spBone_getWorldRotationX((spBone*)bone) * M_PI / 180.0f;
         float sx = spBone_getWorldScaleX((spBone*)bone);
         float sy = spBone_getWorldScaleY((spBone*)bone);
 
-        dmGameObject::SetPosition(instance, dmVMath::Point3(bone->worldX, bone->worldY, 0));
-        dmGameObject::SetRotation(instance, dmVMath::Quat::rotationZ(radians));
-        dmGameObject::SetScale(instance, dmVMath::Vector3(sx, sy, 1));
+        dmTransform::Transform local = dmTransform::Transform(  dmVMath::Vector3(bone->worldX, bone->worldY, 0),
+                                                                dmVMath::Quat::rotationZ(radians),
+                                                                dmVMath::Vector3(sx, sy, 1));
+
+        dmTransform::Transform transform = dmTransform::Mul(parent, local);
+
+        dmGameObject::SetPosition(instance, Point3(transform.GetTranslation()));
+        dmGameObject::SetRotation(instance, transform.GetRotation());
+        dmGameObject::SetScale(instance, transform.GetScale());
     }
 
     static bool CreateGOBone(SpineModelComponent* component, dmGameObject::HCollection collection, dmGameObject::HInstance goparent, spBone* parent, spBone* bone, int indent)
@@ -190,7 +196,7 @@ namespace dmSpine
             return false;
         }
 
-        SetTransformFromBone(bone_instance, bone);
+        SetTransformFromBone(bone_instance, component->m_Transform, bone);
 
         dmhash_t name_hash = dmHashString64(bone->data->name);
         component->m_BoneNameToNodeInstanceIndex.Put(name_hash, component->m_BoneInstances.Size());
@@ -617,7 +623,7 @@ namespace dmSpine
             spBone* bone = component->m_Bones[n];
 
             dmGameObject::HInstance bone_instance = component->m_BoneInstances[n];
-            SetTransformFromBone(bone_instance, bone);
+            SetTransformFromBone(bone_instance, component->m_Transform, bone);
         }
     }
 

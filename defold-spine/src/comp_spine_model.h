@@ -17,6 +17,7 @@
 #include <dmsdk/dlib/array.h>
 #include <dmsdk/dlib/hash.h>
 #include <dmsdk/dlib/vmath.h>
+#include <dmsdk/dlib/transform.h>
 #include <dmsdk/dlib/hashtable.h>
 #include <dmsdk/gameobject/gameobject.h>
 #include <dmsdk/gamesys/render_constants.h>
