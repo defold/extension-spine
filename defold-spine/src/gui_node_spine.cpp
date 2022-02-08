@@ -60,7 +60,8 @@ struct InternalGuiNode
 
     uint8_t             m_Playing : 1;
     uint8_t             m_UseCursor : 1;
-    uint8_t             : 6;
+    uint8_t             m_FindBones : 1;
+    uint8_t             : 5;
 
     InternalGuiNode()
     : m_SpinePath(0)
@@ -73,10 +74,11 @@ struct InternalGuiNode
     , m_Callback(0)
     , m_Playing(0)
     , m_UseCursor(0)
+    , m_FindBones(0)
     {}
 };
 
-static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNode* node);
+static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNode* node, bool create_bones);
 
 static inline bool IsLooping(dmGui::Playback playback)
 {
@@ -271,7 +273,6 @@ static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::P
 
 bool SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene)
 {
-    (void)hnode;
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
 
     if (spine_scene == node->m_SpinePath)
@@ -294,7 +295,7 @@ bool SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene)
     dmScript::DestroyCallback(node->m_Callback);
     node->m_Callback = 0;
 
-    return SetupNode(spine_scene, resource, node);
+    return SetupNode(spine_scene, resource, node, true);
 }
 
 dmhash_t GetScene(dmGui::HScene scene, dmGui::HNode hnode)
@@ -500,11 +501,59 @@ static void UpdateBones(InternalGuiNode* node)
     dmVMath::Vector4 scale = dmGui::GetNodeProperty(scene, node->m_GuiNode, dmGui::PROPERTY_SCALE);
     for (uint32_t i = 0; i < num_bones; ++i)
     {
-        spBone* bone = node->m_Bones[i];
         dmGui::HNode gui_bone = node->m_BonesNodes[i];
-
+        spBone* bone = node->m_Bones[i];
         UpdateTransform(scene, gui_bone, bone);
     }
+}
+
+static void FindGuiBones(InternalGuiNode* node, dmGui::HScene scene, dmGui::HNode hnode)
+{
+    // We assume the order is the same as when we created them in the original spine node
+    node->m_BonesNodes.Push(hnode);
+
+    dmGui::HNode child = dmGui::GetFirstChildNode(scene, hnode);
+
+    while (child != dmGui::INVALID_HANDLE)
+    {
+        if (dmGui::GetNodeIsBone(scene, child)) // We cannot have bones as a child of another node type
+        {
+            FindGuiBones(node, scene, child);
+        } else {
+
+        }
+
+        child = dmGui::GetNextNode(scene, child);
+    }
+}
+
+static void FindSpineBones(InternalGuiNode* node, spBone* bone)
+{
+    // We add them in the same order as they were created
+    node->m_Bones.Push(bone);
+
+    int count = bone->childrenCount;
+    for (int i = 0; i < count; ++i)
+    {
+        spBone* child_bone = bone->children[i];
+        FindSpineBones(node, child_bone);
+    }
+}
+
+static void FindBones(InternalGuiNode* node)
+{
+    dmGui::HNode child = GetFirstChildNode(node->m_GuiScene, node->m_GuiNode);
+    while (child != dmGui::INVALID_HANDLE)
+    {
+        if (dmGui::GetNodeIsBone(node->m_GuiScene, child))
+        {
+            FindGuiBones(node, node->m_GuiScene, child);
+            // we don't break here, as we currently keep all bones as children directly under the spine node
+        }
+        child = dmGui::GetNextNode(node->m_GuiScene, child);
+    }
+
+    FindSpineBones(node, node->m_SkeletonInstance->root);
 }
 
 static void DestroyNode(InternalGuiNode* node)
@@ -537,7 +586,7 @@ static void GuiDestroy(const dmGameSystem::CompGuiNodeContext* ctx, const dmGame
     delete (InternalGuiNode*)(nodectx->m_NodeData);
 }
 
-static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNode* node)
+static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNode* node, bool create_bones)
 {
     node->m_SpinePath    = path;
     node->m_SpineScene   = resource;
@@ -570,7 +619,10 @@ static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNo
 
     dmGui::SetNodeTexture(node->m_GuiScene, node->m_GuiNode, dmGui::NODE_TEXTURE_TYPE_TEXTURE_SET, node->m_SpineScene->m_TextureSet);
 
-    CreateBones(node);
+    if (create_bones)
+    {
+        CreateBones(node);
+    }
 
     return true;
 
@@ -591,7 +643,21 @@ static void* GuiClone(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameS
     dst->m_SkinId = src->m_SkinId;
 
     // Setup the spine structures
-    SetupNode(src->m_SpinePath, src->m_SpineScene, dst);
+    // We don't create bones, as we may be part of a gui.clone_tree, which does the entire subtree, and returns a list of nodes to the user
+    // As such, we need to retrieve the child nodes at a later step
+    // But, since the cloned nodes doesn't have any id's, we can't fetch them via id
+    // So, we instead create specific gui node type for the bones, and let them register themselves to this cloned node
+    SetupNode(src->m_SpinePath, src->m_SpineScene, dst, false);
+    uint32_t num_bones = src->m_BonesNodes.Size();
+    dst->m_BonesNodes.SetCapacity(num_bones);
+    dst->m_BonesIds.SetCapacity(num_bones);
+    dst->m_Bones.SetCapacity(num_bones);
+
+    // Since we cannot get the id's from the gui nodes, we need to copy the data now
+    dst->m_BonesIds.SetSize(num_bones);
+    memcpy(dst->m_BonesIds.Begin(), src->m_BonesIds.Begin(), sizeof(dmhash_t) * num_bones);
+
+    dst->m_FindBones = 1;
 
     // Now set the correct animation
     dst->m_Transform    = src->m_Transform;
@@ -646,7 +712,7 @@ static void GuiSetNodeDesc(const dmGameSystem::CompGuiNodeContext* ctx, const dm
     node->m_AnimationId = dmHashString64(node_desc->m_SpineDefaultAnimation); // TODO: Q: Is the default playmode specified anywhere?
     node->m_SkinId = dmHashString64(node_desc->m_SpineSkin);
 
-    SetupNode(name_hash, resource, node);
+    SetupNode(name_hash, resource, node, true);
 
     if (node->m_SkinId) {
         SetSkin(node->m_GuiScene, node->m_GuiNode, node->m_SkinId);
@@ -673,6 +739,13 @@ static void GuiGetVertices(const dmGameSystem::CustomNodeCtx* nodectx, uint32_t 
 static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
 {
     InternalGuiNode* node = (InternalGuiNode*)(nodectx->m_NodeData);
+
+    if (node->m_FindBones)
+    {
+        node->m_FindBones = 0;
+        FindBones(node);
+    }
+
     if (!node->m_AnimationStateInstance)
         return;
 
