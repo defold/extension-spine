@@ -971,7 +971,7 @@
                                              :icon spine-scene-icon
                                              :view-types [:scene :text]
                                              :view-opts {:scene {:grid true}}
-                                             :template "/defold-spine/assets/template.spinescene")
+                                             :template "/defold-spine/editor/resources/templates/template.spinescene")
    (resource-node/register-ddf-resource-type workspace
                                              :ext spine-model-ext
                                              :label "Spine Model"
@@ -983,7 +983,7 @@
                                              :view-opts {:scene {:grid true}}
                                              :tags #{:component}
                                              :tag-opts {:component {:transform-properties #{:position :rotation}}}
-                                             :template "/defold-spine/assets/template.spinemodel")
+                                             :template "/defold-spine/editor/resources/templates/template.spinemodel")
    (workspace/register-resource-type workspace
                                      :ext spine-json-ext
                                      :node-type SpineSceneJson
