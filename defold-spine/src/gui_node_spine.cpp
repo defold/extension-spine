@@ -519,8 +519,6 @@ static void FindGuiBones(InternalGuiNode* node, dmGui::HScene scene, dmGui::HNod
         if (dmGui::GetNodeIsBone(scene, child)) // We cannot have bones as a child of another node type
         {
             FindGuiBones(node, scene, child);
-        } else {
-
         }
 
         child = dmGui::GetNextNode(scene, child);
