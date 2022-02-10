@@ -529,7 +529,9 @@ extern "C" DM_DLLEXPORT void SPINE_SetSkin(void* _file, const char* skin)
     if (!spSkeleton_setSkinByName(file->m_SkeletonInstance, skin))
     {
         dmLogError("Failed to set skin '%s' to spine instance '%s'", skin, file->m_Path);
+        return;
     }
+    spSkeleton_setSlotsToSetupPose(file->m_SkeletonInstance);
 }
 
 extern "C" DM_DLLEXPORT void SPINE_SetAnimation(void* _file, const char* animation)

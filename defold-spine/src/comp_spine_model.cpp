@@ -539,6 +539,7 @@ namespace dmSpine
             return dmGameObject::CREATE_RESULT_UNKNOWN_ERROR;
         }
         spSkeleton_setSkin(component->m_SkeletonInstance, spine_scene->m_Skeleton->defaultSkin);
+        spSkeleton_setSlotsToSetupPose(component->m_SkeletonInstance);
 
         component->m_AnimationStateInstance = spAnimationState_create(spine_scene->m_AnimationStateData);
         if (!component->m_AnimationStateInstance)
@@ -1273,6 +1274,7 @@ namespace dmSpine
         }
 
         spSkeleton_setSkin(component->m_SkeletonInstance, skin);
+        spSkeleton_setSlotsToSetupPose(component->m_SkeletonInstance);
 
         return true;
     }

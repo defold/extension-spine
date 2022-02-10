@@ -345,6 +345,7 @@ bool SetSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id)
     }
 
     spSkeleton_setSkin(node->m_SkeletonInstance, skin);
+    spSkeleton_setSlotsToSetupPose(node->m_SkeletonInstance);
     return true;
 }
 
