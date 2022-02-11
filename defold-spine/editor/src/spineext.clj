@@ -605,17 +605,17 @@
 
 (g/defnk load-spine-data-handle [_node-id spine-json-resource spine-json-content atlas-resource texture-set-pb default-animation skin]
   ; The paths are used for error reporting if any loading goes wrong
-  (when (and spine-json-resource spine-json-content atlas-resource)
-    (try
+  (try
+    (when texture-set-pb
       (let [spine-json-path (resource/resource->proj-path spine-json-resource)
             atlas-path (resource/resource->proj-path atlas-resource)
             spine-data-handle (plugin-load-file-from-buffer spine-json-content spine-json-path texture-set-pb atlas-path) ; it throws if it fails to load
             _ (if (not (str/blank? default-animation)) (plugin-set-animation spine-data-handle default-animation))
             _ (if (not (str/blank? skin)) (plugin-set-skin spine-data-handle skin))
             _ (plugin-update-vertices spine-data-handle 0.0)]
-        spine-data-handle)
-      (catch Exception error
-        (handle-read-error error _node-id spine-json-resource)))))
+        spine-data-handle))
+    (catch Exception error
+      (handle-read-error error _node-id spine-json-resource))))
 
 (defn- load-spine-scene [project self resource spine]
   (let [spine-resource (workspace/resolve-resource resource (:spine-json spine))
