@@ -265,12 +265,13 @@ static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::P
     node->m_AnimationInstance->reverse = IsReverse(playback);
     node->m_AnimationInstance->mixDuration = blend_duration;
 
-    if (node->m_Callback)
+    if (node->m_NextCallback)
     {
         // We cannot delete the current callback since we might be inside the current callback
-        node->m_HasNextCallback = 1;
-        node->m_NextCallback = callback; // Might be 0
+        dmScript::DestroyCallback(node->m_NextCallback);
     }
+    node->m_HasNextCallback = 1;
+    node->m_NextCallback = callback; // Might be 0
 
     return true;
 }
