@@ -57,11 +57,13 @@ struct InternalGuiNode
     dmArray<spBone*>        m_Bones; // Matches 1:1 with m_BoneNodes
 
     dmScript::LuaCallbackInfo* m_Callback;
+    dmScript::LuaCallbackInfo* m_NextCallback; // If the current callback calls play_anim with another callback
 
     uint8_t             m_Playing : 1;
     uint8_t             m_UseCursor : 1;
     uint8_t             m_FindBones : 1;
-    uint8_t             : 5;
+    uint8_t             m_HasNextCallback : 1;
+    uint8_t             : 4;
 
     InternalGuiNode()
     : m_SpinePath(0)
@@ -72,9 +74,11 @@ struct InternalGuiNode
     , m_AnimationId(0)
     , m_SkinId(0)
     , m_Callback(0)
+    , m_NextCallback(0)
     , m_Playing(0)
     , m_UseCursor(0)
     , m_FindBones(0)
+    , m_HasNextCallback(0)
     {}
 };
 
@@ -198,7 +202,8 @@ static void SpineEventListener(spAnimationState* state, spEventType type, spTrac
                     // We only send the event if it's not looping (same behavior as before)
                     SendAnimationDone(node, state, entry, event);
 
-                    dmScript::DestroyCallback(node->m_Callback); // The animation has ended, so we won't send any more on this
+                    // The animation has ended, so we won't send any more on this callback
+                    dmScript::DestroyCallback(node->m_Callback);
                     node->m_Callback = 0;
                 }
             }
@@ -262,9 +267,10 @@ static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::P
 
     if (node->m_Callback)
     {
-        dmScript::DestroyCallback(node->m_Callback);
+        // We cannot delete the current callback since we might be inside the current callback
+        node->m_HasNextCallback = 1;
+        node->m_NextCallback = callback; // Might be 0
     }
-    node->m_Callback = callback;
 
     return true;
 }
@@ -292,8 +298,9 @@ bool SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene)
     // if we want to play an animation, the user needs to explicitly do it with gui.play_spine_anim()
     // which will then ofc also use a callback
     // It in turn means that we have no use for the current callback
-    dmScript::DestroyCallback(node->m_Callback);
-    node->m_Callback = 0;
+    // Also, we cannot delete it here, as we might be inside the current callback
+    node->m_HasNextCallback = 1;
+    node->m_NextCallback = 0;
 
     return SetupNode(spine_scene, resource, node, true);
 }
@@ -559,11 +566,6 @@ static void DestroyNode(InternalGuiNode* node)
 {
     DeleteBones(node);
 
-    if (node->m_Callback)
-    {
-        dmScript::DestroyCallback(node->m_Callback);
-    }
-
     if (node->m_AnimationStateInstance)
         spAnimationState_dispose(node->m_AnimationStateInstance);
     if (node->m_SkeletonInstance)
@@ -582,7 +584,19 @@ static void* GuiCreate(const dmGameSystem::CompGuiNodeContext* ctx, void* contex
 
 static void GuiDestroy(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameSystem::CustomNodeCtx* nodectx)
 {
-    delete (InternalGuiNode*)(nodectx->m_NodeData);
+    InternalGuiNode* node = (InternalGuiNode*)nodectx->m_NodeData;
+
+    // Always beware of deleting a callback to make sure it isn't done within the actual callback
+    if (node->m_Callback)
+    {
+        dmScript::DestroyCallback(node->m_Callback);
+    }
+    if (node->m_NextCallback)
+    {
+        dmScript::DestroyCallback(node->m_NextCallback);
+    }
+
+    delete node;
 }
 
 static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNode* node, bool create_bones)
@@ -747,6 +761,15 @@ static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
 
     if (!node->m_AnimationStateInstance)
         return;
+
+    if (node->m_HasNextCallback)
+    {
+        if (node->m_Callback)
+            dmScript::DestroyCallback(node->m_Callback);
+        node->m_Callback = node->m_NextCallback;
+        node->m_HasNextCallback = 0;
+        node->m_NextCallback = 0;
+    }
 
     float anim_dt = node->m_UseCursor ? 0.0f : dt;
     node->m_UseCursor = 0;
