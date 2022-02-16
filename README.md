@@ -50,9 +50,9 @@ Happy Defolding!
 
     - The new `spine.set_attachment(slot, attachment)` allows you to set an attachment to a slot
 
-* `spine.play_animation()` etc are now synchronous.
+* `spine.play_anim()` etc are now synchronous.
 
-* If a callback is set to `spine.play_animation()` it will now receive _all_ spine events (e.g. foot steps etc)
+* If a callback is set to `spine.play_anim()` it will now receive _all_ spine events (e.g. foot steps etc)
 
 
 ## GUI
