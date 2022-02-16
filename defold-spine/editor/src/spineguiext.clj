@@ -17,19 +17,9 @@
             [util.murmur :as murmur]
             [editor.graph-util :as gu]
             [editor.geom :as geom]
-            [editor.material :as material]
-            [editor.math :as math]
-            [editor.gl :as gl]
-            [editor.gl.shader :as shader]
-            [editor.gl.texture :as texture]
-            [editor.gl.vertex :as vtx]
             [editor.defold-project :as project]
             [editor.resource :as resource]
-            [editor.resource-node :as resource-node]
             [editor.scene-cache :as scene-cache] ; debug only
-            [editor.scene-picking :as scene-picking]
-            [editor.render :as render]
-            [editor.validation :as validation]
             [editor.workspace :as workspace]
             [editor.types :as types]
             [editor.outline :as outline]
@@ -351,21 +341,22 @@
                 (g/connect spine-scenes-node :add-handler-info self :handler-infos)
                 (attach-spine-scene self spine-scenes-node no-spine-scene true)
                 (let [spine-scene-node-prop-keys (g/declared-property-labels SpineSceneNode)
-                      resource-node-prop-keys (g/declared-property-labels gui/ResourceNode)]
-                  (for [spine-scene-desc (:spine-scenes scene)
-                        :let [spine-scene-desc (select-keys spine-scene-desc spine-scene-node-prop-keys)]]
-                    (g/make-nodes graph-id [spine-scene [SpineSceneNode
-                                                         :name (:name spine-scene-desc)
-                                                         :spine-scene (workspace/resolve-resource resource (:spine-scene spine-scene-desc))]]
-                                  (attach-spine-scene self spine-scenes-node spine-scene)))
+                      resource-node-prop-keys (g/declared-property-labels gui/ResourceNode)
+                      old-spine-scenes (for [spine-scene-desc (:spine-scenes scene)
+                                             :let [spine-scene-desc (select-keys spine-scene-desc spine-scene-node-prop-keys)]]
+                                         (g/make-nodes graph-id [spine-scene [SpineSceneNode
+                                                                              :name (:name spine-scene-desc)
+                                                                              :spine-scene (workspace/resolve-resource resource (:spine-scene spine-scene-desc))]]
+                                                       (attach-spine-scene self spine-scenes-node spine-scene)))
                   ;; spine-scene-ext
-                  (for [resources-desc (:resources scene)
-                        :let [resource-desc (select-keys resources-desc resource-node-prop-keys)]]
-                    (g/make-nodes graph-id [spine-scene [SpineSceneNode
-                                                         :name (:name resource-desc)
-                                                         :spine-scene (workspace/resolve-resource resource (:path resource-desc))]]
-                                  (when (str/ends-with? (:path resource-desc) spineext/spine-scene-ext)
-                                    (attach-spine-scene self spine-scenes-node spine-scene)))))))
+                      new-spine-scenes (for [resources-desc (:resources scene)
+                                             :let [resource-desc (select-keys resources-desc resource-node-prop-keys)]]
+                                         (g/make-nodes graph-id [spine-scene [SpineSceneNode
+                                                                              :name (:name resource-desc)
+                                                                              :spine-scene (workspace/resolve-resource resource (:path resource-desc))]]
+                                                       (when (str/ends-with? (:path resource-desc) spineext/spine-scene-ext)
+                                                         (attach-spine-scene self spine-scenes-node spine-scene))))]
+                  (concat old-spine-scenes new-spine-scenes))))
 
       
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
