@@ -69,13 +69,33 @@
                 type: hash
                 desc: The animation that was completed
 
-              - name: playback
-                type: constant
-                desc: The playback mode for the animation
-
               - name: track
                 type: number
                 desc: The track index of the animation
+
+              - name: playback
+                type: constant
+                desc: (spine_animation_done only!) The playback mode for the animation
+
+              - name: event_id
+                type: hash
+                desc: (spine_event only!) the event that was triggered.
+                
+              - name: t
+                type: float
+                desc: (spine_event only!) the time at which the event occurred (seconds)
+                
+              - name: integer
+                type: int
+                desc: (spine_event only!) a custom integer associated with the event (0 by default).
+                
+              - name: float
+                type: float
+                desc: (spine_event only!) a custom float associated with the event (0 by default)
+                
+              - name: string
+                type: hash
+                desc: (spine_event only!) a custom string associated with the event (hash("") by default)
 
           - name: sender
             type: url

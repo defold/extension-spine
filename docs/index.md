@@ -239,17 +239,25 @@ msg.post("pistol", "set_parent", { parent_id = hand })
 To run animations on your model, simply call the [`spine.play_anim()`](/ref/spine#spine.play_anim) function:
 
 ```lua
+local function anim_done(self, message_id, message, sender)
+    if message_id == hash("spine_animation_done") then
+      -- the animation is done, do something useful...
+    end
+end
+
 function init(self)
     -- Play the "walk" animation on component "spinemodel" and blend against previous
-    -- animation for the first 0.1 seconds
+    -- animation for the first 0.1 seconds, then call callback.
     local anim_props = { blend_duration = 0.1 }
-    spine.play_anim("#spinemodel", "run", go.PLAYBACK_LOOP_FORWARD, anim_props)
+    spine.play_anim("#spinemodel", "run", go.PLAYBACK_LOOP_FORWARD, anim_props, anim_done)
 end
 ```
 
 ![Spine model in game](spine_ingame.png)
 
-If an animation is played with any of the `go.PLAYBACK_ONCE_*` modes and you have provided a callback function to `spine.play_anim()` the callback is run on animation complete. See below for information on callbacks.
+::: sidenote
+The callback function will be called when the animation has played to the end. The function is never called for looping animations, nor when an animation is manually canceled via `spine.cancel()`. The callback can be used to trigger events on animation completion or to chain multiple animations together.
+:::
 
 
 ### Cursor animation
@@ -258,7 +266,7 @@ In addition to using the `spine.play_anim()` to advance a spine animation, *Spin
 
 ```lua
 -- Set the animation on the spine model but don't run it.
-spine.play_anim("#spinemodel", "run_right", go.PLAYBACK_NONE)
+spine.play_anim("#spinemodel", "run_right", go.PLAYBACK_NONE, anim_props, cb)
 
 -- Set the cursor to position 0
 go.set("#spinemodel", "cursor", 0)
@@ -274,7 +282,7 @@ When tweening or setting the cursor, timeline events may not fire as expected.
 
 ### Timeline events
 
-Spine animations can trigger timed events by sending messages at precise moments. They are very useful for events that should take place in sync with your animation, like playing footstep sounds, spawning particle effects, attaching or detaching objects to the bone hierarchy or anything else you would like to happen.
+Spine animations can trigger timed events at precise moments. They are very useful for events that should take place in sync with your animation, like playing footstep sounds, spawning particle effects, attaching or detaching objects to the bone hierarchy or anything else you would like to happen.
 
 Events are added in the Spine software and are visualized on the playback timeline:
 
@@ -291,7 +299,7 @@ Float
 String
 : A string value.
 
-When the animation plays and events are encountered, `spine_event` messages are sent back to the script component that called `spine.play()`. The message data contains the custom numbers and strings embedded in the event, as well as a few additional fields that are sometimes useful:
+When the animation plays and events are encountered, `spine_event` callbacks are sent back to the callback function provided with `spine.play_anim()`. The message data contains the custom numbers and strings embedded in the event, as well as a few additional fields that are sometimes useful:
 
 `t`
 : The number of seconds passed since the first frame of the animation.
@@ -311,37 +319,23 @@ When the animation plays and events are encountered, `spine_event` messages are 
 `event_id`
 : The event identifier, hashed.
 
-`blend_weight`
-: How much of the animation is blended in at this point. 0 means that nothing of the current animation is part of the blend yet, 1 means that the blend consists of the current animation to 100%.
-
 ```lua
--- Spine animation contains events that are used to play sounds in sync with the animation.
--- These arrive here as messages.
-function on_message(self, message_id, message, sender)
-  if message_id == hash("spine_event") and message.event_id == hash("play_sound") then
-    -- Play animation sound. The custom event data contains the sound component and the gain.
-    local url = msg.url("sounds")
-    url.fragment = message.string
-    sound.play(url, { gain = message.float })
+local function anim_done(self, message_id, message, sender)
+  if message_id == hash("spine_animation_done") then
+    if message.animation_id == hash("jump") then
+      -- open animation done, chain with "run"
+      local properties = { blend_duration = 0.2 }
+      spine.play_anim(sender, "run", go.PLAYBACK_LOOP_FORWARD, properties, anim_done)
+    end
+  elseif message_id == hash("spine_event") then
+      pprint("spine event", message)
   end
 end
-```
-
-
-## Completion callbacks
-
-The spine animation function `spine.play_anim()` support an optional Lua callback function as the last argument. This function will be called when the animation has played to the end. The function is never called for looping animations, nor when an animation is manually canceled via `spine.cancel()`. The callback can be used to trigger events on animation completion or to chain multiple animations together.
-
-```lua
-local function anim_done(self)
-    -- the animation is done, do something useful...
-end
-
 function init(self)
-    -- Play the "walk" animation on component "spinemodel" and blend against previous
-    -- animation for the first 0.1 seconds, then call callback.
-    local anim_props = { blend_duration = 0.1 }
-    spine.play_anim("#spinemodel", "run", go.PLAYBACK_LOOP_FORWARD, anim_props, anim_done)
+    local url = msg.url("#spinemodel")
+    local play_properties = { blend_duration = 0.1 }
+    -- first blend during 0.1 sec into the jump, then during 0.2 s into the run animation
+    spine.play_anim(url, "open", go.PLAYBACK_ONCE_FORWARD, play_properties, anim_done)
 end
 ```
 

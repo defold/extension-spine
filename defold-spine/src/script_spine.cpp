@@ -255,7 +255,7 @@ namespace dmSpine
      *       local properties = { blend_duration = 0.2 }
      *       spine.play_anim(sender, "run", go.PLAYBACK_LOOP_FORWARD, properties, anim_done)
      *     end
-     *   elif message_id == hash("spine_event") then
+     *   elseif message_id == hash("spine_event") then
      *       pprint("spine event", message)
      *   end
      * end
