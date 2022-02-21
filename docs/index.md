@@ -10,14 +10,6 @@ _Spine_ is a third party animation tool by Esoteric Software. Spine animation pr
   ![Spine animation](spine_animation.png){.inline}
   ![Run loop](frog_runloop.gif){.inline}
 
-Defold implements runtime evaluation and animation expressed in the [Spine JSON format](http://esotericsoftware.com/spine-json-format).
-
-Defold supports most of Spine's animation features, including inverse kinematics (IK).
-
-::: important
-Currently, Defold does not support animation keys that flip bones over the X or Y axis. Defold supports mesh animation but only with bones, meaning that you can't animate single vertices. If you need to animate single vertices you can do that through a bone being 100% bound to that vertex only and animate the bone.
-:::
-
 
 ## Requirements
 
@@ -27,6 +19,65 @@ To use this library in your Defold project, add the following URL to your `game.
 [https://github.com/defold/extension-spine/archive/main.zip](https://github.com/defold/extension-spine/archive/main.zip)
 
 We recommend using a link to a zip file of a [specific release](https://github.com/defold/extension-spine/releases).
+
+
+## Migration guide
+
+Spine animations used to be part of the main Defold engine. Starting with Defold version 1.2.193 Spine animations have been moved from the engine into a Defold extension. To upgrade to the new version you need to make a few changes to your project. 
+
+### Spine content
+
+* The new file suffix is `.spinejson`
+    - Set this as the output suffix in the Spine Editor
+
+* Update the spine source files to latest version
+    - The new runtime is based on Spine 4.0+
+
+    - NOTE: The old spine version json files won't work as they are too old!
+
+* Update the `.spinescene` files in the project replacing the `.json` reference to the corresponding `.spinejson` file
+
+    * Either manually update your `.spinescene` files in the editor
+
+    * Use search-and-replace in a text editor
+
+    * Use this [python3 script](./defold-spine/misc/migrate.py) to update do the search and replace for you. The script only replaces
+    the suffix from `.json` to `.spinejson`:
+
+        `<project root>: python3 ./defold-spine/misc/migrate.py`
+
+    * TIP: It's easiest if the new files has the same name and casing as the old files!
+
+* Update any materials if you've made your custom spine materials
+
+    * The materials + shaders now live in the `extension-spine`
+
+    * The material now uses the `world_view_proj` matrix for transforming the vertices
+
+### GameObject
+
+* `spine.set_skin(name)` now only takes one argument
+
+    - The new `spine.set_attachment(slot, attachment)` allows you to set an attachment to a slot
+
+* `spine.play_anim()` etc are now synchronous.
+
+* If a callback is set to `spine.play_anim()` it will now receive _all_ spine events (e.g. foot steps etc)
+
+
+### GUI
+
+* The Lua callbacks have a new signature, to make them more consistent with the game object callbacks
+
+```lua
+local function spine_callback(self, node, event, data)
+    pprint("SPINE CALLBACK", node, event, data)
+end
+```
+
+* Currently the play anim requires a callback (i.e. the default handler is currently disabled)
+
+
 
 
 ## Concepts
@@ -48,7 +99,7 @@ We recommend using a link to a zip file of a [specific release](https://github.c
 
 The Spine JSON data format that Defold supports can be created by Esoteric Software's _Spine_ software. In addition, _Dragon Bones_ has the ability to export Spine JSON data files.
 
-_Spine_ is available from http://esotericsoftware.com
+_Spine_ is available from [Esoteric Software](http://esotericsoftware.com).
 
 ![Spine](spine.png)
 
@@ -65,14 +116,14 @@ _Dragon Bones_ should typically be able to export to Spine JSON data files witho
 
 When you have a model and animations that you have created in Spine, the process of importing them into Defold is straightforward:
 
-- Export a Spine JSON version of the animation data.
+- Export a Spine JSON version of the animation data. Make sure the extension is `.spinejson`.
 - Put the exported JSON file somewhere in your project hierarchy.
 - Put all images associated with the model somewhere in your project hierarchy.
 - Create an _Atlas_ file and add all the images to it. (See [2D graphics documentation](/manuals/2dgraphics) for details on how to create an atlas and below for some caveats)
 
 ![Export JSON from Spine](spine_json_export.png)
 
-If you work in _Dragon Bones_, simply select *Spine* as your output data type. Also select *Images* as image type. This will export a *.json* file and all necessary images into a folder. Then add those to Defold as described above.
+If you work in _Dragon Bones_, simply select *Spine* as your output data type. Also select *Images* as image type. This will export a ∫ file and all necessary images into a folder. Make sure to rename the `.json` file to `.spinejson`. Then add those to Defold as described above.
 
 ![Export JSON from Dragon Bones](dragonbones_json_export.png)
 
@@ -85,7 +136,7 @@ When you have the animation data and image files imported and set up in Defold, 
 ![Setup the Spine Scene](spinescene.png)
 
 Spine Json
-: The Spine JSON file to use as source for bone and animation data.
+: The Spine JSON file to use as source for bone and animation data (Note: the file must have extension `.spinejson`).
 
 Atlas
 : The atlas containing images named corresponding to the Spine data file.
@@ -138,11 +189,6 @@ You should now be able to view your Spine model in the editor:
 You can manipulate spine models in runtime through a number of different functions and properties (refer to the [API docs for usage](/ref/spine/)).
 
 
-#### Runtime animation
-
-Defold provides powerful support for controlling animation in runtime. See [Playing Animations](#playing_animations) to learn more.
-
-
 #### Changing properties
 
 A spine model also has a number of different properties that can be manipulated using `go.get()` and `go.set()`:
@@ -184,13 +230,6 @@ With the bone name at hand, you are able to retrieve the instance id of the bone
 local hand = spine.get_go("heroine#spinemodel", "front_hand")
 msg.post("pistol", "set_parent", { parent_id = hand })
 ```
-
-
-
-
-
-
-
 
 
 
