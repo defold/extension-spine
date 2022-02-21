@@ -7,7 +7,8 @@
   - name: play_anim
     type: function
     desc: Plays the specified animation on a Spine model.
-     A [ref:spine_animation_done] message is sent to the script that started the animation.
+     A [ref:spine_animation_done] message is sent to the callback (or message handler).
+     Any spine events will also be handled in the same way.
      [icon:attention] The callback is not called (or message sent) if the animation is
      cancelled with [ref:spine.cancel]. The callback is called (or message sent) only for
      animations that play with the following playback modes
@@ -43,10 +44,14 @@
           - name: playback_rate
             type: constant
             desc: The rate with which the animation will be played. Must be positive.
+            
+          - name: track
+            type: number
+            desc: The track index of the animation. Defaults to 1. Animations on different tracks play in parallel.
 
-      - name: complete_function
+      - name: callback_function
         type: function
-        desc: function to call when the animation has completed
+        desc: function to call when the animation has completed or a Spine event occured
         parameters:
           - name: self
             type: object
@@ -54,7 +59,7 @@
 
           - name: message_id
             type: hash
-            desc: The name of the completion message ("Spine_animation_done")
+            desc: The name of the message ("spine_animation_done" or "spine_event")
 
           - name: message
             type: table
@@ -62,11 +67,15 @@
             parameters:
               - name: animation_id
                 type: hash
-                desc: the animation that was completed
+                desc: The animation that was completed
 
               - name: playback
                 type: constant
-                desc: the playback mode for the animation
+                desc: The playback mode for the animation
+
+              - name: track
+                type: number
+                desc: The track index of the animation
 
           - name: sender
             type: url
@@ -83,6 +92,14 @@
       - name: url
         type: string|hash|url
         desc: The Spine model for which to cancel the animation
+
+      - name: options
+        type: table
+        desc: Cancel options
+        parameters:
+          - name: track
+            type: number
+            desc: The index of the track which to cancel the animation on. Defaults to all animations on all tracks.
 
 #*****************************************************************************************************
 
@@ -116,72 +133,29 @@
         type: string|hash|url
         desc: The Spine model to query
 
-      - name: spine_skin
+      - name: skin
         type: string|hash
         desc: Id of the corresponding skin
 
 
-
 #*****************************************************************************************************
 
-  - name: set_ik_target_position
+  - name: set_attachment
     type: function
-    desc: Sets a target position of an inverse kinematic (IK) object.
+    desc: Returns the id of the game object that corresponds to a specified skeleton bone.
 
     parameters:
       - name: url
         type: string|hash|url
         desc: The Spine model to query
 
-      - name: ik_constraint_id
+      - name: slot
         type: string|hash
-        desc: id of the corresponding IK constraint object
+        desc: Id of the slot
 
-      - name: ik_constraint_id
-        type: vector3
-        desc: Sets a target position of an inverse kinematic (IK) object.
-
-
-
-#*****************************************************************************************************
-
-  - name: set_ik_target
-    type: function
-    desc: Sets a game object as target position of an inverse kinematic (IK) object. As the
-     target game object's position is updated, the constraint object is updated with the
-     new position.
-
-    parameters:
-      - name: url
-        type: string|hash|url
-        desc: The Spine model to query
-
-      - name: ik_constraint_id
+      - name: attachment
         type: string|hash
-        desc: id of the corresponding IK constraint object
-
-      - name: target_url
-        type: string|hash|url
-        desc: Target game object
-
-
-
-#*****************************************************************************************************
-
-  - name: reset_ik_target
-    type: function
-    desc: Resets any previously set IK target of a spine model, the position will be reset
-     to the original position from the spine scene.
-
-    parameters:
-      - name: url
-        type: string|hash|url
-        desc: The Spine model to query
-
-      - name: ik_constraint_id
-        type: string|hash
-        desc: id of the corresponding IK constraint object
-
+        desc: Id of the attachment
 
 
 
@@ -205,11 +179,23 @@
 
 - name: spine_animation_done
   type: message
-  desc: The animation has been finished
+  desc: The animation has been finished. Only received if there is no callback set!
+  parameters:
+    - name: animation_id
+      type: hash
+      desc: The animation that was completed
+
+    - name: playback
+      type: constant
+      desc: The playback mode for the animation
+
+    - name: track
+      type: number
+      desc: The track index of the animation
 
 - name: spine_event
   type: message
-  desc: A spine event sent by the currently playing animation.
+  desc: A spine event sent by the currently playing animation. Only received if there is no callback set!
 
   parameters:
     - name: event_id

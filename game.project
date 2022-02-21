@@ -17,3 +17,6 @@ title = extension-spine
 [library]
 include_dirs = defold-spine
 
+[input]
+game_binding = /builtins/input/all.input_bindingc
+
