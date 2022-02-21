@@ -1,6 +1,6 @@
 name: Build with bob
 
-on: [push, pull_request]on: [push, pull_request]
+on: [push, pull_request]
 
 env:
   VERSION_FILENAME: 'info.json'
