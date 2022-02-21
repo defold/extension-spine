@@ -194,7 +194,7 @@ You can manipulate spine models in runtime through a number of different functio
 A spine model also has a number of different properties that can be manipulated using `go.get()` and `go.set()`:
 
 `animation`
-: The current model animation (`hash`) (READ ONLY). You change animation using `spine.play_anim()` (see [Playing Animations](#playing_animations)).
+: The current model animation (`hash`) (READ ONLY). You change animation using `spine.play_anim()` (see [Playing Animations](#playing-animations)).
 
 `cursor`
 : The normalized animation cursor (`number`).
