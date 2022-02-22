@@ -224,7 +224,7 @@ namespace dmSpine
      */
     static int SetSpineScene(lua_State* L)
     {
-        DM_LUA_STACK_CHECK(L, 1);
+        DM_LUA_STACK_CHECK(L, 0);
 
         dmGui::HScene scene = dmGui::LuaCheckScene(L);
         dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
