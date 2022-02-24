@@ -66,6 +66,7 @@ namespace dmSpine
 
         if (!dmSpine::SetScene(scene, node, spine_scene_id))
         {
+            dmGui::DeleteNode(scene, node);
             return DM_LUA_ERROR("failed to set spine scene for new node");
         }
 
