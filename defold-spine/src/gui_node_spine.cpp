@@ -73,6 +73,7 @@ struct InternalGuiNode
     , m_AnimationInstance(0)
     , m_AnimationId(0)
     , m_SkinId(0)
+    , m_Id(0)
     , m_Callback(0)
     , m_NextCallback(0)
     , m_Playing(0)
@@ -490,6 +491,14 @@ static bool CreateBones(InternalGuiNode* node, dmGui::HScene scene, dmGui::HNode
 static bool CreateBones(InternalGuiNode* node)
 {
     DeleteBones(node);
+
+    if (node->m_Id == 0)
+    {
+        // If we don't have an id, we have no way of getting the bones by name anyways
+        // since the names are a combination of the "node_id/bone_name"
+        // If we wanted to in the future, we can add an id parameter to gui.new_spine_node()
+        return true;
+    }
 
     uint32_t num_bones = (uint32_t)node->m_SkeletonInstance->bonesCount;
     if (node->m_BonesNodes.Capacity() < num_bones)
