@@ -427,7 +427,7 @@ static void DeleteBones(InternalGuiNode* node)
     uint32_t count = node->m_BonesNodes.Size();
     for (uint32_t i = 0; i < count; ++i)
     {
-        dmGui::DeleteNode(node->m_GuiScene, node->m_GuiNode);
+        dmGui::DeleteNode(node->m_GuiScene, node->m_BonesNodes[i]);
     }
     node->m_BonesNodes.SetSize(0);
     node->m_BonesIds.SetSize(0);
