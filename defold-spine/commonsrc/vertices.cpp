@@ -164,14 +164,17 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
     const dmVMath::Matrix4& w = world;
 
     uint32_t vcount = vertex_buffer.Size() - vindex_start;
-    SpineVertex* vb = &vertex_buffer[vindex_start];
-    for (uint32_t i = 0; i < vcount; ++i)
+    if (vcount)
     {
-        SpineVertex* vertex = &vb[i];
-        const dmVMath::Vector4 p = w * dmVMath::Point3(vertex->x, vertex->y, vertex->z);
-        vertex->x = p.getX();
-        vertex->y = p.getY();
-        vertex->z = p.getZ();
+        SpineVertex* vb = &vertex_buffer[vindex_start];
+        for (uint32_t i = 0; i < vcount; ++i)
+        {
+            SpineVertex* vertex = &vb[i];
+            const dmVMath::Vector4 p = w * dmVMath::Point3(vertex->x, vertex->y, vertex->z);
+            vertex->x = p.getX();
+            vertex->y = p.getY();
+            vertex->z = p.getZ();
+        }
     }
 
     return vcount;

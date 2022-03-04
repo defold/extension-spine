@@ -84,11 +84,11 @@ if [ "" == "${PLATFORM}" ]; then
     PLATFORMS="x86_64-darwin x86_64-linux x86_64-win32"
 fi
 
-echo "Building ${PLATFORMS}"
-
 if [[ $# -gt 0 ]] ; then
     PLATFORMS="$*"
 fi
+
+echo "Building ${PLATFORMS}"
 
 for platform in $PLATFORMS; do
 
