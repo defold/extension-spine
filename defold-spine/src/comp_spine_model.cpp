@@ -538,7 +538,11 @@ namespace dmSpine
             DestroyComponent(world, index);
             return dmGameObject::CREATE_RESULT_UNKNOWN_ERROR;
         }
-        spSkeleton_setSkin(component->m_SkeletonInstance, spine_scene->m_Skeleton->defaultSkin);
+
+        if (0 == spSkeleton_setSkinByName(component->m_SkeletonInstance, component->m_Resource->m_Ddf->m_Skin))
+        {
+            spSkeleton_setSkin(component->m_SkeletonInstance, spine_scene->m_Skeleton->defaultSkin);
+        }
         spSkeleton_setSlotsToSetupPose(component->m_SkeletonInstance);
 
         component->m_AnimationStateInstance = spAnimationState_create(spine_scene->m_AnimationStateData);
