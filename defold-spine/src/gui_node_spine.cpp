@@ -5,6 +5,7 @@
 #include <dmsdk/dlib/buffer.h>
 #include <dmsdk/dlib/dstrings.h>
 #include <dmsdk/dlib/log.h>
+#include <dmsdk/dlib/math.h>
 #include <dmsdk/gameobject/gameobject.h>
 #include <dmsdk/gamesys/gui.h>
 #include <dmsdk/script/script.h>
@@ -265,6 +266,7 @@ static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::P
     node->m_AnimationInstance->timeScale = playback_rate;
     node->m_AnimationInstance->reverse = IsReverse(playback);
     node->m_AnimationInstance->mixDuration = blend_duration;
+    node->m_AnimationInstance->trackTime = dmMath::Clamp(offset, node->m_AnimationInstance->animationStart, node->m_AnimationInstance->animationEnd);
 
     if (node->m_NextCallback)
     {

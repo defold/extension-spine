@@ -344,6 +344,7 @@ namespace dmSpine
         track.m_AnimationInstance->timeScale = playback_rate;
         track.m_AnimationInstance->reverse = IsReverse(playback);
         track.m_AnimationInstance->mixDuration = blend_duration;
+        track.m_AnimationInstance->trackTime = dmMath::Clamp(offset, track.m_AnimationInstance->animationStart, track.m_AnimationInstance->animationEnd);
 
         track.m_AnimationCallbackRef = 0;
         dmMessage::ResetURL(&track.m_Listener);
