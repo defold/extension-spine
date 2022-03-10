@@ -100,6 +100,11 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
             EnsureArrayFitsNumber(scratch, 4*2);
             EnsureArrayFitsNumber(vertex_buffer, 6);
 
+            float colorR = tintR * regionAttachment->color.r;
+            float colorG = tintG * regionAttachment->color.g;
+            float colorB = tintB * regionAttachment->color.b;
+            float colorA = tintA * regionAttachment->color.a;
+
             // Computed the world vertices positions for the 4 vertices that make up
             // the rectangular region attachment. This assumes the world transform of the
             // bone to which the slot (and hence attachment) is attached has been calculated
@@ -108,13 +113,13 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
 
             // Create 2 triangles, with 3 vertices each from the region's
             // world vertex positions and its UV coordinates (in the range [0-1]).
-            addVertex(&vertex_buffer[vindex++], scratch[0], scratch[1], uvs[0], uvs[1], tintR, tintG, tintB, tintA);
-            addVertex(&vertex_buffer[vindex++], scratch[2], scratch[3], uvs[2], uvs[3], tintR, tintG, tintB, tintA);
-            addVertex(&vertex_buffer[vindex++], scratch[4], scratch[5], uvs[4], uvs[5], tintR, tintG, tintB, tintA);
+            addVertex(&vertex_buffer[vindex++], scratch[0], scratch[1], uvs[0], uvs[1], colorR, colorG, colorB, colorA);
+            addVertex(&vertex_buffer[vindex++], scratch[2], scratch[3], uvs[2], uvs[3], colorR, colorG, colorB, colorA);
+            addVertex(&vertex_buffer[vindex++], scratch[4], scratch[5], uvs[4], uvs[5], colorR, colorG, colorB, colorA);
 
-            addVertex(&vertex_buffer[vindex++], scratch[4], scratch[5], uvs[4], uvs[5], tintR, tintG, tintB, tintA);
-            addVertex(&vertex_buffer[vindex++], scratch[6], scratch[7], uvs[6], uvs[7], tintR, tintG, tintB, tintA);
-            addVertex(&vertex_buffer[vindex++], scratch[0], scratch[1], uvs[0], uvs[1], tintR, tintG, tintB, tintA);
+            addVertex(&vertex_buffer[vindex++], scratch[4], scratch[5], uvs[4], uvs[5], colorR, colorG, colorB, colorA);
+            addVertex(&vertex_buffer[vindex++], scratch[6], scratch[7], uvs[6], uvs[7], colorR, colorG, colorB, colorA);
+            addVertex(&vertex_buffer[vindex++], scratch[0], scratch[1], uvs[0], uvs[1], colorR, colorG, colorB, colorA);
 
             scratch.SetSize(0);
         }
@@ -144,7 +149,10 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
             // 3 vertices make up each triangle. We loop through all triangle indices
             // and simply emit a vertex for each triangle's vertex.
 
-            //dmLogWarning("TRI INDEX COUNT: %u   num_tri_vertices: %u  num_world_vertices %u", mesh->trianglesCount, num_tri_vertices, num_world_vertices);
+            float colorR = tintR * mesh->color.r;
+            float colorG = tintG * mesh->color.g;
+            float colorB = tintB * mesh->color.b;
+            float colorA = tintA * mesh->color.a;
 
             const float* uvs = mesh->uvs;
             int tri_count = mesh->trianglesCount;
@@ -152,9 +160,7 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
             {
                 int index = mesh->triangles[t] << 1;
 
-                //dmLogWarning("    vertex index: %u", index);
-
-                addVertex(&vertex_buffer[vindex++], scratch[index], scratch[index + 1], uvs[index], uvs[index + 1], tintR, tintG, tintB, tintA);
+                addVertex(&vertex_buffer[vindex++], scratch[index], scratch[index + 1], uvs[index], uvs[index + 1], colorR, colorG, colorB, colorA);
             }
 
             scratch.SetSize(0);
