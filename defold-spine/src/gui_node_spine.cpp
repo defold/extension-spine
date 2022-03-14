@@ -54,8 +54,9 @@ struct InternalGuiNode
     const char*         m_Id;
 
     dmArray<dmGui::HNode>   m_BonesNodes;
-    dmArray<dmhash_t>       m_BonesIds; // Matches 1:1 with m_BoneNodes
-    dmArray<spBone*>        m_Bones; // Matches 1:1 with m_BoneNodes
+    dmArray<dmhash_t>       m_BonesIds;     // Matches 1:1 with m_BoneNodes     (each element is hash(scene_name/bone_name))
+    dmArray<dmhash_t>       m_BonesNames;   // Matches 1:1 with m_BoneNodes (each element is hash(bone_name)))
+    dmArray<spBone*>        m_Bones;        // Matches 1:1 with m_BoneNodes
 
     dmScript::LuaCallbackInfo* m_Callback;
     dmScript::LuaCallbackInfo* m_NextCallback; // If the current callback calls play_anim with another callback
@@ -324,6 +325,12 @@ dmGui::HNode GetBone(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t bone_id)
         if (node->m_BonesIds[i] == bone_id)
             return node->m_BonesNodes[i];
     }
+    count = node->m_BonesNames.Size();
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        if (node->m_BonesNames[i] == bone_id)
+            return node->m_BonesNodes[i];
+    }
     return 0;
 }
 
@@ -434,6 +441,7 @@ static void DeleteBones(InternalGuiNode* node)
     }
     node->m_BonesNodes.SetSize(0);
     node->m_BonesIds.SetSize(0);
+    node->m_BonesNames.SetSize(0);
     node->m_Bones.SetSize(0);
 }
 
@@ -477,6 +485,7 @@ static bool CreateBones(InternalGuiNode* node, dmGui::HScene scene, dmGui::HNode
 
     node->m_BonesNodes.Push(gui_bone);
     node->m_BonesIds.Push(dmGui::GetNodeId(scene, gui_bone));
+    node->m_BonesNames.Push(dmHashString64(bone->data->name));
     node->m_Bones.Push(bone);
 
     int count = bone->childrenCount;
@@ -507,6 +516,7 @@ static bool CreateBones(InternalGuiNode* node)
     {
         node->m_BonesNodes.SetCapacity(num_bones);
         node->m_BonesIds.SetCapacity(num_bones);
+        node->m_BonesNames.SetCapacity(num_bones);
         node->m_Bones.SetCapacity(num_bones);
     }
 
@@ -676,11 +686,14 @@ static void* GuiClone(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameS
     uint32_t num_bones = src->m_BonesNodes.Size();
     dst->m_BonesNodes.SetCapacity(num_bones);
     dst->m_BonesIds.SetCapacity(num_bones);
+    dst->m_BonesNames.SetCapacity(num_bones);
     dst->m_Bones.SetCapacity(num_bones);
 
     // Since we cannot get the id's from the gui nodes, we need to copy the data now
     dst->m_BonesIds.SetSize(num_bones);
     memcpy(dst->m_BonesIds.Begin(), src->m_BonesIds.Begin(), sizeof(dmhash_t) * num_bones);
+    dst->m_BonesNames.SetSize(num_bones);
+    memcpy(dst->m_BonesNames.Begin(), src->m_BonesNames.Begin(), sizeof(dmhash_t) * num_bones);
 
     dst->m_FindBones = 1;
 
