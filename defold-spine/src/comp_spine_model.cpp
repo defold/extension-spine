@@ -289,7 +289,7 @@ namespace dmSpine
     {
         if (track->m_AnimationInstance && track->m_AnimationCallbackRef)
         {
-            dmScript::UnrefInInstance(track->m_Context, track->m_AnimationCallbackRef);
+            dmScript::UnrefInInstance(track->m_Context, track->m_AnimationCallbackRef+LUA_NOREF);
             track->m_AnimationCallbackRef = 0;
         }
     }
