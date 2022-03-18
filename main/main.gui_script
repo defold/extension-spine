@@ -109,6 +109,16 @@ function init(self)
 	print("gui.get_spine_scene", gui.get_spine_scene(self.n))
 
 
+    --self.clone = gui.clone(self.n)
+    --gui.set_position(self.clone, gui.get_position(self.clone)+vmath.vector3(-100, 100,0))
+
+    --print("gui.get_spine_scene clone", gui.get_spine_scene(self.clone))
+    --gui.set_spine_scene(self.clone, "test") --stops the animation
+    --print("gui.get_spine_scene clone", gui.get_spine_scene(self.clone))
+    
+    --print("gui.get_spine_scene", gui.get_spine_scene(self.n))
+    --gui.set_spine_scene(self.n, "test") --stops the animation
+
 
 	-- bones
 	--local bone = gui.get_spine_bone(self.n, "not-exist")
@@ -120,7 +130,8 @@ function init(self)
 
 	for i, bone_id in ipairs(bone_names) do
 		--print("SCRIPT bone", bone_id)
-		local bone = gui.get_node(bone_id)
+        --local bone = gui.get_node(bone_id)
+        local bone = gui.get_spine_bone(self.n, string.sub(bone_id,7))
 		local bone_sprite_clone = gui.clone(bone_sprite)
 
 		gui.set_parent(bone_sprite_clone, bone)
