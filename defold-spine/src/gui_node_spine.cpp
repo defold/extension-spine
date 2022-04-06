@@ -293,6 +293,8 @@ bool SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene)
     if (!resource)
         return false;
 
+    // A possible improvement is to find an animation with the same name in the new scene
+    // and try to use the same unit time cursor
     if (node->m_AnimationStateInstance)
         spAnimationState_dispose(node->m_AnimationStateInstance);
     node->m_AnimationStateInstance = 0;
@@ -307,7 +309,8 @@ bool SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene)
     node->m_HasNextCallback = 1;
     node->m_NextCallback = 0;
 
-    return SetupNode(spine_scene, resource, node, true);
+    bool create_bones = node->m_FindBones ? false : true; // See comment in GuiClone()
+    return SetupNode(spine_scene, resource, node, create_bones);
 }
 
 dmhash_t GetScene(dmGui::HScene scene, dmGui::HNode hnode)
@@ -683,6 +686,8 @@ static void* GuiClone(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameS
     // But, since the cloned nodes doesn't have any id's, we can't fetch them via id
     // So, we instead create specific gui node type for the bones, and let them register themselves to this cloned node
     SetupNode(src->m_SpinePath, src->m_SpineScene, dst, false);
+    dst->m_FindBones = 1;
+
     uint32_t num_bones = src->m_BonesNodes.Size();
     dst->m_BonesNodes.SetCapacity(num_bones);
     dst->m_BonesIds.SetCapacity(num_bones);
@@ -695,7 +700,6 @@ static void* GuiClone(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameS
     dst->m_BonesNames.SetSize(num_bones);
     memcpy(dst->m_BonesNames.Begin(), src->m_BonesNames.Begin(), sizeof(dmhash_t) * num_bones);
 
-    dst->m_FindBones = 1;
 
     // Now set the correct animation
     dst->m_Transform    = src->m_Transform;
