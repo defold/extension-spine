@@ -162,7 +162,7 @@
 
   - name: set_attachment
     type: function
-    desc: Returns the id of the game object that corresponds to a specified skeleton bone.
+    desc: Set the attachment of a lot on a spine model.
 
     parameters:
       - name: url
