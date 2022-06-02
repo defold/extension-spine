@@ -1,6 +1,9 @@
 
 #include <dmsdk/sdk.h>
+#include <dmsdk/dlib/profile.h>
 #include "script_spine.h"
+
+DM_PROPERTY_GROUP(rmtp_Spine, "Spine Extension");
 
 static dmExtension::Result AppInitializeSpine(dmExtension::AppParams* params)
 {

@@ -34,6 +34,7 @@ extern "C" {
 #include <dmsdk/dlib/math.h>
 #include <dmsdk/dlib/vmath.h>
 #include <dmsdk/dlib/object_pool.h>
+#include <dmsdk/dlib/profile.h>
 #include <dmsdk/gameobject/component.h>
 #include <dmsdk/gamesys/property.h>
 #include <dmsdk/gamesys/resources/res_textureset.h>
@@ -44,6 +45,9 @@ extern "C" {
 
 #define _USE_MATH_DEFINES
 #include <math.h> // M_PI
+
+DM_PROPERTY_EXTERN(rmtp_Spine);
+DM_PROPERTY_U32(rmtp_ComponentCount, 0, FrameReset, "# alive Spine components", &rmtp_Spine);
 
 namespace dmSpine
 {
@@ -690,6 +694,8 @@ namespace dmSpine
             if (!component.m_Enabled || !component.m_AddedToUpdate)
                 continue;
 
+            DM_PROPERTY_ADD_U32(rmtp_ComponentCount, 1);
+
             const Matrix4& go_world = dmGameObject::GetWorldMatrix(component.m_Instance);
             const Matrix4 local = dmTransform::ToMatrix4(component.m_Transform);
             // if (dmGameObject::ScaleAlongZ(component.m_Instance))
@@ -729,7 +735,7 @@ namespace dmSpine
 
     static void RenderBatch(SpineModelWorld* world, dmRender::HRenderContext render_context, dmRender::RenderListEntry *buf, uint32_t* begin, uint32_t* end)
     {
-        //DM_PROFILE(SpineModel, "RenderBatch");
+        DM_PROFILE("SpineRenderBatch");
 
         const SpineModelComponent* first = (SpineModelComponent*) buf[*begin].m_UserData;
         const SpineModelResource* resource = first->m_Resource;

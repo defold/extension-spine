@@ -7,6 +7,8 @@
 #include <spine/MeshAttachment.h>
 #include <spine/RegionAttachment.h>
 
+#include <dmsdk/dlib/profile.h>
+
 namespace dmSpine
 {
 
@@ -37,6 +39,8 @@ static uint32_t EnsureArrayFitsNumber(dmArray<T>& array, uint32_t num_to_add)
 
 uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleton* skeleton, const dmVMath::Matrix4& world)
 {
+    DM_PROFILE(__FUNCTION__);
+
     dmArray<float> scratch; // scratch buffer
 
     int vindex = vertex_buffer.Size();

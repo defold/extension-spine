@@ -6,6 +6,7 @@
 #include <dmsdk/dlib/dstrings.h>
 #include <dmsdk/dlib/log.h>
 #include <dmsdk/dlib/math.h>
+#include <dmsdk/dlib/profile.h>
 #include <dmsdk/gameobject/gameobject.h>
 #include <dmsdk/gamesys/gui.h>
 #include <dmsdk/script/script.h>
@@ -20,6 +21,9 @@
 
 #include "spine_ddf.h" // generated from the spine_ddf.proto
 #include "script_spine_gui.h"
+
+DM_PROPERTY_EXTERN(rmtp_Spine);
+DM_PROPERTY_U32(rmtp_GuiNodeCount, 0, FrameReset, "# active gui spine node", &rmtp_Spine);
 
 namespace dmSpine
 {
@@ -780,6 +784,7 @@ static void GuiGetVertices(const dmGameSystem::CustomNodeCtx* nodectx, uint32_t 
 
 static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
 {
+    DM_PROPERTY_ADD_U32(rmtp_GuiNodeCount, 1);
     InternalGuiNode* node = (InternalGuiNode*)(nodectx->m_NodeData);
 
     if (node->m_FindBones)
