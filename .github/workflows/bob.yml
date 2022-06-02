@@ -5,7 +5,7 @@ on: [push, pull_request]
 env:
   VERSION_FILENAME: 'info.json'
   BUILD_SERVER: 'https://build-stage.defold.com'
-  CHANNEL: 'beta'
+  CHANNEL: 'alpha'
   PLUGIN_SO: './defold-spine/plugins/lib/x86_64-linux/libSpineExt.so'
 
 jobs:
