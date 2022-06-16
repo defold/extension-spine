@@ -65,7 +65,8 @@ struct InternalGuiNode
     uint8_t             m_UseCursor : 1;
     uint8_t             m_FindBones : 1;
     uint8_t             m_HasNextCallback : 1;
-    uint8_t             : 4;
+    uint8_t             m_FirstUpdate : 1;
+    uint8_t             : 3;
 
     InternalGuiNode()
     : m_SpinePath(0)
@@ -604,6 +605,7 @@ static void* GuiCreate(const dmGameSystem::CompGuiNodeContext* ctx, void* contex
     InternalGuiNode* node_data = new InternalGuiNode();
     node_data->m_GuiScene = scene;
     node_data->m_GuiNode = node;
+    node_data->m_FirstUpdate = 1;
     return node_data;
 }
 
@@ -781,6 +783,16 @@ static void GuiGetVertices(const dmGameSystem::CustomNodeCtx* nodectx, uint32_t 
 static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
 {
     InternalGuiNode* node = (InternalGuiNode*)(nodectx->m_NodeData);
+
+// Temp fix begin!
+    // since the comp_gui.cpp call dmGui::SetNodeTexture() with a null texture, we set it here again
+    // Remove once the bug fix is in Defold 1.3.4
+    if (node->m_FirstUpdate)
+    {
+        node->m_FirstUpdate = 0;
+        dmGui::SetNodeTexture(node->m_GuiScene, node->m_GuiNode, dmGui::NODE_TEXTURE_TYPE_TEXTURE_SET, node->m_SpineScene->m_TextureSet);
+    }
+// end temp fix
 
     if (node->m_FindBones)
     {
