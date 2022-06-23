@@ -146,7 +146,7 @@
   ;; The handle to the C++ resource
   (output spine-data-handle g/Any (g/fnk [spine-scene-infos spine-scene]
                                          (:spine-data-handle (or (spine-scene-infos spine-scene)
-                                                              (spine-scene-infos "")))))
+                                                                 (spine-scene-infos "")))))
   
   (output spine-vertex-buffer g/Any :cached (g/fnk [spine-scene spine-data-handle spine-skin spine-default-animation]
                                                    (produce-local-vertices spine-data-handle spine-skin spine-default-animation 0.0)))
@@ -254,7 +254,7 @@
   (input name-counts gui/NameCounts)
   (input spine-scene-resource resource/Resource)
   
-  (input spine-data-handle g/Any) ; The c++ pointer
+  (input spine-data-handle g/Any :substitute nil) ; The c++ pointer
   (output spine-data-handle g/Any (gu/passthrough spine-data-handle))
 
   (input spine-anim-ids g/Any :substitute (constantly nil))
