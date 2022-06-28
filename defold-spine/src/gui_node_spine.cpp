@@ -709,31 +709,34 @@ static void* GuiClone(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameS
     dst->m_Playing      = src->m_Playing;
     dst->m_UseCursor    = src->m_UseCursor;
 
-    uint32_t index = FindAnimationIndex(dst, dst->m_AnimationId);
-    if (index == INVALID_ANIMATION_INDEX)
+    if (dst->m_AnimationId)
     {
-        dmLogError("No animation '%s' found", dmHashReverseSafe64(dst->m_AnimationId));
-    }
-    else if (index >= dst->m_SpineScene->m_Skeleton->animationsCount)
-    {
-        dmLogError("Animation index %u is too large. Number of animations are %u", index, dst->m_SpineScene->m_Skeleton->animationsCount);
-        index = INVALID_ANIMATION_INDEX;
-    }
-
-    if (index != INVALID_ANIMATION_INDEX)
-    {
-        spAnimation* animation = dst->m_SpineScene->m_Skeleton->animations[index];
-        if (animation)
+        uint32_t index = FindAnimationIndex(dst, dst->m_AnimationId);
+        if (index == INVALID_ANIMATION_INDEX)
         {
-            int trackIndex = 0;
-            int loop = IsLooping(dst->m_Playback);
-            dst->m_AnimationId = src->m_AnimationId;
-            dst->m_AnimationInstance = spAnimationState_setAnimation(dst->m_AnimationStateInstance, trackIndex, animation, loop);
+            dmLogError("No animation '%s' found", dmHashReverseSafe64(dst->m_AnimationId));
+        }
+        else if (index >= dst->m_SpineScene->m_Skeleton->animationsCount)
+        {
+            dmLogError("Animation index %u is too large. Number of animations are %u", index, dst->m_SpineScene->m_Skeleton->animationsCount);
+            index = INVALID_ANIMATION_INDEX;
+        }
 
-            // Now copy the state of the animation
-            dst->m_AnimationInstance->trackTime = src->m_AnimationInstance->trackTime;
-            dst->m_AnimationInstance->reverse = src->m_AnimationInstance->reverse;
-            dst->m_AnimationInstance->timeScale = src->m_AnimationInstance->timeScale;
+        if (index != INVALID_ANIMATION_INDEX)
+        {
+            spAnimation* animation = dst->m_SpineScene->m_Skeleton->animations[index];
+            if (animation)
+            {
+                int trackIndex = 0;
+                int loop = IsLooping(dst->m_Playback);
+                dst->m_AnimationId = src->m_AnimationId;
+                dst->m_AnimationInstance = spAnimationState_setAnimation(dst->m_AnimationStateInstance, trackIndex, animation, loop);
+
+                // Now copy the state of the animation
+                dst->m_AnimationInstance->trackTime = src->m_AnimationInstance->trackTime;
+                dst->m_AnimationInstance->reverse = src->m_AnimationInstance->reverse;
+                dst->m_AnimationInstance->timeScale = src->m_AnimationInstance->timeScale;
+            }
         }
     }
 
