@@ -41,7 +41,7 @@ jobs:
       - name: Resolve libraries
         run: java -jar bob.jar resolve --email a@b.com --auth 123456
       - name: Build Tools
-        run: SERVER=${{env.BUILD_SERVER}} BOB=./bob.jar ./utils/build_plugins.sh
+        run: SERVER=${{env.BUILD_SERVER}} BOB=./bob.jar ./utils/build_plugins.sh x86_64-linux
       - name: Build
         run: java -jar bob.jar --platform=${{ matrix.platform }} build --archive --build-server=${{env.BUILD_SERVER}}
       - name: Bundle
@@ -75,7 +75,7 @@ jobs:
       - name: Resolve libraries
         run: java -jar bob.jar resolve --email a@b.com --auth 123456
       - name: Build Tools
-        run: SERVER=${{env.BUILD_SERVER}} BOB=./bob.jar ./utils/build_plugins.sh
+        run: SERVER=${{env.BUILD_SERVER}} BOB=./bob.jar ./utils/build_plugins.sh x86_64-win32
       - name: Build
         run: java -jar bob.jar --platform=${{ matrix.platform }} build --archive --build-server=${{env.BUILD_SERVER}}
       - name: Bundle
@@ -108,6 +108,8 @@ jobs:
 
       - name: Resolve libraries
         run: java -jar bob.jar resolve --email a@b.com --auth 123456
+      - name: Build Tools
+        run: SERVER=${{env.BUILD_SERVER}} BOB=./bob.jar ./utils/build_plugins.sh x86_64-darwin
       - name: Build
         run: java -jar bob.jar --platform=${{ matrix.platform }} build --archive --build-server=${{env.BUILD_SERVER}}
       - name: Bundle
