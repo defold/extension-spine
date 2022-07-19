@@ -74,10 +74,16 @@ jobs:
 
       - name: Resolve libraries
         run: java -jar bob.jar resolve --email a@b.com --auth 123456
+
       - name: Build Tools
-        run: SERVER=${{env.BUILD_SERVER}} BOB=./bob.jar ./utils/build_plugins.sh x86_64-win32
+        run: |
+          set SERVER=${{env.BUILD_SERVER}}
+          set BOB=./bob.jar
+          ./utils/build_plugins.sh x86_64-win32
+
       - name: Build
         run: java -jar bob.jar --platform=${{ matrix.platform }} build --archive --build-server=${{env.BUILD_SERVER}}
+
       - name: Bundle
         run: java -jar bob.jar --platform=${{ matrix.platform }} bundle
 
@@ -100,6 +106,10 @@ jobs:
           TMPVAR=`curl -s http://d.defold.com/${{env.CHANNEL}}/${{env.VERSION_FILENAME}} | jq -r '.sha1'`
           echo "DEFOLD_VERSION=${TMPVAR}" >> $GITHUB_ENV
           echo "Found version ${TMPVAR}"
+
+      - name: Install dependencies
+        run: |
+          brew install tree
 
       - name: Download bob.jar
         run: |
