@@ -1,0 +1,57 @@
+- name: gui
+  type: table
+  desc: Functions and constants for interacting with Spine models in GUI
+
+  members:
+
+  - name: new_spine_node
+    type: function
+    desc: Create a new spine node
+
+  - name: play_spine_anim
+    type: function
+    desc: Plays the specified animation on a Spine node
+
+  - name: cancel_spine
+    type: function
+    desc: Cancels all running animations on a specified spine node
+
+  - name: get_spine_bone
+    type: function
+    desc: Get a bone node
+
+  - name: set_spine_scene
+    type: function
+    desc: Set the spine scene used by a spine node
+
+  - name: get_spine_scene
+    type: function
+    desc: get the spine scene used by a spine node
+
+  - name: set_spine_skin
+    type: function
+    desc: Set the skin to use on a spine node
+
+  - name: get_spine_skin
+    type: function
+    desc: Get the skin used by a spine node
+
+  - name: get_spine_animation
+    type: function
+    desc: Get the current animation of a spine node
+
+  - name: set_spine_cursor
+    type: function
+    desc: Set the animation cursor for a spine node
+
+  - name: get_spine_cursor
+    type: function
+    desc: Get the animation cursor for a spine node
+
+  - name: set_spine_playback_rate
+    type: function
+    desc: Set the animation playback rate of a spine node
+
+  - name: get_spine_playback_rate
+    type: function
+    desc: Get the animation playback rate for a spine node
