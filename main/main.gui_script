@@ -88,6 +88,8 @@ function init(self)
     print("gui.get_spine_playback_rate", gui.get_spine_playback_rate(self.n))
     print("gui.get_spine_scene", gui.get_spine_scene(self.n))
 
+    gui.set_spine_attachment(self.n, "mouth", "mouth-grind")
+    
     -- bones
     local bone_sprite = gui.get_node("bone")
 

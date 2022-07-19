@@ -434,6 +434,37 @@ float GetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode)
     return node->m_AnimationInstance->timeScale;
 }
 
+bool SetAttachment(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t slot_id, dmhash_t attachment_id)
+{
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    SpineSceneResource* spine_scene = node->m_SpineScene;
+
+    uint32_t* index = spine_scene->m_SlotNameToIndex.Get(slot_id);
+    if (!index)
+    {
+        dmLogError("No slot named '%s'", dmHashReverseSafe64(slot_id));
+        return false;
+    }
+
+    const char* attachment_name = 0;
+    if (attachment_id)
+    {
+        const char** p_attachment_name = spine_scene->m_AttachmentHashToName.Get(attachment_id);
+        if (!p_attachment_name)
+        {
+            dmLogError("No attachment named '%s'", dmHashReverseSafe64(attachment_id));
+            return false;
+        }
+        attachment_name = *p_attachment_name;
+    }
+
+    spSlot* slot = node->m_SkeletonInstance->slots[*index];
+
+    // it's a bit weird to use strings here, but we'd rather not use too much knowledge about the internals
+    return 1 == spSkeleton_setAttachment(node->m_SkeletonInstance, slot->data->name, attachment_name);
+}
+
+
 // END SCRIPTING
 
 static void DeleteBones(InternalGuiNode* node)
