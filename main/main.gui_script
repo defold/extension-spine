@@ -117,7 +117,7 @@ function init(self)
         local clones = clone_node(self.n1)
         local cloned_node = clones[hash("spine1")]
         gui.set_enabled(clones[hash("box")], true)
-        -- gui.get_spine_bone(cloned_node, "aim-constraint-target")
+        gui.get_spine_bone(cloned_node, "aim-constraint-target")
     end)
 end
 
