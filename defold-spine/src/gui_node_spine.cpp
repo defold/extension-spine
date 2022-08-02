@@ -320,9 +320,16 @@ dmhash_t GetScene(dmGui::HScene scene, dmGui::HNode hnode)
     return node->m_SpinePath;
 }
 
+static void FindBones(InternalGuiNode* node);
+
 dmGui::HNode GetBone(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t bone_id)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    if (node->m_FindBones)
+    {
+        node->m_FindBones = 0;
+        FindBones(node);
+    }
     uint32_t count = node->m_BonesIds.Size();
     for (uint32_t i = 0; i < count; ++i)
     {

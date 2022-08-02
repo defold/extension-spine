@@ -72,6 +72,15 @@ local bone_names = {
         -- "spine/front-leg-target"
     }
 
+
+local function clone_node(node)
+    local nodes = gui.clone_tree(node)
+    for id, cloned_node in pairs(nodes) do
+        gui.set_id(cloned_node, id)
+    end
+    return nodes
+end
+
 function init(self)
     print("HELLO FROM GUI!")
     self.n = gui.get_node("spine")
@@ -101,6 +110,15 @@ function init(self)
         gui.set_parent(bone_sprite_clone, bone)
     end
 
+    --gwt bone from clone
+    self.n1 = gui.get_node("box")
+    gui.set_enabled(self.n1, false)
+    timer.delay(0.2, false, function()
+        local clones = clone_node(self.n1)
+        local cloned_node = clones[hash("spine1")]
+        gui.set_enabled(clones[hash("box")], true)
+        gui.get_spine_bone(cloned_node, "aim-constraint-target")
+    end)
 end
 
 function update(self, dt)
