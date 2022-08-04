@@ -6,6 +6,7 @@
 #include <dmsdk/dlib/dstrings.h>
 #include <dmsdk/dlib/log.h>
 #include <dmsdk/dlib/math.h>
+#include <dmsdk/dlib/profile.h>
 #include <dmsdk/gameobject/gameobject.h>
 #include <dmsdk/gamesys/gui.h>
 #include <dmsdk/script/script.h>
@@ -20,6 +21,10 @@
 
 #include "spine_ddf.h" // generated from the spine_ddf.proto
 #include "script_spine_gui.h"
+
+DM_PROPERTY_EXTERN(rmtp_Spine);
+DM_PROPERTY_EXTERN(rmtp_SpineBones);
+DM_PROPERTY_U32(rmtp_SpineGuiNodes, 0, FrameReset, "", &rmtp_Spine);
 
 namespace dmSpine
 {
@@ -571,6 +576,7 @@ static void UpdateBones(InternalGuiNode* node)
     uint32_t num_bones = node->m_BonesNodes.Size();
 
     dmVMath::Vector4 scale = dmGui::GetNodeProperty(scene, node->m_GuiNode, dmGui::PROPERTY_SCALE);
+    DM_PROPERTY_ADD_U32(rmtp_SpineBones, num_bones);
     for (uint32_t i = 0; i < num_bones; ++i)
     {
         dmGui::HNode gui_bone = node->m_BonesNodes[i];
@@ -863,7 +869,7 @@ static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
     }
 
     spSkeleton_updateWorldTransform(node->m_SkeletonInstance);
-
+    DM_PROPERTY_ADD_U32(rmtp_SpineGuiNodes, 1);
     UpdateBones(node);
 }
 
