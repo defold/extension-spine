@@ -330,7 +330,7 @@ namespace dmSpine
         if (!CompSpineModelPlayAnimation(component, &msg, &sender, functionref, L))
         {
             char buffer[128];
-            dmLogWarning("Failed to run animation '%s' on component '%s'", lua_tostring(L, 2), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
+            dmLogError("Failed to run animation '%s' on component '%s'", lua_tostring(L, 2), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
         }
 
         return 0;
