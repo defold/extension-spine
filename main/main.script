@@ -15,11 +15,14 @@ local function play_animation(self)
 end
 
 function init(self)
+	
 	msg.post(".", "acquire_input_focus")
 
 	self.countdown = 2
 	self.url = "#spinemodel"
 
+	--play wrong animation
+	spine.play_anim(self.url, "ddd", go.PLAYBACK_LOOP_FORWARD)
 	--spine.set_skin("#spinemodel", "default")
 	--constants
 	print("getting constants")
