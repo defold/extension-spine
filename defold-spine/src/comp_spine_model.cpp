@@ -34,6 +34,7 @@ extern "C" {
 #include <dmsdk/dlib/math.h>
 #include <dmsdk/dlib/vmath.h>
 #include <dmsdk/dlib/object_pool.h>
+#include <dmsdk/dlib/profile.h>
 #include <dmsdk/gameobject/component.h>
 #include <dmsdk/gamesys/property.h>
 #include <dmsdk/gamesys/resources/res_textureset.h>
@@ -44,6 +45,10 @@ extern "C" {
 
 #define _USE_MATH_DEFINES
 #include <math.h> // M_PI
+
+DM_PROPERTY_GROUP(rmtp_Spine, "Spine");
+DM_PROPERTY_U32(rmtp_SpineBones, 0, FrameReset, "# spine bones", &rmtp_Spine);
+DM_PROPERTY_U32(rmtp_SpineComponents, 0, FrameReset, "# spine components", &rmtp_Spine);
 
 namespace dmSpine
 {
@@ -619,11 +624,12 @@ namespace dmSpine
         if (component->m_BoneInstances.Empty())
             return;
 
-        dmArray<dmTransform::Transform> transforms;
-        transforms.SetCapacity(component->m_Bones.Size());
-        transforms.SetSize(component->m_Bones.Size());
-
         uint32_t size = component->m_Bones.Size();
+        dmArray<dmTransform::Transform> transforms;
+        transforms.SetCapacity(size);
+        transforms.SetSize(size);
+
+        DM_PROPERTY_ADD_U32(rmtp_SpineBones, size);
         for (uint32_t n = 0; n < size; ++n)
         {
             spBone* bone = component->m_Bones[n];
@@ -676,6 +682,7 @@ namespace dmSpine
 
         dmArray<SpineModelComponent*>& components = world->m_Components.m_Objects;
         const uint32_t count = components.Size();
+        DM_PROPERTY_ADD_U32(rmtp_SpineComponents, count);
         uint32_t num_active = 0;
         for (uint32_t i = 0; i < count; ++i)
         {
