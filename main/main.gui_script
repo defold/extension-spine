@@ -128,7 +128,10 @@ function init(self)
         gui.set_spine_scene(cloned_node, "squirrel")
         gui.play_spine_anim(cloned_node, hash("Idle"), gui.PLAYBACK_LOOP_FORWARD)
     end)
-    
+
+    -- set model with more bones into node with less bones
+    self.less_bones_spine = gui.get_node("squirrel")
+    gui.set_spine_scene(self.less_bones_spine, "spineboy") -- spinemodel with more bones
 end
 
 function update(self, dt)
