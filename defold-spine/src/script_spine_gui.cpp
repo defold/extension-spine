@@ -232,6 +232,8 @@ namespace dmSpine
 
         dmhash_t spine_scene_id = dmScript::CheckHashOrString(L, 2);
 
+        VERIFY_SPINE_NODE(scene, node);
+
         if (!dmSpine::SetScene(scene, node, spine_scene_id))
         {
             return DM_LUA_ERROR("failed to set spine scene for new node");
