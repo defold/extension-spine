@@ -126,7 +126,7 @@ function init(self)
         local cloned_node = clones[hash("spine1")]
         gui.set_enabled(clones[hash("box")], true)
         gui.set_spine_scene(cloned_node, "squirrel")
-        -- gui.play_spine_anim(cloned_node, hash("Idle"), gui.PLAYBACK_LOOP_FORWARD)
+        gui.play_spine_anim(cloned_node, hash("Idle"), gui.PLAYBACK_LOOP_FORWARD)
     end)
     
 end

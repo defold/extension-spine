@@ -288,6 +288,8 @@ static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::P
 
 // SCRIPTING
 
+static void FindBones(InternalGuiNode* node);
+
 bool SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
@@ -298,6 +300,12 @@ bool SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene)
     SpineSceneResource* resource = (SpineSceneResource*)dmGui::GetResource(scene, spine_scene, SPINE_SCENE_SUFFIX);
     if (!resource)
         return false;
+
+    if (node->m_FindBones)
+    {
+        node->m_FindBones = 0;
+        FindBones(node);
+    }
 
     // A possible improvement is to find an animation with the same name in the new scene
     // and try to use the same unit time cursor
@@ -315,8 +323,7 @@ bool SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene)
     node->m_HasNextCallback = 1;
     node->m_NextCallback = 0;
 
-    bool create_bones = node->m_FindBones ? false : true; // See comment in GuiClone()
-    return SetupNode(spine_scene, resource, node, create_bones);
+    return SetupNode(spine_scene, resource, node, true);
 }
 
 dmhash_t GetScene(dmGui::HScene scene, dmGui::HNode hnode)
@@ -324,8 +331,6 @@ dmhash_t GetScene(dmGui::HScene scene, dmGui::HNode hnode)
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
     return node->m_SpinePath;
 }
-
-static void FindBones(InternalGuiNode* node);
 
 dmGui::HNode GetBone(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t bone_id)
 {
