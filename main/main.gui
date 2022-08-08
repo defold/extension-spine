@@ -300,6 +300,59 @@ nodes {
   enabled: true
   visible: true
 }
+nodes {
+  position {
+    x: -130.0
+    y: 77.0
+    z: 0.0
+    w: 1.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  scale {
+    x: 0.5
+    y: 0.5
+    z: 1.0
+    w: 1.0
+  }
+  size {
+    x: 1.0
+    y: 1.0
+    z: 0.0
+    w: 1.0
+  }
+  color {
+    x: 1.0
+    y: 1.0
+    z: 1.0
+    w: 1.0
+  }
+  type: TYPE_CUSTOM
+  blend_mode: BLEND_MODE_ALPHA
+  id: "squirrel"
+  xanchor: XANCHOR_NONE
+  yanchor: YANCHOR_NONE
+  pivot: PIVOT_CENTER
+  adjust_mode: ADJUST_MODE_FIT
+  layer: ""
+  inherit_alpha: true
+  clipping_mode: CLIPPING_MODE_NONE
+  clipping_visible: true
+  clipping_inverted: false
+  alpha: 1.0
+  template_node_child: false
+  size_mode: SIZE_MODE_AUTO
+  spine_scene: "squirrel"
+  spine_default_animation: "Idle"
+  spine_skin: ""
+  custom_type: 405028931
+  enabled: true
+  visible: true
+}
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT
 max_nodes: 512
@@ -310,4 +363,8 @@ resources {
 resources {
   name: "test"
   path: "/assets/spineboy/spineboy.spinescene"
+}
+resources {
+  name: "squirrel"
+  path: "/assets/squirrel/squirrel.spinescene"
 }
