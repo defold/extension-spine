@@ -311,3 +311,7 @@ resources {
   name: "test"
   path: "/assets/spineboy/spineboy.spinescene"
 }
+resources {
+  name: "squirrel"
+  path: "/assets/squirrel/squirrel.spinescene"
+}
