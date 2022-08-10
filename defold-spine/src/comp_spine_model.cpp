@@ -477,6 +477,7 @@ namespace dmSpine
                     SendAnimationDone(component, state, entry, event);
 
                     // The animation has ended, so we won't send any more on this
+                    track.m_AnimationCallbackRef = 0;
                     track.m_AnimationInstance = nullptr;
                 }
 
