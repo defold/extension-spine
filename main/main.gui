@@ -340,8 +340,6 @@ nodes {
   spine_default_animation: "Idle"
   spine_skin: ""
   custom_type: 405028931
-  enabled: true
-  visible: true
 }
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT
