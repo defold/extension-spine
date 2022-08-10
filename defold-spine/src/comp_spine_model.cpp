@@ -406,7 +406,7 @@ namespace dmSpine
         message.m_Playback    = track.m_Playback;
         message.m_Track       = entry->trackIndex + 1;
 
-        dmGameObject::Result result = dmGameObject::PostDDF(&message, &sender, &receiver, track.m_AnimationCallbackRef, false);
+        dmGameObject::Result result = dmGameObject::PostDDF(&message, &sender, &receiver, track.m_AnimationCallbackRef, true);
         if (result != dmGameObject::RESULT_OK)
         {
             dmLogError("Could not send animation_done to listener: %d", result);
@@ -477,7 +477,7 @@ namespace dmSpine
                     SendAnimationDone(component, state, entry, event);
 
                     // The animation has ended, so we won't send any more on this
-                    ClearCompletionCallback(&track);
+                    track.m_AnimationCallbackRef = 0;
                     track.m_AnimationInstance = nullptr;
                 }
 
