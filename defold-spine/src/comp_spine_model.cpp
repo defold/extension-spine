@@ -528,7 +528,7 @@ namespace dmSpine
         memset(component, 0, sizeof(SpineModelComponent));
         world->m_Components.Set(index, component);
         component->m_Instance = params.m_Instance;
-        component->m_Transform = dmTransform::Transform(Vector3(params.m_Position), params.m_Rotation, 1.0f);
+        component->m_Transform = dmTransform::Transform(Vector3(params.m_Position), params.m_Rotation, params.m_Scale);
         component->m_Resource = (SpineModelResource*)params.m_Resource;
 
         component->m_ComponentIndex = params.m_ComponentIndex;
