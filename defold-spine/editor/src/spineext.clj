@@ -983,7 +983,7 @@
                                              :view-types [:scene :text]
                                              :view-opts {:scene {:grid true}}
                                              :tags #{:component}
-                                             :tag-opts {:component {:transform-properties #{:position :rotation}}}
+                                             :tag-opts {:component {:transform-properties #{:position :rotation :scale}}}
                                              :template "/defold-spine/editor/resources/templates/template.spinemodel")
    (workspace/register-resource-type workspace
                                      :ext spine-json-ext
