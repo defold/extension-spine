@@ -91,7 +91,7 @@ jobs:
   build_with_bob_macos:
     strategy:
       matrix:
-        platform: [arm64-darwin, x86_64-darwin]
+        platform: [arm64-macos, x86_64-macos]
     runs-on: macOS-latest
 
     name: Build
@@ -119,7 +119,7 @@ jobs:
       - name: Resolve libraries
         run: java -jar bob.jar resolve --email a@b.com --auth 123456
       - name: Build Tools
-        run: SERVER=${{env.BUILD_SERVER}} BOB=./bob.jar ./utils/build_plugins.sh x86_64-darwin
+        run: SERVER=${{env.BUILD_SERVER}} BOB=./bob.jar ./utils/build_plugins.sh x86_64-macos
       - name: Build
         run: java -jar bob.jar --platform=${{ matrix.platform }} build --archive --build-server=${{env.BUILD_SERVER}}
       - name: Bundle
