@@ -91,7 +91,7 @@ jobs:
   build_with_bob_macos:
     strategy:
       matrix:
-        platform: [arm64-macos, x86_64-macos]
+        platform: [arm64-ios, x86_64-macos]
     runs-on: macOS-latest
 
     name: Build
