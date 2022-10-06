@@ -31,7 +31,7 @@ Spine animations used to be part of the main Defold engine. Starting with Defold
     - Set this as the output suffix in the Spine Editor
 
 * Update the spine source files to latest version
-    - The new runtime is based on Spine 4.0+
+    - The new runtime is based on Spine 4.0.xx
 
     - NOTE: The old spine version json files won't work as they are too old!
 
