@@ -23,6 +23,7 @@ extern "C" {
 #include <spine/Attachment.h>
 #include <spine/RegionAttachment.h>
 #include <spine/MeshAttachment.h>
+#include <spine/SkeletonBounds.h>
 
 } // extern C
 
@@ -33,6 +34,7 @@ extern "C" {
 #include <dmsdk/dlib/log.h>
 #include <dmsdk/dlib/math.h>
 #include <dmsdk/dlib/vmath.h>
+#include <dmsdk/dlib/intersection.h>
 #include <dmsdk/dlib/object_pool.h>
 #include <dmsdk/dlib/profile.h>
 #include <dmsdk/gameobject/component.h>
@@ -71,6 +73,7 @@ namespace dmSpine
     {
         dmObjectPool<SpineModelComponent*>  m_Components;
         dmArray<dmRender::RenderObject>     m_RenderObjects;
+        dmArray<dmSpine::SpineModelBounds>  m_BoundingBoxes;
         dmGraphics::HVertexDeclaration      m_VertexDeclaration;
         dmGraphics::HVertexBuffer           m_VertexBuffer;
         dmArray<dmSpine::SpineVertex>       m_VertexBufferData;
@@ -100,6 +103,8 @@ namespace dmSpine
 
         world->m_Components.SetCapacity(comp_count);
         world->m_RenderObjects.SetCapacity(comp_count);
+        world->m_BoundingBoxes.SetCapacity(comp_count);
+        world->m_BoundingBoxes.SetSize(comp_count);
 
         dmGraphics::VertexElement ve[] =
         {
@@ -727,6 +732,12 @@ namespace dmSpine
             }
 
             component.m_DoRender = 1;
+
+            // Update bounding boxes
+            SpineModelBounds& bounds = world->m_BoundingBoxes[i];  // NOTE - using same indexing as components. Is the "lfiecycle" of components same as that of bounding boxes ?
+
+            GetSkeletonBounds(component.m_SkeletonInstance,bounds);
+            dmLogError("Bounding box: {minX:%f, minY:%f, maxX:%f, maxY:%f} ", bounds.minX, bounds.minY, bounds.maxX, bounds.maxY);
         }
 
         // Since we've moved the child game objects (bones), we need to sync back the transforms
@@ -738,14 +749,17 @@ namespace dmSpine
     {
         //DM_PROFILE(SpineModel, "RenderBatch");
 
-        const SpineModelComponent* first = (SpineModelComponent*) buf[*begin].m_UserData;
+        uint32_t component_index = (uint32_t)buf[*begin].m_UserData;
+        const SpineModelComponent* first = (const SpineModelComponent*) world->m_Components.m_Objects[component_index];
         const SpineModelResource* resource = first->m_Resource;
 
         uint32_t vertex_start = world->m_VertexBufferData.Size();
         uint32_t vertex_count = 0;
         for (uint32_t *i = begin; i != end; ++i)
         {
-            const SpineModelComponent* component = (SpineModelComponent*) buf[*i].m_UserData;
+            uint32_t comp_index = (uint32_t)buf[*i].m_UserData;
+            const SpineModelComponent* component = (const SpineModelComponent*) world->m_Components.m_Objects[comp_index];
+            dmLogError("component pointer: %p", (void*) component);
             vertex_count += dmSpine::GenerateVertexData(world->m_VertexBufferData, component->m_SkeletonInstance, component->m_World);
         }
 
@@ -800,6 +814,44 @@ namespace dmSpine
         dmRender::AddToRender(render_context, &ro);
     }
 
+    static void RenderListFrustumCulling(dmRender::RenderListVisibilityParams const &params)
+    {
+        DM_PROFILE("SpineModel");
+
+        SpineModelWorld* spine_world = (SpineModelWorld*)params.m_UserData;
+
+        const dmIntersection::Frustum frustum = *params.m_Frustum;
+        uint32_t num_entries = params.m_NumEntries;
+        for (uint32_t i = 0; i < num_entries; ++i)
+        {
+            dmRender::RenderListEntry* entry = &params.m_Entries[i];
+            int component_index = entry->m_UserData;
+
+            // get transformations for this entry
+            SpineModelComponent* component_p = spine_world->m_Components.Get(component_index); // TOCHECK: this type of indexing should be the same as the one in m_BoundingBoxes
+            //dmLogError("Component index: %d", component_index);
+            dmTransform::Transform& trans = component_p->m_Transform;
+
+            const SpineModelBounds& bounds = spine_world->m_BoundingBoxes[component_index];
+            dmLogError("RenderListFrustumCulling(): bounding box is {minX:%f, minY:%f, maxX:%f, maxY:%f} ", bounds.minX, bounds.minY, bounds.maxX, bounds.maxY);
+
+            float center_x = (bounds.maxX + bounds.minX)/2;
+            float center_y = (bounds.maxY + bounds.minY)/2;
+            dmVMath::Point3 center_local(center_x, center_y, 0);
+            dmVMath::Point3 corner_local(bounds.maxX, bounds.maxY, 0);
+            dmVMath::Vector4 center_world = component_p->m_World * center_local; // transform to world coords
+            dmVMath::Vector4 corner_world = component_p->m_World * corner_local;
+
+            float radius =  Vectormath::Aos::length(corner_world - center_world);
+
+            bool intersect = dmIntersection::TestFrustumSphere(frustum, center_world, radius, true);
+            entry->m_Visibility = intersect ? dmRender::VISIBILITY_FULL : dmRender::VISIBILITY_NONE;
+            dmLogError("Intersect: %d", intersect);
+
+        }
+    }
+
+
     static void RenderListDispatch(dmRender::RenderListDispatchParams const &params)
     {
         SpineModelWorld *world = (SpineModelWorld *) params.m_UserData;
@@ -844,17 +896,24 @@ namespace dmSpine
 
         // Prepare list submit
         dmRender::RenderListEntry* render_list = dmRender::RenderListAlloc(render_context, count);
-        dmRender::HRenderListDispatch dispatch = dmRender::RenderListMakeDispatch(render_context, &RenderListDispatch, world);
+        dmRender::HRenderListDispatch dispatch = dmRender::RenderListMakeDispatch(render_context, &RenderListDispatch, &RenderListFrustumCulling, world);
         dmRender::RenderListEntry* write_ptr = render_list;
 
         for (uint32_t i = 0; i < count; ++i)
         {
             SpineModelComponent& component = *components[i];
+
+
+            // // spSkeleton* skeleton = component->m_SkeletonInstance;
+            spSkeletonBounds* bounds = spSkeletonBounds_create();
+            spSkeletonBounds_update(bounds, component.m_SkeletonInstance, 1);
+            spSkeletonBounds_dispose(bounds);
+
             if (!component.m_DoRender || !component.m_Enabled)
                 continue;
             const Vector4 trans = component.m_World.getCol(3);
             write_ptr->m_WorldPosition = Point3(trans.getX(), trans.getY(), trans.getZ());
-            write_ptr->m_UserData = (uintptr_t) &component;
+            write_ptr->m_UserData = (uintptr_t) i;
             write_ptr->m_BatchKey = component.m_MixedHash;
             write_ptr->m_TagListKey = dmRender::GetMaterialTagListKey(GetMaterial(&component));
             write_ptr->m_Dispatch = dispatch;

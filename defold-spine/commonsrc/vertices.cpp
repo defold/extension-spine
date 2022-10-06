@@ -6,6 +6,7 @@
 #include <spine/Attachment.h>
 #include <spine/MeshAttachment.h>
 #include <spine/RegionAttachment.h>
+#include <float.h>
 
 namespace dmSpine
 {
@@ -34,6 +35,91 @@ static uint32_t EnsureArrayFitsNumber(dmArray<T>& array, uint32_t num_to_add)
     array.SetSize(prev_size+num_to_add);
     return prev_size;
 }
+
+
+void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
+{
+    dmArray<float> scratch; // scratch buffer
+
+    // a "negative" bounding rectangle for starters
+    bounds.minX = FLT_MAX;
+    bounds.minY = FLT_MAX;
+    bounds.maxX = FLT_MIN;
+    bounds.maxY = FLT_MIN;
+
+    // For each slot in the draw order array of the skeleton
+    for (int s = 0; s < skeleton->slotsCount; ++s)
+    {
+        spSlot* slot = skeleton->drawOrder[s];
+
+        // Fetch the currently active attachment, continue
+        // with the next slot in the draw order if no
+        // attachment is active on the slot
+        spAttachment* attachment = slot->attachment;
+        if (!attachment)
+        {
+            continue;
+        }
+
+        // Fill the vertices array depending on the type of attachment
+        if (attachment->type == SP_ATTACHMENT_REGION)
+        {
+            // Cast to an spRegionAttachment so we can get the rendererObject
+            // and compute the world vertices
+            spRegionAttachment* regionAttachment = (spRegionAttachment*)attachment;
+
+            EnsureArrayFitsNumber(scratch, 4*2);
+
+            // Computed the world vertices positions for the 4 vertices that make up
+            // the rectangular region attachment. This assumes the world transform of the
+            // bone to which the slot (and hence attachment) is attached has been calculated
+            // before rendering via spSkeleton_updateWorldTransform
+            spRegionAttachment_computeWorldVertices(regionAttachment, slot->bone, scratch.Begin(), 0, 2);
+
+            // go through vertex coords and update max/min for X and Y
+            for (int i=0; i<4*2; i+=2) {
+                bounds.minX = scratch[i] < bounds.minX ? scratch[i] : bounds.minX;
+                bounds.minY = scratch[i+1] < bounds.minY ? scratch[i+1] : bounds.minY;
+                bounds.maxX = scratch[i] > bounds.maxX ? scratch[i] : bounds.maxX;
+                bounds.maxY = scratch[i+1] > bounds.maxY ? scratch[i+1] : bounds.maxY;
+            }
+
+            scratch.SetSize(0);
+        }
+        else if (attachment->type == SP_ATTACHMENT_MESH)
+        {
+            // Cast to an spMeshAttachment so we can get the rendererObject
+            // and compute the world vertices
+            spMeshAttachment* mesh = (spMeshAttachment*)attachment;
+
+            int num_world_vertices = mesh->super.worldVerticesLength / 2;
+
+            EnsureArrayFitsNumber(scratch, num_world_vertices*2);
+
+            // Computed the world vertices positions for the vertices that make up
+            // the mesh attachment. This assumes the world transform of the
+            // bone to which the slot (and hence attachment) is attached has been calculated
+            // before rendering via spSkeleton_updateWorldTransform
+
+            spVertexAttachment_computeWorldVertices(SUPER(mesh), slot, 0, num_world_vertices*2, scratch.Begin(), 0, 2);
+
+            // go through vertex coords and update max/min for X and Y
+            int coordCount = num_world_vertices*2;
+            for (int i=0; i<coordCount; i+=2) {
+                bounds.minX = scratch[i] < bounds.minX ? scratch[i] : bounds.minX;
+                bounds.minY = scratch[i+1] < bounds.minY ? scratch[i+1] : bounds.minY;
+                bounds.maxX = scratch[i] > bounds.maxX ? scratch[i] : bounds.maxX;
+                bounds.maxY = scratch[i+1] > bounds.maxY ? scratch[i+1] : bounds.maxY;
+            }
+
+            //dmLogWarning("Get num_world_vertices %u  scratch size: %u", num_world_vertices*2, scratch.Size());
+
+            scratch.SetSize(0);
+        }
+    }
+
+}
+
 
 uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleton* skeleton, const dmVMath::Matrix4& world)
 {
