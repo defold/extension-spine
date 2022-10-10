@@ -7,6 +7,7 @@
 #include <spine/MeshAttachment.h>
 #include <spine/RegionAttachment.h>
 #include <float.h>
+#include <dmsdk/dlib/math.h>
 
 namespace dmSpine
 {
@@ -78,10 +79,10 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
 
             // go through vertex coords and update max/min for X and Y
             for (int i=0; i<4*2; i+=2) {
-                bounds.minX = scratch[i] < bounds.minX ? scratch[i] : bounds.minX;
-                bounds.minY = scratch[i+1] < bounds.minY ? scratch[i+1] : bounds.minY;
-                bounds.maxX = scratch[i] > bounds.maxX ? scratch[i] : bounds.maxX;
-                bounds.maxY = scratch[i+1] > bounds.maxY ? scratch[i+1] : bounds.maxY;
+                bounds.minX = dmMath::Min(scratch[i], bounds.minX);
+                bounds.minY = dmMath::Min(scratch[i+1], bounds.minY);
+                bounds.maxX = dmMath::Max(scratch[i], bounds.maxX);
+                bounds.maxY = dmMath::Max(scratch[i+1], bounds.maxY);
             }
 
             scratch.SetSize(0);
@@ -106,13 +107,11 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
             // go through vertex coords and update max/min for X and Y
             int coordCount = num_world_vertices*2;
             for (int i=0; i<coordCount; i+=2) {
-                bounds.minX = scratch[i] < bounds.minX ? scratch[i] : bounds.minX;
-                bounds.minY = scratch[i+1] < bounds.minY ? scratch[i+1] : bounds.minY;
-                bounds.maxX = scratch[i] > bounds.maxX ? scratch[i] : bounds.maxX;
-                bounds.maxY = scratch[i+1] > bounds.maxY ? scratch[i+1] : bounds.maxY;
+                bounds.minX = dmMath::Min(scratch[i], bounds.minX);
+                bounds.minY = dmMath::Min(scratch[i+1], bounds.minY);
+                bounds.maxX = dmMath::Max(scratch[i], bounds.maxX);
+                bounds.maxY = dmMath::Max(scratch[i+1], bounds.maxY);
             }
-
-            //dmLogWarning("Get num_world_vertices %u  scratch size: %u", num_world_vertices*2, scratch.Size());
 
             scratch.SetSize(0);
         }

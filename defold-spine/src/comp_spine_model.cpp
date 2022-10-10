@@ -45,6 +45,7 @@ extern "C" {
 
 #include <common/vertices.h>
 
+
 #define _USE_MATH_DEFINES
 #include <math.h> // M_PI
 
@@ -679,6 +680,7 @@ namespace dmSpine
         }
     }
 
+
     dmGameObject::UpdateResult CompSpineModelUpdate(const dmGameObject::ComponentsUpdateParams& params, dmGameObject::ComponentsUpdateResult& update_result)
     {
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
@@ -734,16 +736,15 @@ namespace dmSpine
             component.m_DoRender = 1;
 
             // Update bounding boxes
-            SpineModelBounds& bounds = world->m_BoundingBoxes[i];  // NOTE - using same indexing as components. Is the "lfiecycle" of components same as that of bounding boxes ?
-
+            SpineModelBounds& bounds = world->m_BoundingBoxes[i];
             GetSkeletonBounds(component.m_SkeletonInstance,bounds);
-            dmLogError("Bounding box: {minX:%f, minY:%f, maxX:%f, maxY:%f} ", bounds.minX, bounds.minY, bounds.maxX, bounds.maxY);
         }
 
         // Since we've moved the child game objects (bones), we need to sync back the transforms
         update_result.m_TransformsUpdated = num_active > 0;
         return dmGameObject::UPDATE_RESULT_OK;
     }
+
 
     static void RenderBatch(SpineModelWorld* world, dmRender::HRenderContext render_context, dmRender::RenderListEntry *buf, uint32_t* begin, uint32_t* end)
     {
@@ -759,7 +760,6 @@ namespace dmSpine
         {
             uint32_t comp_index = (uint32_t)buf[*i].m_UserData;
             const SpineModelComponent* component = (const SpineModelComponent*) world->m_Components.m_Objects[comp_index];
-            dmLogError("component pointer: %p", (void*) component);
             vertex_count += dmSpine::GenerateVertexData(world->m_VertexBufferData, component->m_SkeletonInstance, component->m_World);
         }
 
@@ -828,26 +828,25 @@ namespace dmSpine
             int component_index = entry->m_UserData;
 
             // get transformations for this entry
-            SpineModelComponent* component_p = spine_world->m_Components.Get(component_index); // TOCHECK: this type of indexing should be the same as the one in m_BoundingBoxes
-            //dmLogError("Component index: %d", component_index);
+            SpineModelComponent* component_p = spine_world->m_Components.Get(component_index);
             dmTransform::Transform& trans = component_p->m_Transform;
 
             const SpineModelBounds& bounds = spine_world->m_BoundingBoxes[component_index];
-            dmLogError("RenderListFrustumCulling(): bounding box is {minX:%f, minY:%f, maxX:%f, maxY:%f} ", bounds.minX, bounds.minY, bounds.maxX, bounds.maxY);
 
+            // get center of bounding box in local coords
             float center_x = (bounds.maxX + bounds.minX)/2;
             float center_y = (bounds.maxY + bounds.minY)/2;
             dmVMath::Point3 center_local(center_x, center_y, 0);
             dmVMath::Point3 corner_local(bounds.maxX, bounds.maxY, 0);
-            dmVMath::Vector4 center_world = component_p->m_World * center_local; // transform to world coords
+
+            // transform to world coords
+            dmVMath::Vector4 center_world = component_p->m_World * center_local;
             dmVMath::Vector4 corner_world = component_p->m_World * corner_local;
 
             float radius =  Vectormath::Aos::length(corner_world - center_world);
 
             bool intersect = dmIntersection::TestFrustumSphere(frustum, center_world, radius, true);
             entry->m_Visibility = intersect ? dmRender::VISIBILITY_FULL : dmRender::VISIBILITY_NONE;
-            dmLogError("Intersect: %d", intersect);
-
         }
     }
 
@@ -902,13 +901,6 @@ namespace dmSpine
         for (uint32_t i = 0; i < count; ++i)
         {
             SpineModelComponent& component = *components[i];
-
-
-            // // spSkeleton* skeleton = component->m_SkeletonInstance;
-            spSkeletonBounds* bounds = spSkeletonBounds_create();
-            spSkeletonBounds_update(bounds, component.m_SkeletonInstance, 1);
-            spSkeletonBounds_dispose(bounds);
-
             if (!component.m_DoRender || !component.m_Enabled)
                 continue;
             const Vector4 trans = component.m_World.getCol(3);
