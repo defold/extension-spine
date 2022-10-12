@@ -758,8 +758,8 @@ namespace dmSpine
         uint32_t vertex_count = 0;
         for (uint32_t *i = begin; i != end; ++i)
         {
-            uint32_t comp_index = (uint32_t)buf[*i].m_UserData;
-            const SpineModelComponent* component = (const SpineModelComponent*) world->m_Components.m_Objects[comp_index];
+            component_index = (uint32_t)buf[*i].m_UserData;
+            const SpineModelComponent* component = (const SpineModelComponent*) world->m_Components.m_Objects[component_index];
             vertex_count += dmSpine::GenerateVertexData(world->m_VertexBufferData, component->m_SkeletonInstance, component->m_World);
         }
 

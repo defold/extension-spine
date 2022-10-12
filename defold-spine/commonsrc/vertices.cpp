@@ -6,7 +6,7 @@
 #include <spine/Attachment.h>
 #include <spine/MeshAttachment.h>
 #include <spine/RegionAttachment.h>
-#include <float.h>
+#include <float.h>                      // using FLT_MAX
 #include <dmsdk/dlib/math.h>
 
 namespace dmSpine
@@ -41,12 +41,13 @@ static uint32_t EnsureArrayFitsNumber(dmArray<T>& array, uint32_t num_to_add)
 void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
 {
     dmArray<float> scratch; // scratch buffer
+    EnsureArrayFitsNumber(scratch, 4*2); // this is enough for "SP_ATTACHMENT_REGION"
 
     // a "negative" bounding rectangle for starters
     bounds.minX = FLT_MAX;
     bounds.minY = FLT_MAX;
-    bounds.maxX = FLT_MIN;
-    bounds.maxY = FLT_MIN;
+    bounds.maxX = -FLT_MAX;
+    bounds.maxY = -FLT_MAX;
 
     // For each slot in the draw order array of the skeleton
     for (int s = 0; s < skeleton->slotsCount; ++s)
@@ -69,8 +70,6 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
             // and compute the world vertices
             spRegionAttachment* regionAttachment = (spRegionAttachment*)attachment;
 
-            EnsureArrayFitsNumber(scratch, 4*2);
-
             // Computed the world vertices positions for the 4 vertices that make up
             // the rectangular region attachment. This assumes the world transform of the
             // bone to which the slot (and hence attachment) is attached has been calculated
@@ -78,11 +77,14 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
             spRegionAttachment_computeWorldVertices(regionAttachment, slot->bone, scratch.Begin(), 0, 2);
 
             // go through vertex coords and update max/min for X and Y
-            for (int i=0; i<4*2; i+=2) {
-                bounds.minX = dmMath::Min(scratch[i], bounds.minX);
-                bounds.minY = dmMath::Min(scratch[i+1], bounds.minY);
-                bounds.maxX = dmMath::Max(scratch[i], bounds.maxX);
-                bounds.maxY = dmMath::Max(scratch[i+1], bounds.maxY);
+            float* coords = scratch.Begin();
+            for (int i=0; i<4; i++) {
+                float x = *coords++;
+                float y = *coords++;
+                bounds.minX = dmMath::Min(x, bounds.minX);
+                bounds.minY = dmMath::Min(y, bounds.minY);
+                bounds.maxX = dmMath::Max(x, bounds.maxX);
+                bounds.maxY = dmMath::Max(y, bounds.maxY);
             }
 
             scratch.SetSize(0);
@@ -95,7 +97,7 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
 
             int num_world_vertices = mesh->super.worldVerticesLength / 2;
 
-            EnsureArrayFitsNumber(scratch, num_world_vertices*2);
+            EnsureArrayFitsNumber(scratch, num_world_vertices*2); // increase capacity if needed
 
             // Computed the world vertices positions for the vertices that make up
             // the mesh attachment. This assumes the world transform of the
@@ -105,12 +107,14 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
             spVertexAttachment_computeWorldVertices(SUPER(mesh), slot, 0, num_world_vertices*2, scratch.Begin(), 0, 2);
 
             // go through vertex coords and update max/min for X and Y
-            int coordCount = num_world_vertices*2;
-            for (int i=0; i<coordCount; i+=2) {
-                bounds.minX = dmMath::Min(scratch[i], bounds.minX);
-                bounds.minY = dmMath::Min(scratch[i+1], bounds.minY);
-                bounds.maxX = dmMath::Max(scratch[i], bounds.maxX);
-                bounds.maxY = dmMath::Max(scratch[i+1], bounds.maxY);
+            float* coords = scratch.Begin();
+            for (int i=0; i<num_world_vertices; i++) {
+                float x = *coords++;
+                float y = *coords++;
+                bounds.minX = dmMath::Min(x, bounds.minX);
+                bounds.minY = dmMath::Min(y, bounds.minY);
+                bounds.maxX = dmMath::Max(x, bounds.maxX);
+                bounds.maxY = dmMath::Max(y, bounds.maxY);
             }
 
             scratch.SetSize(0);
