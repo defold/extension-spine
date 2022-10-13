@@ -734,10 +734,6 @@ namespace dmSpine
             }
 
             component.m_DoRender = 1;
-
-            // Update bounding boxes
-            SpineModelBounds& bounds = world->m_BoundingBoxes[i];
-            GetSkeletonBounds(component.m_SkeletonInstance,bounds);
         }
 
         // Since we've moved the child game objects (bones), we need to sync back the transforms
@@ -901,6 +897,11 @@ namespace dmSpine
             SpineModelComponent& component = *components[i];
             if (!component.m_DoRender || !component.m_Enabled)
                 continue;
+
+            // Update bounding boxes
+            SpineModelBounds& bounds = world->m_BoundingBoxes[i];
+            GetSkeletonBounds(component.m_SkeletonInstance,bounds);
+
             const Vector4 trans = component.m_World.getCol(3);
             write_ptr->m_WorldPosition = Point3(trans.getX(), trans.getY(), trans.getZ());
             write_ptr->m_UserData = (uintptr_t) i;

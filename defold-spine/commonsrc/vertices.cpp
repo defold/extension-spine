@@ -75,19 +75,6 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
             // bone to which the slot (and hence attachment) is attached has been calculated
             // before rendering via spSkeleton_updateWorldTransform
             spRegionAttachment_computeWorldVertices(regionAttachment, slot->bone, scratch.Begin(), 0, 2);
-
-            // go through vertex coords and update max/min for X and Y
-            float* coords = scratch.Begin();
-            for (int i=0; i<4; i++) {
-                float x = *coords++;
-                float y = *coords++;
-                bounds.minX = dmMath::Min(x, bounds.minX);
-                bounds.minY = dmMath::Min(y, bounds.minY);
-                bounds.maxX = dmMath::Max(x, bounds.maxX);
-                bounds.maxY = dmMath::Max(y, bounds.maxY);
-            }
-
-            scratch.SetSize(0);
         }
         else if (attachment->type == SP_ATTACHMENT_MESH)
         {
@@ -105,10 +92,14 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
             // before rendering via spSkeleton_updateWorldTransform
 
             spVertexAttachment_computeWorldVertices(SUPER(mesh), slot, 0, num_world_vertices*2, scratch.Begin(), 0, 2);
+        }
 
+        if (attachment->type == SP_ATTACHMENT_REGION || attachment->type == SP_ATTACHMENT_MESH) {
             // go through vertex coords and update max/min for X and Y
             float* coords = scratch.Begin();
-            for (int i=0; i<num_world_vertices; i++) {
+            volatile uint32_t vertex_count = scratch.Size()/2; // since stride is 2
+
+            for (int i=0; i<vertex_count; i++) {
                 float x = *coords++;
                 float y = *coords++;
                 bounds.minX = dmMath::Min(x, bounds.minX);
@@ -116,7 +107,6 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
                 bounds.maxX = dmMath::Max(x, bounds.maxX);
                 bounds.maxY = dmMath::Max(y, bounds.maxY);
             }
-
             scratch.SetSize(0);
         }
     }
