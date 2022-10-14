@@ -18,6 +18,15 @@ struct SpineVertex
     float r, g, b, a;
 };
 
+struct SpineModelBounds
+{
+    float minX;
+    float minY;
+    float maxX;
+    float maxY;
+};
+
 uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleton* skeleton, const dmVMath::Matrix4& world);
+void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds);
 
 } // dmSpine
