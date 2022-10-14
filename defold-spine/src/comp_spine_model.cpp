@@ -823,7 +823,7 @@ namespace dmSpine
             dmRender::RenderListEntry* entry = &params.m_Entries[i];
             int component_index = entry->m_UserData;
 
-            SpineModelComponent* component_p = spine_world->m_Components.Get(component_index);
+            SpineModelComponent* component_p = spine_world->m_Components.m_Objects[component_index];
 
             const SpineModelBounds& bounds = spine_world->m_BoundingBoxes[component_index];
 

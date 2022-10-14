@@ -97,7 +97,7 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
         if (attachment->type == SP_ATTACHMENT_REGION || attachment->type == SP_ATTACHMENT_MESH) {
             // go through vertex coords and update max/min for X and Y
             float* coords = scratch.Begin();
-            volatile uint32_t vertex_count = scratch.Size()/2; // since stride is 2
+            uint32_t vertex_count = scratch.Size()/2; // since stride is 2
 
             for (int i=0; i<vertex_count; i++) {
                 float x = *coords++;
