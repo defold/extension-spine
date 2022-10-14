@@ -63,6 +63,8 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
             continue;
         }
 
+        int num_world_vertices = 0;
+
         // Fill the vertices array depending on the type of attachment
         if (attachment->type == SP_ATTACHMENT_REGION)
         {
@@ -75,6 +77,7 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
             // bone to which the slot (and hence attachment) is attached has been calculated
             // before rendering via spSkeleton_updateWorldTransform
             spRegionAttachment_computeWorldVertices(regionAttachment, slot->bone, scratch.Begin(), 0, 2);
+            num_world_vertices = 4;
         }
         else if (attachment->type == SP_ATTACHMENT_MESH)
         {
@@ -82,7 +85,7 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
             // and compute the world vertices
             spMeshAttachment* mesh = (spMeshAttachment*)attachment;
 
-            int num_world_vertices = mesh->super.worldVerticesLength / 2;
+            num_world_vertices = mesh->super.worldVerticesLength / 2;
 
             EnsureArrayFitsNumber(scratch, num_world_vertices*2); // increase capacity if needed
 
@@ -97,9 +100,7 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
         if (attachment->type == SP_ATTACHMENT_REGION || attachment->type == SP_ATTACHMENT_MESH) {
             // go through vertex coords and update max/min for X and Y
             float* coords = scratch.Begin();
-            uint32_t vertex_count = scratch.Size()/2; // since stride is 2
-
-            for (int i=0; i<vertex_count; i++) {
+            for (int i=0; i<num_world_vertices; i++) {
                 float x = *coords++;
                 float y = *coords++;
                 bounds.minX = dmMath::Min(x, bounds.minX);
@@ -107,7 +108,6 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
                 bounds.maxX = dmMath::Max(x, bounds.maxX);
                 bounds.maxY = dmMath::Max(y, bounds.maxY);
             }
-            scratch.SetSize(0);
         }
     }
 
