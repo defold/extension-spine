@@ -687,7 +687,7 @@ namespace dmSpine
 
         float dt = params.m_UpdateContext->m_DT;
 
-        dmArray<SpineModelComponent*>& components = world->m_Components.m_Objects;
+        dmArray<SpineModelComponent*>& components = world->m_Components.GetRawObjects();
         const uint32_t count = components.Size();
         DM_PROPERTY_ADD_U32(rmtp_SpineComponents, count);
         uint32_t num_active = 0;
@@ -746,8 +746,10 @@ namespace dmSpine
     {
         //DM_PROFILE(SpineModel, "RenderBatch");
 
+        dmArray<SpineModelComponent*>& components = world->m_Components.GetRawObjects();
+
         uint32_t component_index = (uint32_t)buf[*begin].m_UserData;
-        const SpineModelComponent* first = (const SpineModelComponent*) world->m_Components.m_Objects[component_index];
+        const SpineModelComponent* first = (const SpineModelComponent*) components[component_index];
         const SpineModelResource* resource = first->m_Resource;
 
         uint32_t vertex_start = world->m_VertexBufferData.Size();
@@ -755,7 +757,7 @@ namespace dmSpine
         for (uint32_t *i = begin; i != end; ++i)
         {
             component_index = (uint32_t)buf[*i].m_UserData;
-            const SpineModelComponent* component = (const SpineModelComponent*) world->m_Components.m_Objects[component_index];
+            const SpineModelComponent* component = (const SpineModelComponent*) components[component_index];
             vertex_count += dmSpine::GenerateVertexData(world->m_VertexBufferData, component->m_SkeletonInstance, component->m_World);
         }
 
@@ -814,8 +816,9 @@ namespace dmSpine
     {
         DM_PROFILE("SpineModel");
 
-        SpineModelWorld* spine_world = (SpineModelWorld*)params.m_UserData;
+        SpineModelWorld* world = (SpineModelWorld*)params.m_UserData;
 
+        dmArray<SpineModelComponent*>& components = world->m_Components.GetRawObjects();
         const dmIntersection::Frustum frustum = *params.m_Frustum;
         uint32_t num_entries = params.m_NumEntries;
         for (uint32_t i = 0; i < num_entries; ++i)
@@ -823,9 +826,9 @@ namespace dmSpine
             dmRender::RenderListEntry* entry = &params.m_Entries[i];
             int component_index = entry->m_UserData;
 
-            SpineModelComponent* component_p = spine_world->m_Components.m_Objects[component_index];
+            SpineModelComponent* component_p = components[component_index];
 
-            const SpineModelBounds& bounds = spine_world->m_BoundingBoxes[component_index];
+            const SpineModelBounds& bounds = world->m_BoundingBoxes[component_index];
 
             // get center of bounding box in local coords
             float center_x = (bounds.maxX + bounds.minX)/2;
@@ -884,7 +887,7 @@ namespace dmSpine
 
         //UpdateTransforms(world);
 
-        dmArray<SpineModelComponent*>& components = world->m_Components.m_Objects;
+        dmArray<SpineModelComponent*>& components = world->m_Components.GetRawObjects();
         const uint32_t count = components.Size();
 
         // Prepare list submit
@@ -1172,7 +1175,7 @@ namespace dmSpine
         // E.g. if the Spine json or atlas has changed, we may need to update things here
 
         // SpineModelWorld* world = (SpineModelWorld*) params.m_UserData;
-        // dmArray<SpineModelComponent*>& components = world->m_Components.m_Objects;
+        // dmArray<SpineModelComponent*>& components = world->m_Components.GetRawObjects();
         // uint32_t n = components.Size();
         // for (uint32_t i = 0; i < n; ++i)
         // {
