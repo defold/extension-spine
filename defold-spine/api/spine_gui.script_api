@@ -55,3 +55,7 @@
   - name: get_spine_playback_rate
     type: function
     desc: Get the animation playback rate for a spine node
+
+  - name: set_spine_attachment
+    type: function
+    desc: Sets an attachment to a slot
