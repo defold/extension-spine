@@ -23,6 +23,7 @@ extern "C" {
 #include <spine/Attachment.h>
 #include <spine/RegionAttachment.h>
 #include <spine/MeshAttachment.h>
+#include <spine/SkeletonBounds.h>
 
 } // extern C
 
@@ -33,7 +34,9 @@ extern "C" {
 #include <dmsdk/dlib/log.h>
 #include <dmsdk/dlib/math.h>
 #include <dmsdk/dlib/vmath.h>
+#include <dmsdk/dlib/intersection.h>
 #include <dmsdk/dlib/object_pool.h>
+#include <dmsdk/dlib/profile.h>
 #include <dmsdk/gameobject/component.h>
 #include <dmsdk/gamesys/property.h>
 #include <dmsdk/gamesys/resources/res_textureset.h>
@@ -42,8 +45,13 @@ extern "C" {
 
 #include <common/vertices.h>
 
+
 #define _USE_MATH_DEFINES
 #include <math.h> // M_PI
+
+DM_PROPERTY_GROUP(rmtp_Spine, "Spine");
+DM_PROPERTY_U32(rmtp_SpineBones, 0, FrameReset, "# spine bones", &rmtp_Spine);
+DM_PROPERTY_U32(rmtp_SpineComponents, 0, FrameReset, "# spine components", &rmtp_Spine);
 
 namespace dmSpine
 {
@@ -66,6 +74,7 @@ namespace dmSpine
     {
         dmObjectPool<SpineModelComponent*>  m_Components;
         dmArray<dmRender::RenderObject>     m_RenderObjects;
+        dmArray<dmSpine::SpineModelBounds>  m_BoundingBoxes;
         dmGraphics::HVertexDeclaration      m_VertexDeclaration;
         dmGraphics::HVertexBuffer           m_VertexBuffer;
         dmArray<dmSpine::SpineVertex>       m_VertexBufferData;
@@ -95,6 +104,8 @@ namespace dmSpine
 
         world->m_Components.SetCapacity(comp_count);
         world->m_RenderObjects.SetCapacity(comp_count);
+        world->m_BoundingBoxes.SetCapacity(comp_count);
+        world->m_BoundingBoxes.SetSize(comp_count);
 
         dmGraphics::VertexElement ve[] =
         {
@@ -289,7 +300,7 @@ namespace dmSpine
     {
         if (track->m_AnimationInstance && track->m_AnimationCallbackRef)
         {
-            dmScript::UnrefInInstance(track->m_Context, track->m_AnimationCallbackRef);
+            dmScript::UnrefInInstance(track->m_Context, track->m_AnimationCallbackRef+LUA_NOREF);
             track->m_AnimationCallbackRef = 0;
         }
     }
@@ -406,7 +417,7 @@ namespace dmSpine
         message.m_Playback    = track.m_Playback;
         message.m_Track       = entry->trackIndex + 1;
 
-        dmGameObject::Result result = dmGameObject::PostDDF(&message, &sender, &receiver, track.m_AnimationCallbackRef, false);
+        dmGameObject::Result result = dmGameObject::PostDDF(&message, &sender, &receiver, track.m_AnimationCallbackRef, true);
         if (result != dmGameObject::RESULT_OK)
         {
             dmLogError("Could not send animation_done to listener: %d", result);
@@ -477,7 +488,7 @@ namespace dmSpine
                     SendAnimationDone(component, state, entry, event);
 
                     // The animation has ended, so we won't send any more on this
-                    ClearCompletionCallback(&track);
+                    track.m_AnimationCallbackRef = 0;
                     track.m_AnimationInstance = nullptr;
                 }
 
@@ -523,7 +534,7 @@ namespace dmSpine
         memset(component, 0, sizeof(SpineModelComponent));
         world->m_Components.Set(index, component);
         component->m_Instance = params.m_Instance;
-        component->m_Transform = dmTransform::Transform(Vector3(params.m_Position), params.m_Rotation, 1.0f);
+        component->m_Transform = dmTransform::Transform(Vector3(params.m_Position), params.m_Rotation, params.m_Scale);
         component->m_Resource = (SpineModelResource*)params.m_Resource;
 
         component->m_ComponentIndex = params.m_ComponentIndex;
@@ -619,11 +630,12 @@ namespace dmSpine
         if (component->m_BoneInstances.Empty())
             return;
 
-        dmArray<dmTransform::Transform> transforms;
-        transforms.SetCapacity(component->m_Bones.Size());
-        transforms.SetSize(component->m_Bones.Size());
-
         uint32_t size = component->m_Bones.Size();
+        dmArray<dmTransform::Transform> transforms;
+        transforms.SetCapacity(size);
+        transforms.SetSize(size);
+
+        DM_PROPERTY_ADD_U32(rmtp_SpineBones, size);
         for (uint32_t n = 0; n < size; ++n)
         {
             spBone* bone = component->m_Bones[n];
@@ -668,14 +680,16 @@ namespace dmSpine
         }
     }
 
+
     dmGameObject::UpdateResult CompSpineModelUpdate(const dmGameObject::ComponentsUpdateParams& params, dmGameObject::ComponentsUpdateResult& update_result)
     {
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
 
         float dt = params.m_UpdateContext->m_DT;
 
-        dmArray<SpineModelComponent*>& components = world->m_Components.m_Objects;
+        dmArray<SpineModelComponent*>& components = world->m_Components.GetRawObjects();
         const uint32_t count = components.Size();
+        DM_PROPERTY_ADD_U32(rmtp_SpineComponents, count);
         uint32_t num_active = 0;
         for (uint32_t i = 0; i < count; ++i)
         {
@@ -727,18 +741,23 @@ namespace dmSpine
         return dmGameObject::UPDATE_RESULT_OK;
     }
 
+
     static void RenderBatch(SpineModelWorld* world, dmRender::HRenderContext render_context, dmRender::RenderListEntry *buf, uint32_t* begin, uint32_t* end)
     {
         //DM_PROFILE(SpineModel, "RenderBatch");
 
-        const SpineModelComponent* first = (SpineModelComponent*) buf[*begin].m_UserData;
+        dmArray<SpineModelComponent*>& components = world->m_Components.GetRawObjects();
+
+        uint32_t component_index = (uint32_t)buf[*begin].m_UserData;
+        const SpineModelComponent* first = (const SpineModelComponent*) components[component_index];
         const SpineModelResource* resource = first->m_Resource;
 
         uint32_t vertex_start = world->m_VertexBufferData.Size();
         uint32_t vertex_count = 0;
         for (uint32_t *i = begin; i != end; ++i)
         {
-            const SpineModelComponent* component = (SpineModelComponent*) buf[*i].m_UserData;
+            component_index = (uint32_t)buf[*i].m_UserData;
+            const SpineModelComponent* component = (const SpineModelComponent*) components[component_index];
             vertex_count += dmSpine::GenerateVertexData(world->m_VertexBufferData, component->m_SkeletonInstance, component->m_World);
         }
 
@@ -793,6 +812,42 @@ namespace dmSpine
         dmRender::AddToRender(render_context, &ro);
     }
 
+    static void RenderListFrustumCulling(dmRender::RenderListVisibilityParams const &params)
+    {
+        DM_PROFILE("SpineModel");
+
+        SpineModelWorld* world = (SpineModelWorld*)params.m_UserData;
+
+        dmArray<SpineModelComponent*>& components = world->m_Components.GetRawObjects();
+        const dmIntersection::Frustum frustum = *params.m_Frustum;
+        uint32_t num_entries = params.m_NumEntries;
+        for (uint32_t i = 0; i < num_entries; ++i)
+        {
+            dmRender::RenderListEntry* entry = &params.m_Entries[i];
+            int component_index = entry->m_UserData;
+
+            SpineModelComponent* component_p = components[component_index];
+
+            const SpineModelBounds& bounds = world->m_BoundingBoxes[component_index];
+
+            // get center of bounding box in local coords
+            float center_x = (bounds.maxX + bounds.minX)/2;
+            float center_y = (bounds.maxY + bounds.minY)/2;
+            dmVMath::Point3 center_local(center_x, center_y, 0);
+            dmVMath::Point3 corner_local(bounds.maxX, bounds.maxY, 0);
+
+            // transform to world coords
+            dmVMath::Vector4 center_world = component_p->m_World * center_local;
+            dmVMath::Vector4 corner_world = component_p->m_World * corner_local;
+
+            float radius =  Vectormath::Aos::length(corner_world - center_world);
+
+            bool intersect = dmIntersection::TestFrustumSphere(frustum, center_world, radius, true);
+            entry->m_Visibility = intersect ? dmRender::VISIBILITY_FULL : dmRender::VISIBILITY_NONE;
+        }
+    }
+
+
     static void RenderListDispatch(dmRender::RenderListDispatchParams const &params)
     {
         SpineModelWorld *world = (SpineModelWorld *) params.m_UserData;
@@ -813,9 +868,9 @@ namespace dmSpine
             }
             case dmRender::RENDER_LIST_OPERATION_END:
             {
-                dmGraphics::SetVertexBufferData(world->m_VertexBuffer, sizeof(dmRig::RigSpineModelVertex) * world->m_VertexBufferData.Size(),
+                dmGraphics::SetVertexBufferData(world->m_VertexBuffer, sizeof(dmSpine::SpineVertex) * world->m_VertexBufferData.Size(),
                                                 world->m_VertexBufferData.Begin(), dmGraphics::BUFFER_USAGE_STATIC_DRAW);
-                //DM_COUNTER("SpineVertexBuffer", world->m_VertexBufferData.Size() * sizeof(dmRig::RigSpineModelVertex));
+                //DM_COUNTER("SpineVertexBuffer", world->m_VertexBufferData.Size() * sizeof(dmSpine::SpineVertex));
                 break;
             }
             default:
@@ -832,12 +887,12 @@ namespace dmSpine
 
         //UpdateTransforms(world);
 
-        dmArray<SpineModelComponent*>& components = world->m_Components.m_Objects;
+        dmArray<SpineModelComponent*>& components = world->m_Components.GetRawObjects();
         const uint32_t count = components.Size();
 
         // Prepare list submit
         dmRender::RenderListEntry* render_list = dmRender::RenderListAlloc(render_context, count);
-        dmRender::HRenderListDispatch dispatch = dmRender::RenderListMakeDispatch(render_context, &RenderListDispatch, world);
+        dmRender::HRenderListDispatch dispatch = dmRender::RenderListMakeDispatch(render_context, &RenderListDispatch, &RenderListFrustumCulling, world);
         dmRender::RenderListEntry* write_ptr = render_list;
 
         for (uint32_t i = 0; i < count; ++i)
@@ -845,9 +900,14 @@ namespace dmSpine
             SpineModelComponent& component = *components[i];
             if (!component.m_DoRender || !component.m_Enabled)
                 continue;
+
+            // Update bounding boxes
+            SpineModelBounds& bounds = world->m_BoundingBoxes[i];
+            GetSkeletonBounds(component.m_SkeletonInstance,bounds);
+
             const Vector4 trans = component.m_World.getCol(3);
             write_ptr->m_WorldPosition = Point3(trans.getX(), trans.getY(), trans.getZ());
-            write_ptr->m_UserData = (uintptr_t) &component;
+            write_ptr->m_UserData = (uintptr_t) i;
             write_ptr->m_BatchKey = component.m_MixedHash;
             write_ptr->m_TagListKey = dmRender::GetMaterialTagListKey(GetMaterial(&component));
             write_ptr->m_Dispatch = dispatch;
@@ -1115,7 +1175,7 @@ namespace dmSpine
         // E.g. if the Spine json or atlas has changed, we may need to update things here
 
         // SpineModelWorld* world = (SpineModelWorld*) params.m_UserData;
-        // dmArray<SpineModelComponent*>& components = world->m_Components.m_Objects;
+        // dmArray<SpineModelComponent*>& components = world->m_Components.GetRawObjects();
         // uint32_t n = components.Size();
         // for (uint32_t i = 0; i < n; ++i)
         // {

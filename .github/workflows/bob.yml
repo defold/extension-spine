@@ -5,7 +5,7 @@ on: [push, pull_request]
 env:
   VERSION_FILENAME: 'info.json'
   BUILD_SERVER: 'https://build-stage.defold.com'
-  CHANNEL: 'beta'
+  CHANNEL: 'alpha'
   PLUGIN_SO: './defold-spine/plugins/lib/x86_64-linux/libSpineExt.so'
 
 jobs:
@@ -33,13 +33,6 @@ jobs:
           wget -q http://d.defold.com/archive/${{env.CHANNEL}}/${{env.DEFOLD_VERSION}}/bob/bob.jar
           java -jar bob.jar --version
 
-      - name: Installing Shared Library Dependencies
-        run: |
-          echo "Remove after we've fixed the headless build for plugins"
-          sudo add-apt-repository ppa:apt-fast/stable
-          sudo apt-get update
-          sudo apt-fast install -y --no-install-recommends libopenal-dev libgl1-mesa-dev libglw1-mesa-dev freeglut3-dev
-
       - name: Check shared dependencies
         run: |
           ldd ${PLUGIN_SO}
@@ -47,6 +40,8 @@ jobs:
 
       - name: Resolve libraries
         run: java -jar bob.jar resolve --email a@b.com --auth 123456
+      - name: Build Tools
+        run: SERVER=${{env.BUILD_SERVER}} BOB=./bob.jar ./utils/build_plugins.sh x86_64-linux
       - name: Build
         run: java -jar bob.jar --platform=${{ matrix.platform }} build --archive --build-server=${{env.BUILD_SERVER}}
       - name: Bundle
@@ -79,8 +74,16 @@ jobs:
 
       - name: Resolve libraries
         run: java -jar bob.jar resolve --email a@b.com --auth 123456
+
+      - name: Build Tools
+        run: |
+          set SERVER=${{env.BUILD_SERVER}}
+          set BOB=./bob.jar
+          ./utils/build_plugins.sh x86_64-win32
+
       - name: Build
         run: java -jar bob.jar --platform=${{ matrix.platform }} build --archive --build-server=${{env.BUILD_SERVER}}
+
       - name: Bundle
         run: java -jar bob.jar --platform=${{ matrix.platform }} bundle
 
@@ -88,7 +91,7 @@ jobs:
   build_with_bob_macos:
     strategy:
       matrix:
-        platform: [arm64-darwin, x86_64-darwin]
+        platform: [arm64-ios, x86_64-macos]
     runs-on: macOS-latest
 
     name: Build
@@ -104,6 +107,10 @@ jobs:
           echo "DEFOLD_VERSION=${TMPVAR}" >> $GITHUB_ENV
           echo "Found version ${TMPVAR}"
 
+      - name: Install dependencies
+        run: |
+          brew install tree
+
       - name: Download bob.jar
         run: |
           wget -q http://d.defold.com/archive/${{env.CHANNEL}}/${{env.DEFOLD_VERSION}}/bob/bob.jar
@@ -111,6 +118,8 @@ jobs:
 
       - name: Resolve libraries
         run: java -jar bob.jar resolve --email a@b.com --auth 123456
+      - name: Build Tools
+        run: SERVER=${{env.BUILD_SERVER}} BOB=./bob.jar ./utils/build_plugins.sh x86_64-macos
       - name: Build
         run: java -jar bob.jar --platform=${{ matrix.platform }} build --archive --build-server=${{env.BUILD_SERVER}}
       - name: Bundle

@@ -1,5 +1,5 @@
 local function spine_callback(self, node, event, data)
-	--pprint("SPINE CALLBACK", node, event, data)
+    --pprint("SPINE CALLBACK", node, event, data)
 end
 
 local bone_names = {
@@ -72,92 +72,76 @@ local bone_names = {
         -- "spine/front-leg-target"
     }
 
-function init(self)
-	print("HELLO FROM GUI!")
-	self.n = gui.get_node("spine")
-	gui.play_spine_anim(self.n, "walk", gui.PLAYBACK_LOOP_FORWARD, {}, spine_callback)
-	--gui.play_spine_anim(self.n, "run", gui.PLAYBACK_LOOP_FORWARD, {}, spine_callback)
-	--gui.set_spine_cursor(self.n, 0.5)
-	gui.set_spine_playback_rate(self.n, 0.5)
 
-
-	-- self.nclone = gui.clone(self.n)
-	-- local pos = gui.get_position(self.n)
-	-- pos.x = pos.x + 100
-	-- pos.y = pos.y - 50
-	-- gui.set_position(self.nclone, pos)
-
-	local pos = gui.get_position(self.n)
-	pos.x = pos.x - 300
-	pos.y = pos.y - 50
-
-	-- self.nn = gui.new_spine_node(pos, "spineboy")
-	-- gui.play_spine_anim(self.nn, "jump", gui.PLAYBACK_LOOP_FORWARD, {}, spine_callback)
-	-- gui.set_color(self.nn, vmath.vector4(1,0,0,1))
-
-	--timer.delay(0.5, false, function (self, timer, data)
-	--	print("CANCELLING")
-	--	gui.cancel_spine(self.n)
-	--end)
-
-	--print("gui.get_spine_skin", gui.get_spine_skin(self.n))
-	--gui.set_spine_skin(self.n, "default")
-	print("gui.get_spine_skin", gui.get_spine_skin(self.n))
-	print("gui.get_spine_animation", gui.get_spine_animation(self.n))
-	print("gui.get_spine_cursor", gui.get_spine_cursor(self.n))
-	print("gui.get_spine_playback_rate", gui.get_spine_playback_rate(self.n))
-	print("gui.get_spine_scene", gui.get_spine_scene(self.n))
-
-
-
-	-- bones
-	--local bone = gui.get_spine_bone(self.n, "not-exist")
-	--local bone = gui.get_spine_bone(self.n, "spine/gun-tip")
-	--print("bone", bone)
-	--gui.set_parent(bone_sprite, bone)
-
-	local bone_sprite = gui.get_node("bone")
-
-	for i, bone_id in ipairs(bone_names) do
-		--print("SCRIPT bone", bone_id)
-		local bone = gui.get_node(bone_id)
-		local bone_sprite_clone = gui.clone(bone_sprite)
-
-		gui.set_parent(bone_sprite_clone, bone)
-	end
-
+local function clone_node(node)
+    local nodes = gui.clone_tree(node)
+    for id, cloned_node in pairs(nodes) do
+        gui.set_id(cloned_node, id)
+    end
+    return nodes
 end
 
-function final(self)
-	-- Add finalization code here
-	-- Learn more: https://defold.com/manuals/script/
-	-- Remove this function if not needed
+function init(self)
+    print("HELLO FROM GUI!")
+    self.n = gui.get_node("spine")
+    gui.play_spine_anim(self.n, "walk", gui.PLAYBACK_LOOP_FORWARD, {}, spine_callback)
+    gui.set_spine_playback_rate(self.n, 0.5)
+
+    local pos = gui.get_position(self.n)
+    pos.x = pos.x - 300
+    pos.y = pos.y - 50
+
+    print("gui.get_spine_skin", gui.get_spine_skin(self.n))
+    print("gui.get_spine_animation", gui.get_spine_animation(self.n))
+    print("gui.get_spine_cursor", gui.get_spine_cursor(self.n))
+    print("gui.get_spine_playback_rate", gui.get_spine_playback_rate(self.n))
+    print("gui.get_spine_scene", gui.get_spine_scene(self.n))
+
+    gui.set_spine_attachment(self.n, "mouth", "mouth-grind")
+    
+    -- bones
+    local bone_sprite = gui.get_node("bone")
+
+    for i, bone_id in ipairs(bone_names) do
+
+        local bone = gui.get_spine_bone(self.n, string.sub(bone_id,7))
+        local bone_sprite_clone = gui.clone(bone_sprite)
+
+        gui.set_parent(bone_sprite_clone, bone)
+    end
+
+    --get bone from clone
+    self.n1 = gui.get_node("box")
+    gui.set_enabled(self.n1, false)
+    timer.delay(0.1, false, function()
+        local clones = clone_node(self.n1)
+        local cloned_node = clones[hash("spine1")]
+        gui.set_enabled(clones[hash("box")], true)
+        gui.get_spine_bone(cloned_node, "aim-constraint-target")
+    end)
+    
+    -- set spine scene for cloned node with less bones
+    timer.delay(0.2, false, function()
+        local clones = clone_node(self.n1)
+        local cloned_node = clones[hash("spine1")]
+        gui.set_enabled(clones[hash("box")], true)
+        gui.set_spine_scene(cloned_node, "squirrel")
+        gui.play_spine_anim(cloned_node, hash("Idle"), gui.PLAYBACK_LOOP_FORWARD)
+    end)
+
+    -- set model with more bones into node with less bones
+    self.less_bones_spine = gui.get_node("squirrel")
+    gui.set_spine_scene(self.less_bones_spine, "spineboy") -- spinemodel with more bones
 end
 
 function update(self, dt)
-	--print("gui.get_spine_cursor", gui.get_spine_cursor(self.n))
+    --print("gui.get_spine_cursor", gui.get_spine_cursor(self.n))
 end
 
 function on_message(self, message_id, message, sender)
-	-- Add message-handling code here
-	-- Learn more: https://defold.com/manuals/message-passing/
-	-- Remove this function if not needed
 end
 
 function on_input(self, action_id, action)
-	-- Add input-handling code here. The game object this script is attached to
-	-- must have acquired input focus:
-	--
-	--    msg.post(".", "acquire_input_focus")
-	--
-	-- All mapped input bindings will be received. Mouse and touch input will
-	-- be received regardless of where on the screen it happened.
-	-- Learn more: https://defold.com/manuals/input/
-	-- Remove this function if not needed
 end
 
-function on_reload(self)
-	-- Add reload-handling code here
-	-- Learn more: https://defold.com/manuals/hot-reload/
-	-- Remove this function if not needed
-end
+

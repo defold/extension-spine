@@ -6,6 +6,7 @@
 #include <dmsdk/dlib/dstrings.h>
 #include <dmsdk/dlib/log.h>
 #include <dmsdk/dlib/math.h>
+#include <dmsdk/dlib/profile.h>
 #include <dmsdk/gameobject/gameobject.h>
 #include <dmsdk/gamesys/gui.h>
 #include <dmsdk/script/script.h>
@@ -20,6 +21,10 @@
 
 #include "spine_ddf.h" // generated from the spine_ddf.proto
 #include "script_spine_gui.h"
+
+DM_PROPERTY_EXTERN(rmtp_Spine);
+DM_PROPERTY_EXTERN(rmtp_SpineBones);
+DM_PROPERTY_U32(rmtp_SpineGuiNodes, 0, FrameReset, "", &rmtp_Spine);
 
 namespace dmSpine
 {
@@ -54,8 +59,9 @@ struct InternalGuiNode
     const char*         m_Id;
 
     dmArray<dmGui::HNode>   m_BonesNodes;
-    dmArray<dmhash_t>       m_BonesIds; // Matches 1:1 with m_BoneNodes
-    dmArray<spBone*>        m_Bones; // Matches 1:1 with m_BoneNodes
+    dmArray<dmhash_t>       m_BonesIds;     // Matches 1:1 with m_BoneNodes     (each element is hash(scene_name/bone_name))
+    dmArray<dmhash_t>       m_BonesNames;   // Matches 1:1 with m_BoneNodes (each element is hash(bone_name)))
+    dmArray<spBone*>        m_Bones;        // Matches 1:1 with m_BoneNodes
 
     dmScript::LuaCallbackInfo* m_Callback;
     dmScript::LuaCallbackInfo* m_NextCallback; // If the current callback calls play_anim with another callback
@@ -64,7 +70,8 @@ struct InternalGuiNode
     uint8_t             m_UseCursor : 1;
     uint8_t             m_FindBones : 1;
     uint8_t             m_HasNextCallback : 1;
-    uint8_t             : 4;
+    uint8_t             m_FirstUpdate : 1;
+    uint8_t             : 3;
 
     InternalGuiNode()
     : m_SpinePath(0)
@@ -281,6 +288,8 @@ static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::P
 
 // SCRIPTING
 
+static void FindBones(InternalGuiNode* node);
+
 bool SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
@@ -292,6 +301,14 @@ bool SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene)
     if (!resource)
         return false;
 
+    if (node->m_FindBones)
+    {
+        node->m_FindBones = 0;
+        FindBones(node);
+    }
+
+    // A possible improvement is to find an animation with the same name in the new scene
+    // and try to use the same unit time cursor
     if (node->m_AnimationStateInstance)
         spAnimationState_dispose(node->m_AnimationStateInstance);
     node->m_AnimationStateInstance = 0;
@@ -318,10 +335,21 @@ dmhash_t GetScene(dmGui::HScene scene, dmGui::HNode hnode)
 dmGui::HNode GetBone(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t bone_id)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    if (node->m_FindBones)
+    {
+        node->m_FindBones = 0;
+        FindBones(node);
+    }
     uint32_t count = node->m_BonesIds.Size();
     for (uint32_t i = 0; i < count; ++i)
     {
         if (node->m_BonesIds[i] == bone_id)
+            return node->m_BonesNodes[i];
+    }
+    count = node->m_BonesNames.Size();
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        if (node->m_BonesNames[i] == bone_id)
             return node->m_BonesNodes[i];
     }
     return 0;
@@ -423,6 +451,37 @@ float GetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode)
     return node->m_AnimationInstance->timeScale;
 }
 
+bool SetAttachment(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t slot_id, dmhash_t attachment_id)
+{
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    SpineSceneResource* spine_scene = node->m_SpineScene;
+
+    uint32_t* index = spine_scene->m_SlotNameToIndex.Get(slot_id);
+    if (!index)
+    {
+        dmLogError("No slot named '%s'", dmHashReverseSafe64(slot_id));
+        return false;
+    }
+
+    const char* attachment_name = 0;
+    if (attachment_id)
+    {
+        const char** p_attachment_name = spine_scene->m_AttachmentHashToName.Get(attachment_id);
+        if (!p_attachment_name)
+        {
+            dmLogError("No attachment named '%s'", dmHashReverseSafe64(attachment_id));
+            return false;
+        }
+        attachment_name = *p_attachment_name;
+    }
+
+    spSlot* slot = node->m_SkeletonInstance->slots[*index];
+
+    // it's a bit weird to use strings here, but we'd rather not use too much knowledge about the internals
+    return 1 == spSkeleton_setAttachment(node->m_SkeletonInstance, slot->data->name, attachment_name);
+}
+
+
 // END SCRIPTING
 
 static void DeleteBones(InternalGuiNode* node)
@@ -434,6 +493,7 @@ static void DeleteBones(InternalGuiNode* node)
     }
     node->m_BonesNodes.SetSize(0);
     node->m_BonesIds.SetSize(0);
+    node->m_BonesNames.SetSize(0);
     node->m_Bones.SetSize(0);
 }
 
@@ -477,6 +537,7 @@ static bool CreateBones(InternalGuiNode* node, dmGui::HScene scene, dmGui::HNode
 
     node->m_BonesNodes.Push(gui_bone);
     node->m_BonesIds.Push(dmGui::GetNodeId(scene, gui_bone));
+    node->m_BonesNames.Push(dmHashString64(bone->data->name));
     node->m_Bones.Push(bone);
 
     int count = bone->childrenCount;
@@ -507,6 +568,7 @@ static bool CreateBones(InternalGuiNode* node)
     {
         node->m_BonesNodes.SetCapacity(num_bones);
         node->m_BonesIds.SetCapacity(num_bones);
+        node->m_BonesNames.SetCapacity(num_bones);
         node->m_Bones.SetCapacity(num_bones);
     }
 
@@ -519,6 +581,7 @@ static void UpdateBones(InternalGuiNode* node)
     uint32_t num_bones = node->m_BonesNodes.Size();
 
     dmVMath::Vector4 scale = dmGui::GetNodeProperty(scene, node->m_GuiNode, dmGui::PROPERTY_SCALE);
+    DM_PROPERTY_ADD_U32(rmtp_SpineBones, num_bones);
     for (uint32_t i = 0; i < num_bones; ++i)
     {
         dmGui::HNode gui_bone = node->m_BonesNodes[i];
@@ -591,6 +654,7 @@ static void* GuiCreate(const dmGameSystem::CompGuiNodeContext* ctx, void* contex
     InternalGuiNode* node_data = new InternalGuiNode();
     node_data->m_GuiScene = scene;
     node_data->m_GuiNode = node;
+    node_data->m_FirstUpdate = 1;
     return node_data;
 }
 
@@ -673,16 +737,20 @@ static void* GuiClone(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameS
     // But, since the cloned nodes doesn't have any id's, we can't fetch them via id
     // So, we instead create specific gui node type for the bones, and let them register themselves to this cloned node
     SetupNode(src->m_SpinePath, src->m_SpineScene, dst, false);
+    dst->m_FindBones = 1;
+
     uint32_t num_bones = src->m_BonesNodes.Size();
     dst->m_BonesNodes.SetCapacity(num_bones);
     dst->m_BonesIds.SetCapacity(num_bones);
+    dst->m_BonesNames.SetCapacity(num_bones);
     dst->m_Bones.SetCapacity(num_bones);
 
     // Since we cannot get the id's from the gui nodes, we need to copy the data now
     dst->m_BonesIds.SetSize(num_bones);
     memcpy(dst->m_BonesIds.Begin(), src->m_BonesIds.Begin(), sizeof(dmhash_t) * num_bones);
+    dst->m_BonesNames.SetSize(num_bones);
+    memcpy(dst->m_BonesNames.Begin(), src->m_BonesNames.Begin(), sizeof(dmhash_t) * num_bones);
 
-    dst->m_FindBones = 1;
 
     // Now set the correct animation
     dst->m_Transform    = src->m_Transform;
@@ -690,31 +758,34 @@ static void* GuiClone(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameS
     dst->m_Playing      = src->m_Playing;
     dst->m_UseCursor    = src->m_UseCursor;
 
-    uint32_t index = FindAnimationIndex(dst, dst->m_AnimationId);
-    if (index == INVALID_ANIMATION_INDEX)
+    if (dst->m_AnimationId)
     {
-        dmLogError("No animation '%s' found", dmHashReverseSafe64(dst->m_AnimationId));
-    }
-    else if (index >= dst->m_SpineScene->m_Skeleton->animationsCount)
-    {
-        dmLogError("Animation index %u is too large. Number of animations are %u", index, dst->m_SpineScene->m_Skeleton->animationsCount);
-        index = INVALID_ANIMATION_INDEX;
-    }
-
-    if (index != INVALID_ANIMATION_INDEX)
-    {
-        spAnimation* animation = dst->m_SpineScene->m_Skeleton->animations[index];
-        if (animation)
+        uint32_t index = FindAnimationIndex(dst, dst->m_AnimationId);
+        if (index == INVALID_ANIMATION_INDEX)
         {
-            int trackIndex = 0;
-            int loop = IsLooping(dst->m_Playback);
-            dst->m_AnimationId = src->m_AnimationId;
-            dst->m_AnimationInstance = spAnimationState_setAnimation(dst->m_AnimationStateInstance, trackIndex, animation, loop);
+            dmLogError("No animation '%s' found", dmHashReverseSafe64(dst->m_AnimationId));
+        }
+        else if (index >= dst->m_SpineScene->m_Skeleton->animationsCount)
+        {
+            dmLogError("Animation index %u is too large. Number of animations are %u", index, dst->m_SpineScene->m_Skeleton->animationsCount);
+            index = INVALID_ANIMATION_INDEX;
+        }
 
-            // Now copy the state of the animation
-            dst->m_AnimationInstance->trackTime = src->m_AnimationInstance->trackTime;
-            dst->m_AnimationInstance->reverse = src->m_AnimationInstance->reverse;
-            dst->m_AnimationInstance->timeScale = src->m_AnimationInstance->timeScale;
+        if (index != INVALID_ANIMATION_INDEX)
+        {
+            spAnimation* animation = dst->m_SpineScene->m_Skeleton->animations[index];
+            if (animation)
+            {
+                int trackIndex = 0;
+                int loop = IsLooping(dst->m_Playback);
+                dst->m_AnimationId = src->m_AnimationId;
+                dst->m_AnimationInstance = spAnimationState_setAnimation(dst->m_AnimationStateInstance, trackIndex, animation, loop);
+
+                // Now copy the state of the animation
+                dst->m_AnimationInstance->trackTime = src->m_AnimationInstance->trackTime;
+                dst->m_AnimationInstance->reverse = src->m_AnimationInstance->reverse;
+                dst->m_AnimationInstance->timeScale = src->m_AnimationInstance->timeScale;
+            }
         }
     }
 
@@ -765,6 +836,16 @@ static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
 {
     InternalGuiNode* node = (InternalGuiNode*)(nodectx->m_NodeData);
 
+// Temp fix begin!
+    // since the comp_gui.cpp call dmGui::SetNodeTexture() with a null texture, we set it here again
+    // Remove once the bug fix is in Defold 1.3.4
+    if (node->m_FirstUpdate)
+    {
+        node->m_FirstUpdate = 0;
+        dmGui::SetNodeTexture(node->m_GuiScene, node->m_GuiNode, dmGui::NODE_TEXTURE_TYPE_TEXTURE_SET, node->m_SpineScene->m_TextureSet);
+    }
+// end temp fix
+
     if (node->m_FindBones)
     {
         node->m_FindBones = 0;
@@ -793,7 +874,7 @@ static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
     }
 
     spSkeleton_updateWorldTransform(node->m_SkeletonInstance);
-
+    DM_PROPERTY_ADD_U32(rmtp_SpineGuiNodes, 1);
     UpdateBones(node);
 }
 

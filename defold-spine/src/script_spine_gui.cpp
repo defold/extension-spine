@@ -232,6 +232,8 @@ namespace dmSpine
 
         dmhash_t spine_scene_id = dmScript::CheckHashOrString(L, 2);
 
+        VERIFY_SPINE_NODE(scene, node);
+
         if (!dmSpine::SetScene(scene, node, spine_scene_id))
         {
             return DM_LUA_ERROR("failed to set spine scene for new node");
@@ -442,6 +444,39 @@ namespace dmSpine
         return 1;
     }
 
+    /*# sets an attachment to a slot
+     * This is only useful for spine nodes. Sets an attachment to a slot on a spine node.
+     *
+     * @name gui.set_spine_attachment
+     * @param node [type:node] spine node to set the slot for
+     * @param slot [type:string|hash] slot name
+     * @param attachment [type:string|hash] attachment name. May be nil.
+     */
+    static int SetSpineAttachment(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
+
+        VERIFY_SPINE_NODE(scene, node);
+
+        dmhash_t slot_id = dmScript::CheckHashOrString(L, 2);
+        dmhash_t attachment_id = 0;
+        if (!lua_isnil(L, 3))
+        {
+            attachment_id = dmScript::CheckHashOrString(L, 3);
+        }
+
+        bool result = dmSpine::SetAttachment(scene, node, slot_id, attachment_id);
+
+        if (!result)
+        {
+            return DM_LUA_ERROR("Failed to set spine attachment for gui spine node");
+        }
+        return 0;
+    }
+
     static const luaL_reg SPINE_FUNCTIONS[] =
     {
         {"new_spine_node", NewSpineNode},
@@ -457,6 +492,7 @@ namespace dmSpine
         {"get_spine_cursor",    GetSpineCursor},
         {"set_spine_playback_rate", SetSpinePlaybackRate},
         {"get_spine_playback_rate", GetSpinePlaybackRate},
+        {"set_spine_attachment",    SetSpineAttachment},
 
         // Also gui.set_spine_attachment to mimic the the go.set_attachment
         {0, 0}

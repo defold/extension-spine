@@ -268,7 +268,7 @@
   (not= 0 (bit-and mask (bit-shift-left 1 count))))
 
 ; See GetOpenGLCompareFunc in graphics_opengl.cpp
-(defn- stencil-func->gl-func [func]
+(defn- stencil-func->gl-func [^long func]
   (case func
     0 GL/GL_NEVER
     1 GL/GL_LESS
@@ -279,7 +279,7 @@
     6 GL/GL_NOTEQUAL
     7 GL/GL_ALWAYS))
 
-(defn- stencil-op->gl-op [op]
+(defn- stencil-op->gl-op [^long op]
   (case op
     0 GL/GL_KEEP
     1 GL/GL_ZERO
@@ -537,8 +537,8 @@
   (with-open [in (io/input-stream resource)]
     (IOUtils/toByteArray in)))
 
-(defn- handle-read-error [error node-id resource]
-  (let [error (if (instance? java.lang.reflect.InvocationTargetException error) (.getCause error) error)
+(defn- handle-read-error [^Throwable error node-id resource]
+  (let [^Throwable error (if (instance? java.lang.reflect.InvocationTargetException error) (.getCause error) error)
         msg (.getMessage error)
         path (resource/resource->proj-path resource)
         msg-missing-image "Region not found"]
@@ -983,7 +983,7 @@
                                              :view-types [:scene :text]
                                              :view-opts {:scene {:grid true}}
                                              :tags #{:component}
-                                             :tag-opts {:component {:transform-properties #{:position :rotation}}}
+                                             :tag-opts {:component {:transform-properties #{:position :rotation :scale}}}
                                              :template "/defold-spine/editor/resources/templates/template.spinemodel")
    (workspace/register-resource-type workspace
                                      :ext spine-json-ext

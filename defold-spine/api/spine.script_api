@@ -146,7 +146,7 @@
 
   - name: set_skin
     type: function
-    desc: Returns the id of the game object that corresponds to a specified skeleton bone.
+    desc: Sets the spine skin on a spine model.
 
     parameters:
       - name: url
@@ -162,7 +162,7 @@
 
   - name: set_attachment
     type: function
-    desc: Returns the id of the game object that corresponds to a specified skeleton bone.
+    desc: Set the attachment of a lot on a spine model.
 
     parameters:
       - name: url
@@ -194,6 +194,60 @@
         type: string|hash
         desc: name of the constant
 
+
+
+#*****************************************************************************************************
+
+  - name: reset_ik_target
+    type: function
+    desc: reset the IK constraint target position to default of a spinemodel.
+
+    parameters:
+      - name: url
+        type: string|hash|url
+        desc: The Spine model
+
+      - name: ik_constraint_id
+        type: string|hash
+        desc: id of the corresponding IK constraint
+
+#*****************************************************************************************************
+
+  - name: set_ik_target_position
+    type: function
+    desc: set the target position of an IK constraint object.
+
+    parameters:
+      - name: url
+        type: string|hash|url
+        desc: The Spine model
+
+      - name: ik_constraint_id
+        type: string|hash
+        desc: id of the corresponding IK constraint
+
+      - name: position
+        type: vector3
+        desc: target position
+
+#*****************************************************************************************************
+
+  - name: set_ik_target
+    type: function
+    desc: set the IK constraint object target position to follow position.
+
+    parameters:
+      - name: url
+        type: string|hash|url
+        desc: The Spine model to query
+
+      - name: ik_constraint_id
+        type: string|hash
+        desc: id of the corresponding IK constraint
+
+      - name: target_url
+        type: string|hash|url
+        desc: target game object
 
 #*****************************************************************************************************
 

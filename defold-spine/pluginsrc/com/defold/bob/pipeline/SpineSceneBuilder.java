@@ -28,7 +28,7 @@ public class SpineSceneBuilder extends ProtoBuilder<SpineSceneDesc.Builder> {
         if (!path.equals("")) {
             BuilderUtil.checkResource(this.project, resource, "atlas", path);
         }
-        builder.setAtlas(BuilderUtil.replaceExt(path, ".atlas", ".texturesetc"));
+        builder.setAtlas(BuilderUtil.replaceExt(path, ".atlas", ".a.texturesetc"));
 
         return builder;
     }

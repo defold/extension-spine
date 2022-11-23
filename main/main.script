@@ -14,12 +14,25 @@ local function play_animation(self)
 	self.is_playing = true
 end
 
+local small_anim = {}
+function small_anim.small_walk_in_callback_loop()
+	spine.play_anim("/small_walk#spinemodel", "walk", go.PLAYBACK_ONCE_FORWARD, {}, function(self, message_id, message, sender)
+		-- pprint("small_walk callback", message_id, message, sender)
+		if message_id == hash("spine_animation_done") then
+			small_anim.small_walk_in_callback_loop()
+		end
+	end)
+end
+
 function init(self)
+	small_anim.small_walk_in_callback_loop()
 	msg.post(".", "acquire_input_focus")
 
 	self.countdown = 2
 	self.url = "#spinemodel"
 
+	--play wrong animation
+	spine.play_anim(self.url, "ddd", go.PLAYBACK_LOOP_FORWARD)
 	--spine.set_skin("#spinemodel", "default")
 	--constants
 	print("getting constants")

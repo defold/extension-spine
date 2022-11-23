@@ -31,7 +31,7 @@ Spine animations used to be part of the main Defold engine. Starting with Defold
     - Set this as the output suffix in the Spine Editor
 
 * Update the spine source files to latest version
-    - The new runtime is based on Spine 4.0+
+    - The new runtime is based on Spine 4.0.xx
 
     - NOTE: The old spine version json files won't work as they are too old!
 
@@ -56,9 +56,9 @@ Spine animations used to be part of the main Defold engine. Starting with Defold
 
 ### GameObject
 
-* `spine.set_skin(name)` now only takes one argument
+* `spine.set_skin(url, name)` now takes one argument, the name of the skin
 
-    - The new `spine.set_attachment(slot, attachment)` allows you to set an attachment to a slot
+    - The new `spine.set_attachment(url, slot, attachment)` allows you to set an attachment to a slot
 
 * `spine.play_anim()` etc are now synchronous.
 
