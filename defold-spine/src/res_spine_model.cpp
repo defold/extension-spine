@@ -23,6 +23,9 @@ namespace dmSpine
             dmLogError("Failed to create Spine Model component. This component only supports materials with the Vertex Space property set to 'vertex-space-world'");
             return dmResource::RESULT_NOT_SUPPORTED;
         }
+
+        resource->m_CreateGoBones = resource->m_Ddf->m_CreateGoBones!=0;
+
         return dmResource::RESULT_OK;
     }
 
