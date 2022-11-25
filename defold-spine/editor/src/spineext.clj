@@ -113,7 +113,7 @@
 
 (defn plugin-set-animation [handle ^String animation]
   (let [valid-anims (vec (plugin-get-animations handle))]
-    (when (contains? valid-anims animation)      
+    (when (contains? valid-anims animation)
       (plugin-invoke-static spine-plugin-cls "SPINE_SetAnimation" (into-array Class [spine-plugin-pointer-cls String]) [handle animation]))))
 
 (defn plugin-update-vertices [handle dt]
@@ -763,12 +763,13 @@
 
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
-(g/defnk produce-model-pb [spine-scene-resource default-animation skin material-resource blend-mode]
+(g/defnk produce-model-pb [spine-scene-resource default-animation skin material-resource blend-mode create-go-bones]
   {:spine-scene (resource/resource->proj-path spine-scene-resource)
    :default-animation default-animation
    :skin skin
    :material (resource/resource->proj-path material-resource)
-   :blend-mode blend-mode})
+   :blend-mode blend-mode
+   :create-go-bones create-go-bones})
 
 (defn ->skin-choicebox [spine-skins]
   (properties/->choicebox (cons "" (remove (partial = "default") spine-skins))))
@@ -895,6 +896,7 @@
             (dynamic error (g/fnk [_node-id skin skins spine-scene]
                                   (validate-model-skin _node-id spine-scene skins skin)))
             (dynamic edit-type (g/fnk [skins] (->skin-choicebox skins))))
+  (property create-go-bones g/Bool (default false))
 
   (input spine-json-resource resource/Resource)
   (input atlas-resource resource/Resource)

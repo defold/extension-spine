@@ -575,13 +575,15 @@ namespace dmSpine
 
         // Create GO<->bone representation
         // We need to make sure that bone GOs are created before we start the default animation.
-        if (!CreateGOBones(world, component))
+        if (spine_model->m_CreateGoBones)
         {
-            dmLogError("Failed to create game objects for bones in spine model. Consider increasing collection max instances (collection.max_instances).");
-            DestroyComponent(world, index);
-            return dmGameObject::CREATE_RESULT_UNKNOWN_ERROR;
+            if (!CreateGOBones(world, component))
+            {
+                dmLogError("Failed to create game objects for bones in spine model. Consider increasing collection max instances (collection.max_instances).");
+                DestroyComponent(world, index);
+                return dmGameObject::CREATE_RESULT_UNKNOWN_ERROR;
+            }
         }
-
         dmhash_t animation_id = dmHashString64(component->m_Resource->m_Ddf->m_DefaultAnimation);
         PlayAnimation(component, animation_id, dmGameObject::PLAYBACK_LOOP_FORWARD, 0.0f, 0.0f, 1.0f, 0); // TODO: Is the default playmode specified anywhere?
 
@@ -1000,11 +1002,14 @@ namespace dmSpine
         // Delete old bones, then recreate with new data.
         // We need to make sure that bone GOs are created before we start the default animation.
         dmGameObject::DeleteBones(component->m_Instance);
-        if (!CreateGOBones(world, component))
+        if (component->m_Resource->m_CreateGoBones)
         {
-            dmLogError("Failed to create game objects for bones in spine model. Consider increasing collection max instances (collection.max_instances).");
-            DestroyComponent(world, index);
-            return false;
+            if (!CreateGOBones(world, component))
+            {
+                dmLogError("Failed to create game objects for bones in spine model. Consider increasing collection max instances (collection.max_instances).");
+                DestroyComponent(world, index);
+                return false;
+            }
         }
 
         component->m_ReHash = 1;

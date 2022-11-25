@@ -16,6 +16,7 @@ namespace dmSpine
         dmGameSystemDDF::SpineModelDesc*    m_Ddf;
         SpineSceneResource*                 m_SpineScene;
         dmRender::HMaterial                 m_Material;
+        uint8_t                             m_CreateGoBones:1;
     };
 }
 
