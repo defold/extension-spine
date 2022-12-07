@@ -306,9 +306,16 @@ namespace dmSpine
     }
 
     static bool PlayAnimation(SpineModelComponent* component, dmhash_t animation_id, dmGameObject::Playback playback,
-        float blend_duration, float offset, float playback_rate, int track_index)
+        float blend_duration, float offset, float playback_rate, int track_index, bool is_initial = false)
     {
         uint32_t index = FindAnimationIndex(component, animation_id);
+        
+        // Ignore error for empty animation on spine creation 
+        if (index == INVALID_ANIMATION_INDEX && is_initial && animation_id == dmHashString64(""))
+        {
+            return false;
+        }
+
         if (index == INVALID_ANIMATION_INDEX)
         {
             dmLogError("No animation '%s' found", dmHashReverseSafe64(animation_id));
@@ -585,7 +592,7 @@ namespace dmSpine
             }
         }
         dmhash_t animation_id = dmHashString64(component->m_Resource->m_Ddf->m_DefaultAnimation);
-        PlayAnimation(component, animation_id, dmGameObject::PLAYBACK_LOOP_FORWARD, 0.0f, 0.0f, 1.0f, 0); // TODO: Is the default playmode specified anywhere?
+        PlayAnimation(component, animation_id, dmGameObject::PLAYBACK_LOOP_FORWARD, 0.0f, 0.0f, 1.0f, 0, true); // TODO: Is the default playmode specified anywhere?
 
         component->m_ReHash = 1;
 
