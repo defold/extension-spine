@@ -4,6 +4,9 @@ main_collection = /main/main.collectionc
 [script]
 shared_state = 1
 
+[spine]
+max_count = 128
+
 [display]
 width = 960
 height = 640
