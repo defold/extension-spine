@@ -129,7 +129,7 @@
   (property clipping-visible g/Bool (default true))
   (property clipping-inverted g/Bool (default false))
 
-  (property size types/Vec3
+  (property manual-size types/Vec3
             (dynamic visible (g/constantly false)))
 
   (display-order (into gui/base-display-order
@@ -378,7 +378,7 @@
                 {:type (:output-node-type node-type-info)
                  :custom-type (:output-custom-type node-type-info)}
                 {})
-        constants {:size [1.0 1.0 0.0 1.0]
+        constants {:manual-size [1.0 1.0 0.0 1.0]
                    :size-mode :size-mode-auto}
         out (merge node-desc patch constants)]
     out))
