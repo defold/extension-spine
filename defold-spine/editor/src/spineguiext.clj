@@ -95,6 +95,16 @@
         vb-out (spineext/generate-vertex-buffer vertices)]
     vb-out))
 
+(g/defnk produce-spine-node-msg [visual-base-node-msg spine-scene spine-default-animation spine-skin clipping-mode clipping-visible clipping-inverted]
+  (assoc visual-base-node-msg
+    :size-mode :size-mode-auto
+    :spine-scene spine-scene
+    :spine-default-animation spine-default-animation
+    :spine-skin spine-skin
+    :clipping-mode clipping-mode
+    :clipping-visible clipping-visible
+    :clipping-inverted clipping-inverted))
+
 (g/defnode SpineNode
   (inherits gui/VisualNode)
 
@@ -126,6 +136,7 @@
                        [:spine-scene :spine-default-animation :spine-skin :color :alpha :inherit-alpha :layer :blend-mode :pivot :x-anchor :y-anchor
                         :adjust-mode :clipping :visible-clipper :inverted-clipper]))
 
+  (output node-msg g/Any :cached produce-spine-node-msg)
   (output spine-anim-ids gui/GuiResourceNames (g/fnk [spine-scene-element-ids spine-scene gui-scene]
                                                      (:spine-anim-ids (or (spine-scene-element-ids spine-scene)
                                                                           (spine-scene-element-ids "")))))
