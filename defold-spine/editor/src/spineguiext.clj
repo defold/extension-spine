@@ -97,6 +97,7 @@
 
 (g/defnk produce-spine-node-msg [visual-base-node-msg spine-scene spine-default-animation spine-skin clipping-mode clipping-visible clipping-inverted]
   (assoc visual-base-node-msg
+    :size [1.0 1.0 0.0 1.0]
     :size-mode :size-mode-auto
     :spine-scene spine-scene
     :spine-default-animation spine-default-animation
@@ -128,9 +129,6 @@
             (dynamic edit-type (g/constantly (properties/->pb-choicebox Gui$NodeDesc$ClippingMode))))
   (property clipping-visible g/Bool (default true))
   (property clipping-inverted g/Bool (default false))
-
-  (property manual-size types/Vec3
-            (dynamic visible (g/constantly false)))
 
   (display-order (into gui/base-display-order
                        [:spine-scene :spine-default-animation :spine-skin :color :alpha :inherit-alpha :layer :blend-mode :pivot :x-anchor :y-anchor
@@ -373,17 +371,16 @@
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
 (defn- fixup-spine-node [node-type-info node-desc]
-  (let [node-type (:type node-desc)
-        patch (if (= node-type :type-spine)
-                {:type (:output-node-type node-type-info)
-                 :custom-type (:output-custom-type node-type-info)}
-                {})
-        constants {:manual-size [1.0 1.0 0.0 1.0]
-                   :size-mode :size-mode-auto}
-        out (merge node-desc patch constants)]
-    out))
+  (let [node-type (:type node-desc)]
+    (cond-> (assoc node-desc
+              :size [1.0 1.0 0.0 1.0]
+              :size-mode :size-mode-auto)
 
-    
+            (= :type-spine node-type)
+            (assoc
+              :type (:output-node-type node-type-info)
+              :custom-type (:output-custom-type node-type-info)))))
+
 (defn- register-gui-resource-types! [workspace]
   (gui/register-gui-scene-loader! load-gui-scene-spine)
   (let [info {:node-type :type-custom
