@@ -66,12 +66,13 @@
   (when-not (g/error? (validate-spine-scene node-id spine-scene-names spine-scene))
     (spineext/validate-skin node-id :spine-skin spine-skin-ids spine-skin)))
 
-(defn- transform-vtx [^Matrix4d m4d vtx]
-  (let [p (Point3d.)
+(defn- transform-vtx [^Matrix4d m4d color vtx]
+  (let [[cr cg cb ca] color
         [x y z u v r g b a] vtx
+        p (Point3d.)
         _ (.set p x y z)
         _ (.transform m4d p)]
-    [(.x p) (.y p) (.z p) u v r g b a]))
+    [(.x p) (.y p) (.z p) u v (* r cr) (* g cg) (* b cb) (* a ca)]))
 
 (defn- produce-local-vertices [handle skin anim dt]
   (if (not= handle nil)
@@ -87,7 +88,8 @@
   (let [handle (spineext/renderable->handle renderable)
         world-transform (:world-transform renderable)
         vertex-buffer (:spine-vertex-buffer user-data)
-        vb-data-transformed (map (fn [vtx] (transform-vtx world-transform vtx)) vertex-buffer)]
+        color (:color user-data)
+        vb-data-transformed (map (fn [vtx] (transform-vtx world-transform color vtx)) vertex-buffer)]
     vb-data-transformed))
 
 (defn- gen-vb [user-data renderables]
