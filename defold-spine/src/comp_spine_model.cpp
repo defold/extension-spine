@@ -107,15 +107,15 @@ namespace dmSpine
         world->m_BoundingBoxes.SetCapacity(comp_count);
         world->m_BoundingBoxes.SetSize(comp_count);
 
-        dmGraphics::VertexElement ve[] =
-        {
-                {"position", 0, 3, dmGraphics::TYPE_FLOAT, false},
-                {"texcoord0", 1, 2, dmGraphics::TYPE_FLOAT, true},
-                {"color", 2, 4, dmGraphics::TYPE_FLOAT, true},
-        };
+        dmGraphics::HVertexStreamDeclaration stream_declaration = dmGraphics::NewVertexStreamDeclaration(context->m_GraphicsContext);
+        dmGraphics::AddVertexStream(stream_declaration, "position", 3, dmGraphics::TYPE_FLOAT, false);
+        dmGraphics::AddVertexStream(stream_declaration, "texcoord0", 2, dmGraphics::TYPE_FLOAT, true);
+        dmGraphics::AddVertexStream(stream_declaration, "color", 4, dmGraphics::TYPE_FLOAT, true);
 
-        world->m_VertexDeclaration = dmGraphics::NewVertexDeclaration(context->m_GraphicsContext, ve, DM_ARRAY_SIZE(ve));
+        world->m_VertexDeclaration = dmGraphics::NewVertexDeclaration(context->m_GraphicsContext, stream_declaration);
         world->m_VertexBuffer = dmGraphics::NewVertexBuffer(context->m_GraphicsContext, 0, 0x0, dmGraphics::BUFFER_USAGE_DYNAMIC_DRAW);
+
+        dmGraphics::DeleteVertexStreamDeclaration(stream_declaration);
 
         *params.m_World = world;
 
