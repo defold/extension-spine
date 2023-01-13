@@ -66,12 +66,13 @@
   (when-not (g/error? (validate-spine-scene node-id spine-scene-names spine-scene))
     (spineext/validate-skin node-id :spine-skin spine-skin-ids spine-skin)))
 
-(defn- transform-vtx [^Matrix4d m4d vtx]
-  (let [p (Point3d.)
+(defn- transform-vtx [^Matrix4d m4d color vtx]
+  (let [[cr cg cb ca] color
         [x y z u v r g b a] vtx
+        p (Point3d.)
         _ (.set p x y z)
         _ (.transform m4d p)]
-    [(.x p) (.y p) (.z p) u v r g b a]))
+    [(.x p) (.y p) (.z p) u v (* r cr) (* g cg) (* b cb) (* a ca)]))
 
 (defn- produce-local-vertices [handle skin anim dt]
   (if (not= handle nil)
@@ -87,13 +88,25 @@
   (let [handle (spineext/renderable->handle renderable)
         world-transform (:world-transform renderable)
         vertex-buffer (:spine-vertex-buffer user-data)
-        vb-data-transformed (map (fn [vtx] (transform-vtx world-transform vtx)) vertex-buffer)]
+        color (:color user-data)
+        vb-data-transformed (map (fn [vtx] (transform-vtx world-transform color vtx)) vertex-buffer)]
     vb-data-transformed))
 
 (defn- gen-vb [user-data renderables]
   (let [vertices (mapcat (fn [renderable] (renderable->vertices user-data renderable)) renderables)
         vb-out (spineext/generate-vertex-buffer vertices)]
     vb-out))
+
+(g/defnk produce-spine-node-msg [visual-base-node-msg spine-scene spine-default-animation spine-skin clipping-mode clipping-visible clipping-inverted]
+  (assoc visual-base-node-msg
+    :size [1.0 1.0 0.0 1.0]
+    :size-mode :size-mode-auto
+    :spine-scene spine-scene
+    :spine-default-animation spine-default-animation
+    :spine-skin spine-skin
+    :clipping-mode clipping-mode
+    :clipping-visible clipping-visible
+    :clipping-inverted clipping-inverted))
 
 (g/defnode SpineNode
   (inherits gui/VisualNode)
@@ -119,13 +132,11 @@
   (property clipping-visible g/Bool (default true))
   (property clipping-inverted g/Bool (default false))
 
-  (property size types/Vec3
-            (dynamic visible (g/constantly false)))
-
   (display-order (into gui/base-display-order
                        [:spine-scene :spine-default-animation :spine-skin :color :alpha :inherit-alpha :layer :blend-mode :pivot :x-anchor :y-anchor
                         :adjust-mode :clipping :visible-clipper :inverted-clipper]))
 
+  (output node-msg g/Any :cached produce-spine-node-msg)
   (output spine-anim-ids gui/GuiResourceNames (g/fnk [spine-scene-element-ids spine-scene gui-scene]
                                                      (:spine-anim-ids (or (spine-scene-element-ids spine-scene)
                                                                           (spine-scene-element-ids "")))))
@@ -362,17 +373,16 @@
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
 (defn- fixup-spine-node [node-type-info node-desc]
-  (let [node-type (:type node-desc)
-        patch (if (= node-type :type-spine)
-                {:type (:output-node-type node-type-info)
-                 :custom-type (:output-custom-type node-type-info)}
-                {})
-        constants {:size [1.0 1.0 0.0 1.0]
-                   :size-mode :size-mode-auto}
-        out (merge node-desc patch constants)]
-    out))
+  (let [node-type (:type node-desc)]
+    (cond-> (assoc node-desc
+              :size [1.0 1.0 0.0 1.0]
+              :size-mode :size-mode-auto)
 
-    
+            (= :type-spine node-type)
+            (assoc
+              :type (:output-node-type node-type-info)
+              :custom-type (:output-custom-type node-type-info)))))
+
 (defn- register-gui-resource-types! [workspace]
   (gui/register-gui-scene-loader! load-gui-scene-spine)
   (let [info {:node-type :type-custom
