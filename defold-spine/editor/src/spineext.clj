@@ -617,6 +617,10 @@
     (catch Exception error
       (handle-read-error error _node-id spine-json-resource))))
 
+(defn- sanitize-spine-scene [spine-scene-desc]
+  {:pre (map? spine-scene-desc)} ; Spine$SpineSceneDesc in map format.
+  (dissoc spine-scene-desc :sample-rate)) ; Deprecated field.
+
 (defn- load-spine-scene [project self resource spine]
   (let [spine-resource (workspace/resolve-resource resource (:spine-json spine))
         atlas          (workspace/resolve-resource resource (:atlas spine))
@@ -970,6 +974,7 @@
                                              :label "Spine Scene"
                                              :node-type SpineSceneNode
                                              :ddf-type spine-plugin-spinescene-cls
+                                             :sanitize-fn sanitize-spine-scene
                                              :load-fn load-spine-scene
                                              :icon spine-scene-icon
                                              :view-types [:scene :text]
