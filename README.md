@@ -10,7 +10,7 @@ Defold [native extension](https://www.defold.com/manuals/extensions/) for intera
 We happily accept [pull requests](https://github.com/defold/extension-spine/compare) that solve [reported issues](https://github.com/defold/extension-spine/issues).
 
 ## Updating the Spine runtime version
-Updating the Spine runtime version requires a rebuild of the runtime for all supported platforms. There is a build script to rebuild the runtime library in [`extension-spine/utils/runtime’](https://github.com/defold/extension-spine/tree/main/utils/runtime). The version is defined in the [`build_runtime_lib.sh` file](https://github.com/defold/extension-spine/blob/main/utils/runtime/build_runtime_lib.sh#L5).
+Updating the Spine runtime version requires a rebuild of the runtime for all supported platforms. There is a build script to rebuild the runtime library in [extension-spine/utils/runtime](https://github.com/defold/extension-spine/tree/main/utils/runtime). The version is defined in the [build_runtime_lib.sh file](https://github.com/defold/extension-spine/blob/main/utils/runtime/build_runtime_lib.sh#L5).
 
 __Make sure to check the change log for breaking changes!__
 
