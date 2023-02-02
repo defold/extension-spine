@@ -177,27 +177,6 @@
                                                             (cond-> user-data
                                                               (not= :clipping-mode-none clipping-mode)
                                                               (assoc :clipping {:mode clipping-mode :inverted clipping-inverted :visible clipping-visible})))))
-
-  ;; (output bone-node-msgs g/Any :cached (g/fnk [node-msgs spine-scene-structure spine-scene-pb adjust-mode]
-  ;;                                             (let [pb-msg (first node-msgs)
-  ;;                                                   gui-node-id (:id pb-msg)
-  ;;                                                   id-fn (fn [b] (format "%s/%s" gui-node-id (:name b)))
-  ;;                                                   bones (tree-seq :children :children (:skeleton spine-scene-structure))
-  ;;                                                   bone-order (zipmap (map id-fn (-> spine-scene-pb :skeleton :bones)) (range))
-  ;;                                                   child-to-parent (reduce (fn [m b] (into m (map (fn [c] [(:name c) b]) (:children b)))) {} bones)
-  ;;                                                   bone-msg {:spine-node-child true
-  ;;                                                             :size [0.0 0.0 0.0 0.0]
-  ;;                                                             :position [0.0 0.0 0.0 0.0]
-  ;;                                                             :scale [1.0 1.0 1.0 0.0]
-  ;;                                                             :type :type-box
-  ;;                                                             :adjust-mode adjust-mode}
-  ;;                                                   bone-msgs (mapv (fn [b] (assoc bone-msg :id (id-fn b) :parent (if (contains? child-to-parent (:name b))
-  ;;                                                                                                                   (id-fn (get child-to-parent (:name b)))
-  ;;                                                                                                                   gui-node-id))) bones)]
-  ;;                                          ;; Bone nodes need to be sorted in same order as bones in rig scene
-  ;;                                               (sort-by #(bone-order (:id %)) bone-msgs))))
-  (output bone-node-msgs g/Any :cached [])
-        
   
   (output own-build-errors g/Any (g/fnk [_node-id build-errors-visual-node spine-anim-ids spine-default-animation spine-skin-ids spine-skin spine-scene spine-scene-names]
                                         (g/package-errors _node-id
