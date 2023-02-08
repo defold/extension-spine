@@ -27,42 +27,24 @@
  * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef SPINE_COLOR_H_
-#define SPINE_COLOR_H_
-
-#include <spine/dll.h>
+#ifndef SPINE_TEXTURE_REGION_H
+#define SPINE_TEXTURE_REGION_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct spColor {
-	float r, g, b, a;
-} spColor;
-
-/* @param attachmentName May be 0 for no setup pose attachment. */
-SP_API spColor *spColor_create();
-
-SP_API void spColor_dispose(spColor *self);
-
-SP_API void spColor_setFromFloats(spColor *color, float r, float g, float b, float a);
-
-SP_API void spColor_setFromFloats3(spColor *self, float r, float g, float b);
-
-SP_API void spColor_setFromColor(spColor *color, spColor *otherColor);
-
-SP_API void spColor_setFromColor3(spColor *self, spColor *otherColor);
-
-SP_API void spColor_addFloats(spColor *color, float r, float g, float b, float a);
-
-SP_API void spColor_addFloats3(spColor *color, float r, float g, float b);
-
-SP_API void spColor_addColor(spColor *color, spColor *otherColor);
-
-SP_API void spColor_clamp(spColor *color);
+typedef struct spTextureRegion {
+	void *rendererObject;
+	float u, v, u2, v2;
+	int degrees;
+	float offsetX, offsetY;
+	int width, height;
+	int originalWidth, originalHeight;
+} spTextureRegion;
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* SPINE_COLOR_H_ */
+#endif

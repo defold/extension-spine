@@ -2,7 +2,7 @@
 
 set -e
 
-VERSION=4.0
+VERSION=4.1
 #URL=https://github.com/EsotericSoftware/spine-runtimes/archive/refs/tags/${VERSION}.zip
 URL=https://github.com/EsotericSoftware/spine-runtimes/archive/refs/heads/${VERSION}.zip
 UNPACK_FOLDER="spine-runtimes-${VERSION}"
@@ -261,12 +261,12 @@ case $PLATFORM in
         export CXXFLAGS="${CXXFLAGS} -fpic -ffunction-sections -funwind-tables -D__ARM_ARCH_5__ -D__ARM_ARCH_5T__ -D__ARM_ARCH_5E__ -D__ARM_ARCH_5TE__ -march=armv7-a -mfloat-abi=softfp -mfpu=vfp -mthumb -fomit-frame-pointer -fno-strict-aliasing -DANDROID -Wno-c++11-narrowing"
 
         if [ -z "${ANDROID_VERSION}" ]; then
-            ANDROID_VERSION=16
+            ANDROID_VERSION=19
         fi
 
         export CXX="${llvm}/armv7a-linux-androideabi${ANDROID_VERSION}-${CXX_NAME}"
-        export AR=${llvm}/arm-linux-androideabi-ar
-        export RANLIB=${llvm}/arm-linux-androideabi-ranlib
+        export AR=${llvm}/llvm-ar
+        export RANLIB=${llvm}/llvm-ranlib
         ;;
 
     arm64-android)
@@ -285,8 +285,8 @@ case $PLATFORM in
         fi
 
         export CXX="${llvm}/aarch64-linux-android${ANDROID_VERSION}-${CXX_NAME}"
-        export AR=${llvm}/aarch64-linux-android-ar
-        export RANLIB=${llvm}/aarch64-linux-android-ranlib
+        export AR=${llvm}/llvm-ar
+        export RANLIB=${llvm}/llvm-ranlib
         ;;
 
     js-web)

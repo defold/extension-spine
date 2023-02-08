@@ -27,42 +27,49 @@
  * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef SPINE_COLOR_H_
-#define SPINE_COLOR_H_
+#ifndef SPINE_SEQUENCE_H
+#define SPINE_SEQUENCE_H
 
 #include <spine/dll.h>
+#include <spine/TextureRegion.h>
+#include <spine/Atlas.h>
+#include "Attachment.h"
+#include "Slot.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct spColor {
-	float r, g, b, a;
-} spColor;
+_SP_ARRAY_DECLARE_TYPE(spTextureRegionArray, spTextureRegion*)
 
-/* @param attachmentName May be 0 for no setup pose attachment. */
-SP_API spColor *spColor_create();
+typedef struct spSequence {
+	int id;
+	int start;
+	int digits;
+	int setupIndex;
+	spTextureRegionArray *regions;
+} spSequence;
 
-SP_API void spColor_dispose(spColor *self);
+SP_API spSequence *spSequence_create(int numRegions);
 
-SP_API void spColor_setFromFloats(spColor *color, float r, float g, float b, float a);
+SP_API void spSequence_dispose(spSequence *self);
 
-SP_API void spColor_setFromFloats3(spColor *self, float r, float g, float b);
+SP_API spSequence *spSequence_copy(spSequence *self);
 
-SP_API void spColor_setFromColor(spColor *color, spColor *otherColor);
+SP_API void spSequence_apply(spSequence *self, spSlot *slot, spAttachment *attachment);
 
-SP_API void spColor_setFromColor3(spColor *self, spColor *otherColor);
+SP_API void spSequence_getPath(spSequence *self, const char *basePath, int index, char *path);
 
-SP_API void spColor_addFloats(spColor *color, float r, float g, float b, float a);
-
-SP_API void spColor_addFloats3(spColor *color, float r, float g, float b);
-
-SP_API void spColor_addColor(spColor *color, spColor *otherColor);
-
-SP_API void spColor_clamp(spColor *color);
+#define SP_SEQUENCE_MODE_HOLD 0
+#define SP_SEQUENCE_MODE_ONCE 1
+#define SP_SEQUENCE_MODE_LOOP 2
+#define SP_SEQUENCE_MODE_PINGPONG 3
+#define SP_SEQUENCE_MODE_ONCEREVERSE 4
+#define SP_SEQUENCE_MODE_LOOPREVERSE 5
+#define SP_SEQUENCE_MODE_PINGPONGREVERSE 6
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* SPINE_COLOR_H_ */
+#endif

@@ -1,8 +1,8 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated January 1, 2020. Replaces all prior versions.
+ * Last updated September 24, 2021. Replaces all prior versions.
  *
- * Copyright (c) 2013-2020, Esoteric Software LLC
+ * Copyright (c) 2013-2021, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
@@ -64,7 +64,6 @@ typedef struct spSkeleton {
 
 	spSkin *const skin;
 	spColor color;
-	float time;
 	float scaleX, scaleY;
 	float x, y;
 } spSkeleton;
@@ -119,8 +118,6 @@ SP_API spTransformConstraint *spSkeleton_findTransformConstraint(const spSkeleto
 
 /* Returns 0 if the path constraint was not found. */
 SP_API spPathConstraint *spSkeleton_findPathConstraint(const spSkeleton *self, const char *constraintName);
-
-SP_API void spSkeleton_update(spSkeleton *self, float deltaTime);
 
 #ifdef __cplusplus
 }
