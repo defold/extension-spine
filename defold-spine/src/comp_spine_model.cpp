@@ -1162,6 +1162,12 @@ namespace dmSpine
             SpineAnimationTrack* track = GetTrackFromIndex(component, params.m_Options.m_Index);
             if (!track)
                 return dmGameObject::PROPERTY_RESULT_INVALID_INDEX;
+			
+			if (!track->m_AnimationInstance)
+            {
+                dmLogError("Could not set playback rate since no animation is playing");
+                return dmGameObject::PROPERTY_RESULT_UNSUPPORTED_VALUE;
+            }
 
             track->m_AnimationInstance->timeScale = params.m_Value.m_Number;
             return dmGameObject::PROPERTY_RESULT_OK;
