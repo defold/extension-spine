@@ -1,8 +1,8 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated January 1, 2020. Replaces all prior versions.
+ * Last updated September 24, 2021. Replaces all prior versions.
  *
- * Copyright (c) 2013-2020, Esoteric Software LLC
+ * Copyright (c) 2013-2021, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
@@ -161,8 +161,7 @@ static void _addToUpdateCache(_spSkeleton *const internal, _spUpdateType type, v
 	_spUpdate *update;
 	if (internal->updateCacheCount == internal->updateCacheCapacity) {
 		internal->updateCacheCapacity *= 2;
-		internal->updateCache = (_spUpdate *) realloc(internal->updateCache,
-													  sizeof(_spUpdate) * internal->updateCacheCapacity);
+		internal->updateCache = (_spUpdate *) REALLOC(internal->updateCache, _spUpdate, internal->updateCacheCapacity);
 	}
 	update = internal->updateCache + internal->updateCacheCount;
 	update->type = type;
@@ -438,7 +437,6 @@ void spSkeleton_updateWorldTransformWith(const spSkeleton *self, const spBone *p
 	/* Apply the parent bone transform to the root bone. The root bone always inherits scale, rotation and reflection. */
 	int i;
 	float rotationY, la, lb, lc, ld;
-	_spUpdate *updateCache;
 	_spSkeleton *internal = SUB_CAST(_spSkeleton, self);
 	spBone *rootBone = self->root;
 	float pa = parent->a, pb = parent->b, pc = parent->c, pd = parent->d;
@@ -456,7 +454,6 @@ void spSkeleton_updateWorldTransformWith(const spSkeleton *self, const spBone *p
 	CONST_CAST(float, rootBone->d) = (pc * lb + pd * ld) * self->scaleY;
 
 	/* Update everything except root bone. */
-	updateCache = internal->updateCache;
 	for (i = 0; i < internal->updateCacheCount; ++i) {
 		_spUpdate *update = internal->updateCache + i;
 		switch (update->type) {
@@ -628,8 +625,4 @@ spPathConstraint *spSkeleton_findPathConstraint(const spSkeleton *self, const ch
 	for (i = 0; i < self->pathConstraintsCount; ++i)
 		if (strcmp(self->pathConstraints[i]->data->name, constraintName) == 0) return self->pathConstraints[i];
 	return 0;
-}
-
-void spSkeleton_update(spSkeleton *self, float deltaTime) {
-	self->time += deltaTime;
 }
