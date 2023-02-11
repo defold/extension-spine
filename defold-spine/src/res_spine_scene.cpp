@@ -114,6 +114,17 @@ namespace dmSpine
             }
         }
 
+        {
+            uint32_t count = resource->m_Skeleton->bonesCount;
+            resource->m_BoneNameToIndex.SetCapacity(dmMath::Max(1U, count/3), count);
+            for (int n = 0; n < count; ++n)
+            {
+                dmhash_t name_hash = dmHashString64(resource->m_Skeleton->bones[n]->name);
+                resource->m_BoneNameToIndex.Put(name_hash, n);
+                DEBUGLOG("bone: %d %s", n, resource->m_Skeleton->bones[n]->name);
+            }
+        }
+
         return dmResource::RESULT_OK;
     }
 

@@ -1396,6 +1396,24 @@ namespace dmSpine
         *instance_id = dmGameObject::GetIdentifier(bone_instance);
         return true;
     }
+
+    bool CompSpineModelSetBonePosition(SpineModelComponent* component, dmhash_t bone_name, Point3 position)
+    {
+        SpineModelResource* spine_model = component->m_Resource;
+        SpineSceneResource* spine_scene = spine_model->m_SpineScene;
+        uint32_t* index = spine_scene->m_BoneNameToIndex.Get(bone_name);
+
+        if (!index)
+            return false;
+
+        spBone* bone = component->m_SkeletonInstance->bones[*index];
+        dmVMath::Vector3 model_pos = (dmVMath::Vector3)dmTransform::Apply(dmTransform::Inv(dmTransform::Mul(dmGameObject::GetWorldTransform(component->m_Instance), component->m_Transform)), position);
+
+        bone->x = model_pos.getX();
+        bone->y = model_pos.getY();
+
+        return true;
+    }
 }
 
 DM_DECLARE_COMPONENT_TYPE(ComponentTypeSpineModelExt, "spinemodelc", dmSpine::CompTypeSpineModelCreate, dmSpine::CompTypeSpineModelDestroy);

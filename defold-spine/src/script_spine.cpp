@@ -679,6 +679,47 @@ namespace dmSpine
         return 0;
     }
 
+    /*# Set world space bone position
+     * Note that bones positions will be overwritten by active animations and constraints(IK, Path, Transform...), only change positions of bones that is not affected by those.
+     *
+     * @name spine.get_go
+     * @param url [type:string|hash|url] the spine model to query
+     * @param bone_id [type:string|hash] id of the corresponding bone
+     * @param position [type:vector3] position in world space
+     * @examples
+     *
+     * The following examples assumes that the spine model has id "spinemodel" and it has bone named "crosshair"
+     *
+     * How to set bone position to mouse position("crosshair" could be IK target for example):
+     *
+     * ```lua
+     * function on_input(self)
+     *   if action_id == nil then
+     *     spine.set_bone_position("#spinemodel", "crosshair", vmath.vector3(action.x, action.y, 0))
+     *   end
+     * end
+     * ```
+     */
+    static int SpineComp_SetBonePosition(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+
+        SpineModelComponent* component = 0;
+        dmMessage::URL receiver; // needed for error output
+        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
+
+        dmhash_t bone_id = dmScript::CheckHashOrString(L, 2);
+        Vectormath::Aos::Vector3* position = dmScript::CheckVector3(L, 3);
+
+        if (!CompSpineModelSetBonePosition(component, bone_id, (Point3)*position))
+        {
+            char buffer[128];
+            return DM_LUA_ERROR("the bone '%s' could not be found in component %s", lua_tostring(L, 2), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
+        }
+
+        return 0;
+    }
+
     /** Deprecated: set a shader constant for a spine model
      * Sets a shader constant for a spine model component.
      * The constant must be defined in the material assigned to the spine model.
@@ -780,6 +821,7 @@ namespace dmSpine
             {"set_ik_target_position",  SpineComp_SetIKTargetPosition},
             {"set_ik_target",           SpineComp_SetIKTarget},
             {"reset_ik_target",         SpineComp_ResetIK},
+            {"set_bone_position",       SpineComp_SetBonePosition},
             {"set_constant",            SpineComp_SetConstant},
             {"reset_constant",          SpineComp_ResetConstant},
             {0, 0}
