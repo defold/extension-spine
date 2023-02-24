@@ -8,14 +8,14 @@
       desc: Dynamically create a new spine node.
       parameters:
         - name: pos
-          type: type:vector3|vector4
+          type: vector3|vector4
           desc: node position
         - name: spine_scene
-          type: type:string|hash
+          type: string|hash
           desc: spine scene id
       return:
         - name: node
-          type: type:node
+          type: node
           desc: new spine node
 
 
@@ -24,10 +24,10 @@
       desc: Starts a spine animation.
       parameters:
         - name: node
-          type: type:node
+          type: node
           desc: spine node that should play the animation
         - name: animation_id
-          type: type:string|hash
+          type: string|hash
           desc: id of the animation to play
         - name: playback
           type: type:constant
@@ -41,12 +41,9 @@
         - name: play_properties
           type: table
           desc: optional table with properties
-                `blend_duration`
-                : [type:number] The duration of a linear blend between the current and new animation
-                `offset`
-                : [type:number] The normalized initial value of the animation cursor when the animation starts playing
-                `playback_rate`
-                : [type:number] The rate with which the animation will be played. Must be positive
+                - `blend_duration` [number] The duration of a linear blend between the current and new animation
+                - `offset` [number] The normalized initial value of the animation cursor when the animation starts playing
+                - `playback_rate` [number] The rate with which the animation will be played. Must be positive
                
         - name: complete_function
           type: function(self, node)
@@ -58,7 +55,7 @@
       desc: cancel a spine animation
       parameters:
         - name: node
-          type: type:node
+          type: node
           desc: spine node that should cancel its animation
 
 
@@ -68,14 +65,14 @@
             This function has complexity O(n), where n is the number of bones in the spine model skeleton.
       parameters:
         - name: node
-          type: type:node
+          type: node
           desc: spine node to query for bone node
         - name: bone_id
-          type: type:string|hash
+          type: string|hash
           desc: id of the corresponding bone
       return:
         - name: bone
-          type: type:node
+          type: node
           desc: node corresponding to the spine bone
 
 
@@ -84,10 +81,10 @@
       desc: Set the spine scene on a spine node. The spine scene must be mapped to the gui scene in the gui editor.
       parameters:
         - name: node
-          type: type:node
+          type: node
           desc: node to set spine scene for
         - name: spine_scene
-          type: type:string|hash
+          type: string|hash
           desc: spine scene id
 
 
@@ -98,11 +95,11 @@
             The returned spine scene must be mapped to the gui scene in the gui editor.
       parameters:
         - name: node
-          type: type:node
+          type: node
           desc: node to get texture from
       return:
         - name: spine_scene
-          type: type:hash
+          type: hash
           desc: spine scene id
 
 
@@ -111,10 +108,10 @@
       desc: Sets the spine skin on a spine node.
       parameters:
         - name: node
-          type: type:node
+          type: node
           desc: node to set the spine skin on
         - name: spine_skin
-          type: type:string|hash
+          type: string|hash
           desc: spine skin id
      examples:
        - desc: |-
@@ -132,11 +129,11 @@
       desc: Gets the spine skin of a spine node
       parameters:
         - name: node
-          type: type:node
+          type: node
           desc: node to get spine skin from
       return:
         - name: id
-          type: type:hash
+          type: hash
           desc: spine skin id, 0 if no explicit skin is set
 
 
@@ -145,11 +142,11 @@
       desc: Gets the playing animation on a spine node
       parameters:
         - name: node
-          type: type:node
+          type: node
           desc: node to get spine skin from
       return:
         - name: id
-          type: type:hash
+          type: hash
           desc: spine animation id, 0 if no animation is playing
 
 
@@ -158,10 +155,10 @@
       desc: This is only useful for spine nodes. The cursor is normalized.
       parameters:
         - name: node
-          type: type:node
+          type: node
           desc: spine node to set the cursor for
         - name: cursor
-          type: type:number
+          type: number
           desc: cursor value
 
 
@@ -170,7 +167,7 @@
       desc: This is only useful for spine nodes. Gets the normalized cursor of the animation on a spine node.
       parameters:
         - name: node
-          type: type:node
+          type: node
           desc: spine node to get the cursor for (node)
       return:
         - name: cursor_value
@@ -183,10 +180,10 @@
       desc: This is only useful for spine nodes. Sets the playback rate of the animation on a spine node. Must be positive.
       parameters:
         - name: node
-          type: type:node
+          type: node
           desc: spine node to set the cursor for
         - name: playback_rate
-          type: type:number
+          type: number
           desc: playback rate
 
 
@@ -195,11 +192,11 @@
       desc: This is only useful for spine nodes. Gets the playback rate of the animation on a spine node.
       parameters:
         - name: node
-          type: type:node
+          type: node
           desc: spine node to set the cursor for
       return:
         - name: rate
-          type: type:number
+          type: number
           desc: playback rate
 
 
@@ -208,13 +205,13 @@
       desc: This is only useful for spine nodes. Sets an attachment to a slot on a spine node.
       parameters:
         - name: node
-          type: type:node
+          type: node
           desc: spine node to set the slot for
         - name: slot
-          type: type:string|hash
+          type: string|hash
           desc: slot name
         - name: attachment
-          type: type:string|hash
+          type: string|hash
           desc: attachment name. May be nil.
      
 
