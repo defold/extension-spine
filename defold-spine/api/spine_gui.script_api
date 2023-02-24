@@ -3,7 +3,7 @@
   desc: Functions and constants for interacting with Spine models in GUI
 
   members:
-    - name: gui.new_spine_node
+    - name: new_spine_node
       type: function
       desc: Dynamically create a new spine node.
       parameters:
@@ -19,7 +19,7 @@
           desc: new spine node
 
 
-    - name: gui.play_spine_anim
+    - name: play_spine_anim
       type: function
       desc: Starts a spine animation.
       parameters:
@@ -30,7 +30,7 @@
           type: string|hash
           desc: id of the animation to play
         - name: playback
-          type: type:constant
+          type: constant
           desc: playback mode
                 - `gui.PLAYBACK_ONCE_FORWARD`
                 - `gui.PLAYBACK_ONCE_BACKWARD`
@@ -50,7 +50,7 @@
           desc: function to call when the animation has completed
 
 
-    - name: gui.cancel_spine
+    - name: cancel_spine
       type: function
       desc: cancel a spine animation
       parameters:
@@ -59,7 +59,7 @@
           desc: spine node that should cancel its animation
 
 
-    - name: gui.get_spine_bone
+    - name: get_spine_bone
       type: function
       desc: The returned node can be used for parenting and transform queries.
             This function has complexity O(n), where n is the number of bones in the spine model skeleton.
@@ -76,7 +76,7 @@
           desc: node corresponding to the spine bone
 
 
-    - name: gui.set_spine_scene
+    - name: set_spine_scene
       type: function
       desc: Set the spine scene on a spine node. The spine scene must be mapped to the gui scene in the gui editor.
       parameters:
@@ -88,7 +88,7 @@
           desc: spine scene id
 
 
-    - name: gui.get_spine_scene
+    - name: get_spine_scene
       type: function
       desc: Returns the spine scene id of the supplied node.
             This is currently only useful for spine nodes.
@@ -103,7 +103,7 @@
           desc: spine scene id
 
 
-    - name: gui.set_spine_skin
+    - name: set_spine_skin
       type: function
       desc: Sets the spine skin on a spine node.
       parameters:
@@ -124,7 +124,7 @@
             ```
 
 
-    - name: gui.get_spine_skin
+    - name: get_spine_skin
       type: function
       desc: Gets the spine skin of a spine node
       parameters:
@@ -137,7 +137,7 @@
           desc: spine skin id, 0 if no explicit skin is set
 
 
-    - name: gui.get_spine_animation
+    - name: get_spine_animation
       type: function
       desc: Gets the playing animation on a spine node
       parameters:
@@ -150,7 +150,7 @@
           desc: spine animation id, 0 if no animation is playing
 
 
-    - name: gui.set_spine_cursor
+    - name: set_spine_cursor
       type: function
       desc: This is only useful for spine nodes. The cursor is normalized.
       parameters:
@@ -162,7 +162,7 @@
           desc: cursor value
 
 
-    - name: gui.get_spine_cursor
+    - name: get_spine_cursor
       type: function
       desc: This is only useful for spine nodes. Gets the normalized cursor of the animation on a spine node.
       parameters:
@@ -175,7 +175,7 @@
           desc: cursor value
 
 
-    - name: gui.set_spine_playback_rate
+    - name: set_spine_playback_rate
       type: function
       desc: This is only useful for spine nodes. Sets the playback rate of the animation on a spine node. Must be positive.
       parameters:
@@ -187,7 +187,7 @@
           desc: playback rate
 
 
-    - name: gui.get_spine_playback_rate
+    - name: get_spine_playback_rate
       type: function
       desc: This is only useful for spine nodes. Gets the playback rate of the animation on a spine node.
       parameters:
@@ -200,7 +200,7 @@
           desc: playback rate
 
 
-    - name: gui.set_spine_attachment
+    - name: set_spine_attachment
       type: function
       desc: This is only useful for spine nodes. Sets an attachment to a slot on a spine node.
       parameters:
