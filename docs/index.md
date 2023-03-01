@@ -185,8 +185,7 @@ You should now be able to view your Spine model in the editor:
 
 
 ### Runtime manipulation
-
-You can manipulate spine models in runtime through a number of different functions and properties (refer to the [API docs for usage](/extension-spine/api/)).
+You can manipulate spine models in runtime through a number of different functions and properties (refer to the [API docs for usage](/extension-spine/spine_api/)).
 
 
 #### Changing properties
@@ -200,7 +199,7 @@ A spine model also has a number of different properties that can be manipulated 
 : The normalized animation cursor (`number`).
 
 `material`
-: The spine model material (`hash`). You can change this using a material resource property and `go.set()`. Refer to the [API reference for an example](/extension-spine/api/#material).
+: The spine model material (`hash`). You can change this using a material resource property and `go.set()`. Refer to the [API reference for an example](/extension-spine/spine_api/#material).
 
 `playback_rate`
 : The animation playback rate (`number`).
@@ -223,7 +222,7 @@ The individual bones in the Spine skeleton are represented internally as game ob
 
 ![Spine model hierarchy](spine_bones.png)
 
-With the bone name at hand, you are able to retrieve the instance id of the bone in runtime. The function [`spine.get_go()`](/extension-spine/api#spine.get_go) returns the id of the specified bone and you can, for instance, child other game objects under the animated game object:
+With the bone name at hand, you are able to retrieve the instance id of the bone in runtime. The function [`spine.get_go()`](/extension-spine/spine_api#spine.get_go) returns the id of the specified bone and you can, for instance, child other game objects under the animated game object:
 
 ```lua
 -- Attach pistol game object to the hand of the heroine
@@ -236,7 +235,7 @@ msg.post("pistol", "set_parent", { parent_id = hand })
 
 ## Playing animations
 
-To run animations on your model, simply call the [`spine.play_anim()`](/extension-spine/api#spine.play_anim) function:
+To run animations on your model, simply call the [`spine.play_anim()`](/extension-spine/spine_api#spine.play_anim) function:
 
 ```lua
 local function anim_done(self, message_id, message, sender)
@@ -382,7 +381,7 @@ Skin
 
 ### Runtime animation control
 
-Spine nodes can be controlled in runtime through script. To start an animation on a node, simply call the [`gui.play_spine_anim()`](/extension-spine/api/#gui.play_spine_anim:node-animation_id-playback-[play_properties]-[complete_function]) function:
+Spine nodes can be controlled in runtime through script. To start an animation on a node, simply call the [`gui.play_spine_anim()`](/extension-spine/gui_api/#gui.play_spine_anim:node-animation_id-playback-[play_properties]-[complete_function]) function:
 
 ```lua
 local catnode = gui.get_node("cat_note")
@@ -409,7 +408,7 @@ The individual bones in the Spine skeleton can be accessed as GUI nodes. The nod
 
 ![Spine bone names](bone.png)
 
-For instance, to attach another node to an existing bone node, fetch the bone node by name with [`gui.get_spine_bone()`](/extension-spine/api#gui.get_spine_bone) and attach the child to it:
+For instance, to attach another node to an existing bone node, fetch the bone node by name with [`gui.get_spine_bone()`](/extension-spine/gui_api#gui.get_spine_bone) and attach the child to it:
 
 ```lua
 -- Attach a text node to the tail of the cat
