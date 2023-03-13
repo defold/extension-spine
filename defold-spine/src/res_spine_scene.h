@@ -1,7 +1,6 @@
 #ifndef DM_RES_SPINE_SCENE_H
 #define DM_RES_SPINE_SCENE_H
 
-#include <dmsdk/gamesys/resources/res_textureset.h>
 #include <dmsdk/dlib/hashtable.h>
 
 struct spAtlasRegion;

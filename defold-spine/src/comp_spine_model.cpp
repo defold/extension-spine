@@ -772,7 +772,7 @@ namespace dmSpine
         ro.m_PrimitiveType = dmGraphics::PRIMITIVE_TRIANGLES;
         ro.m_VertexStart = vertex_start;
         ro.m_VertexCount = vertex_count;
-        ro.m_Textures[0] = resource->m_SpineScene->m_TextureSet->m_Texture;
+        ro.m_Textures[0] = resource->m_SpineScene->m_TextureSet->m_Texture->m_Texture; // spine - texture set resource - texture resource - texture
         ro.m_Material = GetMaterial(first);
 
         if (first->m_RenderConstants)
