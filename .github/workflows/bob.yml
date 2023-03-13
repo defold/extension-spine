@@ -22,6 +22,9 @@ jobs:
         with:
           java-version: '16.0.1'
 
+      - name: Install dependencies
+        run: sudo apt-get install -y libopenal-dev
+
       - name: Get Defold version
         run: |
           TMPVAR=`curl -s http://d.defold.com/${{env.CHANNEL}}/${{env.VERSION_FILENAME}} | jq -r '.sha1'`
