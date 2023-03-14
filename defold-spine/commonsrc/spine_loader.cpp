@@ -209,23 +209,24 @@ namespace dmSpine
         return &regions[*anim_index];
     }
 
-    static int /*bool*/ loadSequence(dmHashTable64<uint32_t>* name_to_index, spAtlasRegion* atlasRegions, const char *basePath, spSequence *sequence, spAtlasRegion* default_region) {
+    static bool loadSequence(dmHashTable64<uint32_t>* name_to_index, spAtlasRegion* atlasRegions, const char *basePath, spSequence *sequence, spAtlasRegion* default_region) {
         bool is_atlas_available = name_to_index != 0;
 
         spTextureRegionArray *regions = sequence->regions;
-        char *path = CALLOC(char, strlen(basePath) + sequence->digits + 1);
+        char *path = (char*)MALLOC(char, strlen(basePath) + sequence->digits + 1);
+        path[0] = 0;
         int i;
         for (i = 0; i < regions->size; i++) {
             spSequence_getPath(sequence, basePath, i, path);
             regions->items[i] = is_atlas_available ? SUPER(FindAtlasRegion(name_to_index, atlasRegions, path)) : SUPER(default_region);
             if (!regions->items[i]) {
                 FREE(path);
-                return 0;
+                return false;
             }
             regions->items[i]->rendererObject = regions->items[i];
         }
         FREE(path);
-        return -1;
+        return true;
     }
 
     static spAttachment* spDefoldAtlasAttachmentLoader_createAttachment(spAttachmentLoader* loader, spSkin* skin, spAttachmentType type,
