@@ -10,6 +10,7 @@
 
 #include <spine/SkeletonJson.h>
 #include <spine/AnimationStateData.h>
+#include <dmsdk/gamesys/resources/res_textureset.h>
 
 // Also see the guide http://esotericsoftware.com/spine-c#Loading-skeleton-data
 

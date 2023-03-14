@@ -772,7 +772,7 @@ namespace dmSpine
         ro.m_PrimitiveType = dmGraphics::PRIMITIVE_TRIANGLES;
         ro.m_VertexStart = vertex_start;
         ro.m_VertexCount = vertex_count;
-        ro.m_Textures[0] = resource->m_SpineScene->m_TextureSet->m_Texture;
+        ro.m_Textures[0] = resource->m_SpineScene->m_TextureSet->m_Texture->m_Texture; // spine - texture set resource - texture resource - texture
         ro.m_Material = GetMaterial(first);
 
         if (first->m_RenderConstants)
@@ -1162,6 +1162,12 @@ namespace dmSpine
             SpineAnimationTrack* track = GetTrackFromIndex(component, params.m_Options.m_Index);
             if (!track)
                 return dmGameObject::PROPERTY_RESULT_INVALID_INDEX;
+
+            if (!track->m_AnimationInstance)
+            {
+                dmLogError("Could not set playback rate since no animation is playing");
+                return dmGameObject::PROPERTY_RESULT_UNSUPPORTED_VALUE;
+            }
 
             track->m_AnimationInstance->timeScale = params.m_Value.m_Number;
             return dmGameObject::PROPERTY_RESULT_OK;

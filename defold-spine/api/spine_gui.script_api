@@ -1,0 +1,217 @@
+- name: gui
+  type: table
+  desc: Functions and constants for interacting with Spine models in GUI
+
+  members:
+    - name: new_spine_node
+      type: function
+      desc: Dynamically create a new spine node.
+      parameters:
+        - name: pos
+          type: vector3|vector4
+          desc: node position
+        - name: spine_scene
+          type: string|hash
+          desc: spine scene id
+      return:
+        - name: node
+          type: node
+          desc: new spine node
+
+
+    - name: play_spine_anim
+      type: function
+      desc: Starts a spine animation.
+      parameters:
+        - name: node
+          type: node
+          desc: spine node that should play the animation
+        - name: animation_id
+          type: string|hash
+          desc: id of the animation to play
+        - name: playback
+          type: constant
+          desc: playback mode
+                - `gui.PLAYBACK_ONCE_FORWARD`
+                - `gui.PLAYBACK_ONCE_BACKWARD`
+                - `gui.PLAYBACK_ONCE_PINGPONG`
+                - `gui.PLAYBACK_LOOP_FORWARD`
+                - `gui.PLAYBACK_LOOP_BACKWARD`
+                - `gui.PLAYBACK_LOOP_PINGPONG`
+        - name: play_properties
+          type: table
+          desc: optional table with properties
+                - `blend_duration` [number] The duration of a linear blend between the current and new animation
+                - `offset` [number] The normalized initial value of the animation cursor when the animation starts playing
+                - `playback_rate` [number] The rate with which the animation will be played. Must be positive
+               
+        - name: complete_function
+          type: function(self, node)
+          desc: function to call when the animation has completed
+
+
+    - name: cancel_spine
+      type: function
+      desc: cancel a spine animation
+      parameters:
+        - name: node
+          type: node
+          desc: spine node that should cancel its animation
+
+
+    - name: get_spine_bone
+      type: function
+      desc: The returned node can be used for parenting and transform queries.
+            This function has complexity O(n), where n is the number of bones in the spine model skeleton.
+      parameters:
+        - name: node
+          type: node
+          desc: spine node to query for bone node
+        - name: bone_id
+          type: string|hash
+          desc: id of the corresponding bone
+      return:
+        - name: bone
+          type: node
+          desc: node corresponding to the spine bone
+
+
+    - name: set_spine_scene
+      type: function
+      desc: Set the spine scene on a spine node. The spine scene must be mapped to the gui scene in the gui editor.
+      parameters:
+        - name: node
+          type: node
+          desc: node to set spine scene for
+        - name: spine_scene
+          type: string|hash
+          desc: spine scene id
+
+
+    - name: get_spine_scene
+      type: function
+      desc: Returns the spine scene id of the supplied node.
+            This is currently only useful for spine nodes.
+            The returned spine scene must be mapped to the gui scene in the gui editor.
+      parameters:
+        - name: node
+          type: node
+          desc: node to get texture from
+      return:
+        - name: spine_scene
+          type: hash
+          desc: spine scene id
+
+
+    - name: set_spine_skin
+      type: function
+      desc: Sets the spine skin on a spine node.
+      parameters:
+        - name: node
+          type: node
+          desc: node to set the spine skin on
+        - name: spine_skin
+          type: string|hash
+          desc: spine skin id
+      examples:
+       - desc: |-
+            Change skin of a Spine node
+           
+            ```lua
+            function init(self)
+              gui.set_spine_skin(gui.get_node("spine_node"), "monster")
+            end
+            ```
+
+
+    - name: get_spine_skin
+      type: function
+      desc: Gets the spine skin of a spine node
+      parameters:
+        - name: node
+          type: node
+          desc: node to get spine skin from
+      return:
+        - name: id
+          type: hash
+          desc: spine skin id, 0 if no explicit skin is set
+
+
+    - name: get_spine_animation
+      type: function
+      desc: Gets the playing animation on a spine node
+      parameters:
+        - name: node
+          type: node
+          desc: node to get spine skin from
+      return:
+        - name: id
+          type: hash
+          desc: spine animation id, 0 if no animation is playing
+
+
+    - name: set_spine_cursor
+      type: function
+      desc: This is only useful for spine nodes. The cursor is normalized.
+      parameters:
+        - name: node
+          type: node
+          desc: spine node to set the cursor for
+        - name: cursor
+          type: number
+          desc: cursor value
+
+
+    - name: get_spine_cursor
+      type: function
+      desc: This is only useful for spine nodes. Gets the normalized cursor of the animation on a spine node.
+      parameters:
+        - name: node
+          type: node
+          desc: spine node to get the cursor for (node)
+      return:
+        - name: cursor_value
+          type: number
+          desc: cursor value
+
+
+    - name: set_spine_playback_rate
+      type: function
+      desc: This is only useful for spine nodes. Sets the playback rate of the animation on a spine node. Must be positive.
+      parameters:
+        - name: node
+          type: node
+          desc: spine node to set the cursor for
+        - name: playback_rate
+          type: number
+          desc: playback rate
+
+
+    - name: get_spine_playback_rate
+      type: function
+      desc: This is only useful for spine nodes. Gets the playback rate of the animation on a spine node.
+      parameters:
+        - name: node
+          type: node
+          desc: spine node to set the cursor for
+      return:
+        - name: rate
+          type: number
+          desc: playback rate
+
+
+    - name: set_spine_attachment
+      type: function
+      desc: This is only useful for spine nodes. Sets an attachment to a slot on a spine node.
+      parameters:
+        - name: node
+          type: node
+          desc: spine node to set the slot for
+        - name: slot
+          type: string|hash
+          desc: slot name
+        - name: attachment
+          type: string|hash
+          desc: attachment name. May be nil.
+     
+
