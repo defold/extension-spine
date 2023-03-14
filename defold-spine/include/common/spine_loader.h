@@ -10,6 +10,11 @@ extern "C" {
 struct spAtlasRegion;
 struct spSkeletonData;
 
+namespace dmGameSystemDDF
+{
+    struct TextureSet;
+}
+
 namespace dmGameSystem
 {
     struct TextureSetResource;
