@@ -145,7 +145,7 @@ namespace dmSpine
 
                 spAtlasRegion* atlasRegion = &regions[i];
                 memset(atlasRegion, 0, sizeof(spAtlasRegion));
-                spTextureRegion* region = &atlasRegion->super;
+                spTextureRegion* region = SUPER(atlasRegion);
 
                 if (unrotated)
                 {
