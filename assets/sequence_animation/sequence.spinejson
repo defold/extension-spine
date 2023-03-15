@@ -1,0 +1,50 @@
+{
+"skeleton": {
+	"hash": "EGxx7RTgujk",
+	"spine": "4.1.19",
+	"x": -70,
+	"y": -74,
+	"width": 140,
+	"height": 149,
+	"images": "",
+	"audio": ""
+},
+"bones": [
+	{ "name": "root" }
+],
+"slots": [
+	{ "name": "fx1", "bone": "root", "attachment": "fx1" }
+],
+"skins": [
+	{
+		"name": "default",
+		"attachments": {
+			"fx1": {
+				"fx1": {
+					"path": "fx",
+					"y": 0.5,
+					"width": 140,
+					"height": 149,
+					"sequence": { "count": 54 }
+				}
+			}
+		}
+	}
+],
+"animations": {
+	"animation": {
+		"attachments": {
+			"default": {
+				"fx1": {
+					"fx1": {
+						"sequence": [
+							{ "mode": "loop", "delay": 0.0167 },
+							{ "time": 0.6333, "mode": "loop", "index": 38 }
+						]
+					}
+				}
+			}
+		}
+	}
+}
+}

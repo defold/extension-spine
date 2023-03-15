@@ -2,6 +2,7 @@
 extern "C" {
 #include <spine/extension.h>
 #include <spine/AttachmentLoader.h>
+#include <spine/Attachment.h>
 #include <spine/SkeletonJson.h>
 }
 
@@ -208,6 +209,26 @@ namespace dmSpine
         return &regions[*anim_index];
     }
 
+    static bool loadSequence(dmHashTable64<uint32_t>* name_to_index, spAtlasRegion* atlasRegions, const char *basePath, spSequence *sequence, spAtlasRegion* default_region) {
+        bool is_atlas_available = name_to_index != 0;
+
+        spTextureRegionArray *regions = sequence->regions;
+        char *path = (char*)MALLOC(char, strlen(basePath) + sequence->digits + 1);
+        path[0] = 0;
+        int i;
+        for (i = 0; i < regions->size; i++) {
+            spSequence_getPath(sequence, basePath, i, path);
+            regions->items[i] = is_atlas_available ? SUPER(FindAtlasRegion(name_to_index, atlasRegions, path)) : SUPER(default_region);
+            if (!regions->items[i]) {
+                FREE(path);
+                return false;
+            }
+            regions->items[i]->rendererObject = regions->items[i];
+        }
+        FREE(path);
+        return true;
+    }
+
     static spAttachment* spDefoldAtlasAttachmentLoader_createAttachment(spAttachmentLoader* loader, spSkin* skin, spAttachmentType type,
         const char* name, const char* path, spSequence *sequence)
     {
@@ -227,40 +248,57 @@ namespace dmSpine
 
         switch (type) {
             case SP_ATTACHMENT_REGION: {
-                spAtlasRegion* atlasRegion;
-                if (is_atlas_available)
-                {
-                    atlasRegion = FindAtlasRegion(self->name_to_index, self->regions, path);
-                    if (!atlasRegion) {
-                        _spAttachmentLoader_setError(loader, "Atlas region not found: ", path);
+                spRegionAttachment* attachment = spRegionAttachment_create(name);
+                if (sequence) {
+                    if (!loadSequence(self->name_to_index, self->regions, path, sequence, &default_region)) {
+                        spAttachment_dispose(SUPER(attachment));
+                        _spAttachmentLoader_setError(loader, "Couldn't load sequence for region attachment: ", path);
                         return 0;
                     }
                 } else {
-                    atlasRegion = &default_region;
+                    spAtlasRegion* region;
+                    if (is_atlas_available)
+                    {
+                        region = FindAtlasRegion(self->name_to_index, self->regions, path);
+                        if (!region) {
+                            spAttachment_dispose(SUPER(attachment));
+                            _spAttachmentLoader_setError(loader, "Region not found: ", path);
+                            return 0;
+                        }
+                    } else {
+                        region = &default_region;
+                    }
+                    attachment->rendererObject = is_atlas_available ? region : 0;
+                    attachment->region = SUPER(region);
+                    spRegionAttachment_updateRegion(attachment);
                 }
-                spRegionAttachment* attachment = spRegionAttachment_create(name);
-                attachment->rendererObject = is_atlas_available ? atlasRegion : 0;
-                attachment->region = SUPER(atlasRegion);
-                spRegionAttachment_updateRegion(attachment);
                 return SUPER(attachment);
             }
             case SP_ATTACHMENT_MESH:
             case SP_ATTACHMENT_LINKED_MESH: {
-                spAtlasRegion* atlasRegion;
-                if (is_atlas_available)
-                {
-                    atlasRegion = FindAtlasRegion(self->name_to_index, self->regions, path);
-                    if (!atlasRegion) {
-                        _spAttachmentLoader_setError(loader, "Atlas region not found: ", path);
+                spMeshAttachment* attachment = spMeshAttachment_create(name);
+                if (sequence) {
+                    if (!loadSequence(self->name_to_index, self->regions, path, sequence, &default_region)) {
+                        spAttachment_dispose(SUPER(SUPER(attachment)));
+                        _spAttachmentLoader_setError(loader, "Couldn't load sequence for mesh attachment: ", path);
                         return 0;
                     }
+                } else {
+                    spAtlasRegion* region;
+                    if (is_atlas_available)
+                    {
+                        region = FindAtlasRegion(self->name_to_index, self->regions, path);
+                        if (!region) {
+                            spAttachment_dispose(SUPER(SUPER(attachment)));
+                            _spAttachmentLoader_setError(loader, "Region not found: ", path);
+                            return 0;
+                        }
+                    } else {
+                        region = &default_region;
+                    }
+                    attachment->rendererObject = is_atlas_available ? region : 0;
+                    attachment->region = SUPER(region);
                 }
-                else {
-                    atlasRegion = &default_region;
-                }
-                spMeshAttachment* attachment = spMeshAttachment_create(name);
-                attachment->rendererObject = is_atlas_available ? atlasRegion : 0;
-                attachment->region = SUPER(atlasRegion);
                 return SUPER(SUPER(attachment));
             }
             case SP_ATTACHMENT_BOUNDING_BOX:
