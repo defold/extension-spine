@@ -30,6 +30,8 @@ message SpineModelDesc
     optional BlendMode blend_mode       = 4 [default = BLEND_MODE_ALPHA];
     optional string material            = 5 [(resource)=true, default="/defold-spine/assets/spine.material"];
     optional bool create_go_bones       = 6 [default=false];
+    optional float playback_rate        = 7 [default = 1.0];
+    optional float offset               = 8 [default = 0.0];
 }
 
 
