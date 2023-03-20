@@ -768,14 +768,18 @@
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
 (g/defnk produce-model-pb [spine-scene-resource default-animation skin material-resource blend-mode create-go-bones playback-rate offset]
-  {:spine-scene (resource/resource->proj-path spine-scene-resource)
-   :default-animation default-animation
-   :skin skin
-   :material (resource/resource->proj-path material-resource)
-   :blend-mode blend-mode
-   :create-go-bones create-go-bones
-   :playback-rate playback-rate
-   :offset offset})
+  (cond-> {:spine-scene (resource/resource->proj-path spine-scene-resource)
+           :default-animation default-animation
+           :skin skin
+           :material (resource/resource->proj-path material-resource)
+           :blend-mode blend-mode
+           :create-go-bones create-go-bones}
+
+           (not= 1.0 playback-rate)
+           (assoc :playback-rate playback-rate)
+
+           (not= 0.0 offset)
+           (assoc :offset offset)))
 
 (defn ->skin-choicebox [spine-skins]
   (properties/->choicebox (cons "" (remove (partial = "default") spine-skins))))
