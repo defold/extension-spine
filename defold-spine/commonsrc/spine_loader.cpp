@@ -368,6 +368,7 @@ namespace dmSpine
         spSkeletonData* skeletonData = spSkeletonJson_readSkeletonData(skeleton_json, (const char *)json_data);
         if (!skeletonData)
         {
+            loader->error1 = skeleton_json->error;
             dmLogError("Failed to read spine skeleton for %s: %s", path, skeleton_json->error);
             return 0;
         }
