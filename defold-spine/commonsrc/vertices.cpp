@@ -76,7 +76,7 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
             // the rectangular region attachment. This assumes the world transform of the
             // bone to which the slot (and hence attachment) is attached has been calculated
             // before rendering via spSkeleton_updateWorldTransform
-            spRegionAttachment_computeWorldVertices(regionAttachment, slot->bone, scratch.Begin(), 0, 2);
+            spRegionAttachment_computeWorldVertices(regionAttachment, slot, scratch.Begin(), 0, 2);
             num_world_vertices = 4;
         }
         else if (attachment->type == SP_ATTACHMENT_MESH)
@@ -188,7 +188,7 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
             // the rectangular region attachment. This assumes the world transform of the
             // bone to which the slot (and hence attachment) is attached has been calculated
             // before rendering via spSkeleton_updateWorldTransform
-            spRegionAttachment_computeWorldVertices(regionAttachment, slot->bone, scratch.Begin(), 0, 2);
+            spRegionAttachment_computeWorldVertices(regionAttachment, slot, scratch.Begin(), 0, 2);
 
             // Create 2 triangles, with 3 vertices each from the region's
             // world vertex positions and its UV coordinates (in the range [0-1]).

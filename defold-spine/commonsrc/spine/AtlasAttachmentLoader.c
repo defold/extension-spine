@@ -1,8 +1,8 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated January 1, 2020. Replaces all prior versions.
+ * Last updated September 24, 2021. Replaces all prior versions.
  *
- * Copyright (c) 2013-2020, Esoteric Software LLC
+ * Copyright (c) 2013-2021, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
@@ -29,50 +29,68 @@
 
 #include <spine/AtlasAttachmentLoader.h>
 #include <spine/extension.h>
+#include <spine/Sequence.h>
+
+static int /*bool*/ loadSequence(spAtlas *atlas, const char *basePath, spSequence *sequence) {
+	spTextureRegionArray *regions = sequence->regions;
+	char *path = CALLOC(char, strlen(basePath) + sequence->digits + 1);
+	int i;
+	for (i = 0; i < regions->size; i++) {
+		spSequence_getPath(sequence, basePath, i, path);
+		regions->items[i] = SUPER(spAtlas_findRegion(atlas, path));
+		if (!regions->items[i]) {
+			FREE(path);
+			return 0;
+		}
+		regions->items[i]->rendererObject = regions->items[i];
+	}
+	FREE(path);
+	return -1;
+}
 
 spAttachment *_spAtlasAttachmentLoader_createAttachment(spAttachmentLoader *loader, spSkin *skin, spAttachmentType type,
-														const char *name, const char *path) {
+														const char *name, const char *path, spSequence *sequence) {
 	spAtlasAttachmentLoader *self = SUB_CAST(spAtlasAttachmentLoader, loader);
 	switch (type) {
 		case SP_ATTACHMENT_REGION: {
-			spRegionAttachment *attachment;
-			spAtlasRegion *region = spAtlas_findRegion(self->atlas, path);
-			if (!region) {
-				_spAttachmentLoader_setError(loader, "Region not found: ", path);
-				return 0;
+			spRegionAttachment *attachment = spRegionAttachment_create(name);
+			if (sequence) {
+				if (!loadSequence(self->atlas, path, sequence)) {
+					spAttachment_dispose(SUPER(attachment));
+					_spAttachmentLoader_setError(loader, "Couldn't load sequence for region attachment: ", path);
+					return 0;
+				}
+			} else {
+				spAtlasRegion *region = spAtlas_findRegion(self->atlas, path);
+				if (!region) {
+					spAttachment_dispose(SUPER(attachment));
+					_spAttachmentLoader_setError(loader, "Region not found: ", path);
+					return 0;
+				}
+				attachment->rendererObject = region;
+				attachment->region = SUPER(region);
 			}
-			attachment = spRegionAttachment_create(name);
-			attachment->rendererObject = region;
-			spRegionAttachment_setUVs(attachment, region->u, region->v, region->u2, region->v2, region->degrees);
-			attachment->regionOffsetX = region->offsetX;
-			attachment->regionOffsetY = region->offsetY;
-			attachment->regionWidth = region->width;
-			attachment->regionHeight = region->height;
-			attachment->regionOriginalWidth = region->originalWidth;
-			attachment->regionOriginalHeight = region->originalHeight;
 			return SUPER(attachment);
 		}
 		case SP_ATTACHMENT_MESH:
 		case SP_ATTACHMENT_LINKED_MESH: {
-			spMeshAttachment *attachment;
-			spAtlasRegion *region = spAtlas_findRegion(self->atlas, path);
-			if (!region) {
-				_spAttachmentLoader_setError(loader, "Region not found: ", path);
-				return 0;
+			spMeshAttachment *attachment = spMeshAttachment_create(name);
+
+			if (sequence) {
+				if (!loadSequence(self->atlas, path, sequence)) {
+					spAttachment_dispose(SUPER(SUPER(attachment)));
+					_spAttachmentLoader_setError(loader, "Couldn't load sequence for mesh attachment: ", path);
+					return 0;
+				}
+			} else {
+				spAtlasRegion *region = spAtlas_findRegion(self->atlas, path);
+				if (!region) {
+					_spAttachmentLoader_setError(loader, "Region not found: ", path);
+					return 0;
+				}
+				attachment->rendererObject = region;
+				attachment->region = SUPER(region);
 			}
-			attachment = spMeshAttachment_create(name);
-			attachment->rendererObject = region;
-			attachment->regionU = region->u;
-			attachment->regionV = region->v;
-			attachment->regionU2 = region->u2;
-			attachment->regionV2 = region->v2;
-			attachment->regionDegrees = region->degrees;
-			attachment->regionOffsetX = region->offsetX;
-			attachment->regionOffsetY = region->offsetY;
-			attachment->regionWidth = region->width;
-			attachment->regionHeight = region->height;
-			attachment->regionOriginalWidth = region->originalWidth;
-			attachment->regionOriginalHeight = region->originalHeight;
 			return SUPER(SUPER(attachment));
 		}
 		case SP_ATTACHMENT_BOUNDING_BOX:

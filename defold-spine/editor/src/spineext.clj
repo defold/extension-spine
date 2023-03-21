@@ -574,7 +574,8 @@
            all-tx-data (concat tx-data (create-bones node-id bones))]
        all-tx-data)
      (catch Exception error
-       (handle-read-error error node-id resource)))))
+       (let [error-value (handle-read-error error node-id resource)]
+         (throw (ex-info (:message error-value) error-value)))))))
 
 (defn- build-spine-json [resource dep-resources user-data]
   {:resource resource :content (resource->bytes (:resource resource))})

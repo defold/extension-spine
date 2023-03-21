@@ -2,6 +2,7 @@
 extern "C" {
 #include <spine/extension.h>
 #include <spine/AttachmentLoader.h>
+#include <spine/Attachment.h>
 #include <spine/SkeletonJson.h>
 }
 
@@ -143,8 +144,9 @@ namespace dmSpine
                 // Since this struct is only used as a placeholder to show which values are needed
                 // we only set the ones we care about
 
-                spAtlasRegion* region = &regions[i];
-                memset(region, 0, sizeof(spAtlasRegion));
+                spAtlasRegion* atlasRegion = &regions[i];
+                memset(atlasRegion, 0, sizeof(spAtlasRegion));
+                spTextureRegion* region = SUPER(atlasRegion);
 
                 if (unrotated)
                 {
@@ -207,8 +209,28 @@ namespace dmSpine
         return &regions[*anim_index];
     }
 
+    static bool loadSequence(dmHashTable64<uint32_t>* name_to_index, spAtlasRegion* atlasRegions, const char *basePath, spSequence *sequence, spAtlasRegion* default_region) {
+        bool is_atlas_available = name_to_index != 0;
+
+        spTextureRegionArray *regions = sequence->regions;
+        char *path = (char*)MALLOC(char, strlen(basePath) + sequence->digits + 1);
+        path[0] = 0;
+        int i;
+        for (i = 0; i < regions->size; i++) {
+            spSequence_getPath(sequence, basePath, i, path);
+            regions->items[i] = is_atlas_available ? SUPER(FindAtlasRegion(name_to_index, atlasRegions, path)) : SUPER(default_region);
+            if (!regions->items[i]) {
+                FREE(path);
+                return false;
+            }
+            regions->items[i]->rendererObject = regions->items[i];
+        }
+        FREE(path);
+        return true;
+    }
+
     static spAttachment* spDefoldAtlasAttachmentLoader_createAttachment(spAttachmentLoader* loader, spSkin* skin, spAttachmentType type,
-                                                                        const char* name, const char* path)
+        const char* name, const char* path, spSequence *sequence)
     {
         spDefoldAtlasAttachmentLoader* self = SUB_CAST(spDefoldAtlasAttachmentLoader, loader);
         bool is_atlas_available = self->name_to_index != 0;
@@ -217,63 +239,66 @@ namespace dmSpine
         spAtlasRegion default_region;
         if (!is_atlas_available)
         {
-            default_region.u = default_region.v = default_region.u2 = default_region.v2 = default_region.degrees = 0;
-            default_region.offsetX = default_region.offsetY = 0;
-            default_region.width = default_region.height = 0;
-            default_region.originalWidth = default_region.originalHeight = 0;
+            spTextureRegion* textureRegion = &default_region.super;
+            textureRegion->u = textureRegion->v = textureRegion->u2 = textureRegion->v2 = textureRegion->degrees = 0;
+            textureRegion->offsetX = textureRegion->offsetY = 0;
+            textureRegion->width = textureRegion->height = 0;
+            textureRegion->originalWidth = textureRegion->originalHeight = 0;
         }
 
         switch (type) {
             case SP_ATTACHMENT_REGION: {
-                spAtlasRegion* region;
-                if (is_atlas_available)
-                {
-                    region = FindAtlasRegion(self->name_to_index, self->regions, path);
-                    if (!region) {
-                        _spAttachmentLoader_setError(loader, "Region not found: ", path);
+                spRegionAttachment* attachment = spRegionAttachment_create(name);
+                if (sequence) {
+                    if (!loadSequence(self->name_to_index, self->regions, path, sequence, &default_region)) {
+                        spAttachment_dispose(SUPER(attachment));
+                        _spAttachmentLoader_setError(loader, "Couldn't load sequence for region attachment: ", path);
                         return 0;
                     }
                 } else {
-                    region = &default_region;
+                    spAtlasRegion* region;
+                    if (is_atlas_available)
+                    {
+                        region = FindAtlasRegion(self->name_to_index, self->regions, path);
+                        if (!region) {
+                            spAttachment_dispose(SUPER(attachment));
+                            _spAttachmentLoader_setError(loader, "Region not found: ", path);
+                            return 0;
+                        }
+                    } else {
+                        region = &default_region;
+                    }
+                    attachment->rendererObject = is_atlas_available ? region : 0;
+                    attachment->region = SUPER(region);
+                    spRegionAttachment_updateRegion(attachment);
                 }
-                spRegionAttachment* attachment = spRegionAttachment_create(name);
-                attachment->rendererObject = is_atlas_available ? region : 0;
-                spRegionAttachment_setUVs(attachment, region->u, region->v, region->u2, region->v2, region->degrees);
-                attachment->regionOffsetX = region->offsetX;
-                attachment->regionOffsetY = region->offsetY;
-                attachment->regionWidth = region->width;
-                attachment->regionHeight = region->height;
-                attachment->regionOriginalWidth = region->originalWidth;
-                attachment->regionOriginalHeight = region->originalHeight;
                 return SUPER(attachment);
             }
             case SP_ATTACHMENT_MESH:
             case SP_ATTACHMENT_LINKED_MESH: {
-                spAtlasRegion* region;
-                if (is_atlas_available)
-                {
-                    region = FindAtlasRegion(self->name_to_index, self->regions, path);
-                    if (!region) {
-                        _spAttachmentLoader_setError(loader, "Region not found: ", path);
+                spMeshAttachment* attachment = spMeshAttachment_create(name);
+                if (sequence) {
+                    if (!loadSequence(self->name_to_index, self->regions, path, sequence, &default_region)) {
+                        spAttachment_dispose(SUPER(SUPER(attachment)));
+                        _spAttachmentLoader_setError(loader, "Couldn't load sequence for mesh attachment: ", path);
                         return 0;
                     }
+                } else {
+                    spAtlasRegion* region;
+                    if (is_atlas_available)
+                    {
+                        region = FindAtlasRegion(self->name_to_index, self->regions, path);
+                        if (!region) {
+                            spAttachment_dispose(SUPER(SUPER(attachment)));
+                            _spAttachmentLoader_setError(loader, "Region not found: ", path);
+                            return 0;
+                        }
+                    } else {
+                        region = &default_region;
+                    }
+                    attachment->rendererObject = is_atlas_available ? region : 0;
+                    attachment->region = SUPER(region);
                 }
-                else {
-                    region = &default_region;
-                }
-                spMeshAttachment* attachment = spMeshAttachment_create(name);
-                attachment->rendererObject = is_atlas_available ? region : 0;
-                attachment->regionU = region->u;
-                attachment->regionV = region->v;
-                attachment->regionU2 = region->u2;
-                attachment->regionV2 = region->v2;
-                attachment->regionDegrees = region->degrees;
-                attachment->regionOffsetX = region->offsetX;
-                attachment->regionOffsetY = region->offsetY;
-                attachment->regionWidth = region->width;
-                attachment->regionHeight = region->height;
-                attachment->regionOriginalWidth = region->originalWidth;
-                attachment->regionOriginalHeight = region->originalHeight;
                 return SUPER(SUPER(attachment));
             }
             case SP_ATTACHMENT_BOUNDING_BOX:
@@ -343,6 +368,8 @@ namespace dmSpine
         spSkeletonData* skeletonData = spSkeletonJson_readSkeletonData(skeleton_json, (const char *)json_data);
         if (!skeletonData)
         {
+            loader->error1 = strdup(skeleton_json->error ? skeleton_json->error : "unknown error");
+            spSkeletonJson_dispose(skeleton_json);
             dmLogError("Failed to read spine skeleton for %s: %s", path, skeleton_json->error);
             return 0;
         }

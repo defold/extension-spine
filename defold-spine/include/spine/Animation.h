@@ -1,8 +1,8 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated January 1, 2020. Replaces all prior versions.
+ * Last updated September 24, 2021. Replaces all prior versions.
  *
- * Copyright (c) 2013-2020, Esoteric Software LLC
+ * Copyright (c) 2013-2021, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
@@ -34,6 +34,7 @@
 #include <spine/Event.h>
 #include <spine/Attachment.h>
 #include <spine/VertexAttachment.h>
+#include <spine/Sequence.h>
 #include <spine/Array.h>
 #include <stdint.h>
 
@@ -99,6 +100,7 @@ typedef enum {
 	SP_TIMELINE_SHEAR,
 	SP_TIMELINE_TRANSLATE,
 	SP_TIMELINE_DEFORM,
+	SP_TIMELINE_SEQUENCE,
 	SP_TIMELINE_IKCONSTRAINT,
 	SP_TIMELINE_PATHCONSTRAINTMIX,
 	SP_TIMELINE_RGB2,
@@ -131,7 +133,8 @@ typedef enum {
 	SP_PROPERTY_TRANSFORMCONSTRAINT = 1 << 15,
 	SP_PROPERTY_PATHCONSTRAINT_POSITION = 1 << 16,
 	SP_PROPERTY_PATHCONSTRAINT_SPACING = 1 << 17,
-	SP_PROPERTY_PATHCONSTRAINT_MIX = 1 << 18
+	SP_PROPERTY_PATHCONSTRAINT_MIX = 1 << 18,
+	SP_PROPERTY_SEQUENCE = 1 << 19
 } spProperty;
 
 #define SP_MAX_PROPERTY_IDS 3
@@ -396,6 +399,20 @@ spDeformTimeline_create(int framesCount, int frameVerticesCount, int bezierCount
 						spVertexAttachment *attachment);
 
 SP_API void spDeformTimeline_setFrame(spDeformTimeline *self, int frameIndex, float time, float *vertices);
+
+/**/
+
+typedef struct spSequenceTimeline {
+	spTimeline super;
+	int slotIndex;
+	spAttachment *attachment;
+} spSequenceTimeline;
+
+SP_API spSequenceTimeline *spSequenceTimeline_create(int framesCount, int slotIndex, spAttachment *attachment);
+
+SP_API void spSequenceTimeline_setFrame(spSequenceTimeline *self, int frameIndex, float time, int mode, int index, float delay);
+
+/**/
 
 /**/
 

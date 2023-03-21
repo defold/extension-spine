@@ -1,8 +1,8 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated January 1, 2020. Replaces all prior versions.
+ * Last updated September 24, 2021. Replaces all prior versions.
  *
- * Copyright (c) 2013-2020, Esoteric Software LLC
+ * Copyright (c) 2013-2021, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
@@ -35,7 +35,7 @@ static int nextID = 0;
 
 void _spVertexAttachment_init(spVertexAttachment *attachment) {
 	attachment->id = nextID++;
-	attachment->deformAttachment = attachment;
+	attachment->timelineAttachment = SUPER(attachment);
 }
 
 void _spVertexAttachment_deinit(spVertexAttachment *attachment) {
@@ -51,6 +51,11 @@ void spVertexAttachment_computeWorldVertices(spVertexAttachment *self, spSlot *s
 	float *deformArray;
 	float *vertices;
 	int *bones;
+
+	if (self->super.type == SP_ATTACHMENT_MESH || self->super.type == SP_ATTACHMENT_LINKED_MESH) {
+		spMeshAttachment *mesh = SUB_CAST(spMeshAttachment, self);
+		if (mesh->sequence) spSequence_apply(mesh->sequence, slot, SUPER(self));
+	}
 
 	count = offset + (count >> 1) * stride;
 	skeleton = slot->bone->skeleton;
