@@ -768,13 +768,19 @@
 
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
-(g/defnk produce-model-pb [spine-scene-resource default-animation skin material-resource blend-mode create-go-bones]
-  {:spine-scene (resource/resource->proj-path spine-scene-resource)
-   :default-animation default-animation
-   :skin skin
-   :material (resource/resource->proj-path material-resource)
-   :blend-mode blend-mode
-   :create-go-bones create-go-bones})
+(g/defnk produce-model-pb [spine-scene-resource default-animation skin material-resource blend-mode create-go-bones playback-rate offset]
+  (cond-> {:spine-scene (resource/resource->proj-path spine-scene-resource)
+           :default-animation default-animation
+           :skin skin
+           :material (resource/resource->proj-path material-resource)
+           :blend-mode blend-mode
+           :create-go-bones create-go-bones}
+
+           (not= 1.0 playback-rate)
+           (assoc :playback-rate playback-rate)
+
+           (not= 0.0 offset)
+           (assoc :offset offset)))
 
 (defn ->skin-choicebox [spine-skins]
   (properties/->choicebox (cons "" (remove (partial = "default") spine-skins))))
@@ -902,6 +908,12 @@
                                   (validate-model-skin _node-id spine-scene skins skin)))
             (dynamic edit-type (g/fnk [skins] (->skin-choicebox skins))))
   (property create-go-bones g/Bool (default false))
+  (property playback-rate g/Num (default 1.0))
+  (property offset g/Num (default 0.0)
+    (dynamic edit-type (g/constantly {:type :slider
+                                      :min 0.0
+                                      :max 1.0
+                                      :precision 0.01})))
 
   (input spine-json-resource resource/Resource)
   (input atlas-resource resource/Resource)

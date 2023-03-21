@@ -585,7 +585,9 @@ namespace dmSpine
             }
         }
         dmhash_t animation_id = dmHashString64(component->m_Resource->m_Ddf->m_DefaultAnimation);
-        PlayAnimation(component, animation_id, dmGameObject::PLAYBACK_LOOP_FORWARD, 0.0f, 0.0f, 1.0f, 0); // TODO: Is the default playmode specified anywhere?
+        PlayAnimation(component, animation_id, dmGameObject::PLAYBACK_LOOP_FORWARD, 0.0f, 
+            component->m_Resource->m_Ddf->m_Offset, component->m_Resource->m_Ddf->m_PlaybackRate, 0);
+            // TODO: Is the default playmode specified anywhere?
 
         component->m_ReHash = 1;
 
