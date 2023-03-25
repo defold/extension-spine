@@ -113,13 +113,46 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
 
 }
 
+uint32_t CalcVertexBufferSize(const spSkeleton* skeleton, uint32_t* out_max_triangle_count)
+{
+    uint32_t count = 0;
+    uint32_t max_triangle_count = 8;
+    for (int s = 0; s < skeleton->slotsCount; ++s)
+    {
+        spSlot* slot = skeleton->drawOrder[s];
+
+        spAttachment* attachment = slot->attachment;
+        if (!attachment)continue;
+        if (attachment->type == SP_ATTACHMENT_REGION)
+        {
+            count += 6;
+        }
+        else if (attachment->type == SP_ATTACHMENT_MESH)
+        {
+            spMeshAttachment* mesh = (spMeshAttachment*)attachment;
+            uint32_t num_tri_vertices = SUPER(mesh)->worldVerticesLength;
+
+            count += (uint32_t)mesh->trianglesCount; // It's a list of indices, where each 3-tuple define a triangle
+            if (num_tri_vertices > max_triangle_count)
+                max_triangle_count = num_tri_vertices;
+        }
+    }
+    *out_max_triangle_count = max_triangle_count;
+    return count;
+}
+
 
 uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleton* skeleton, const dmVMath::Matrix4& world)
 {
-    dmArray<float> scratch; // scratch buffer
+    static dmArray<float> scratch; // scratch buffer
 
     int vindex = vertex_buffer.Size();
     int vindex_start = vindex;
+
+    uint32_t max_triangle_count = 0;
+    uint32_t estimated_vcount = CalcVertexBufferSize(skeleton, &max_triangle_count);
+    EnsureArrayFitsNumber(scratch, max_triangle_count);
+    EnsureArrayFitsNumber(vertex_buffer, estimated_vcount);
 
     // For each slot in the draw order array of the skeleton
     for (int s = 0; s < skeleton->slotsCount; ++s)
@@ -176,9 +209,6 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
             spRegionAttachment* regionAttachment = (spRegionAttachment*)attachment;
             const float* uvs = regionAttachment->uvs;
 
-            EnsureArrayFitsNumber(scratch, 4*2);
-            EnsureArrayFitsNumber(vertex_buffer, 6);
-
             float colorR = tintR * regionAttachment->color.r;
             float colorG = tintG * regionAttachment->color.g;
             float colorB = tintB * regionAttachment->color.b;
@@ -199,8 +229,6 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
             addVertex(&vertex_buffer[vindex++], scratch[4], scratch[5], uvs[4], uvs[5], colorR, colorG, colorB, colorA);
             addVertex(&vertex_buffer[vindex++], scratch[6], scratch[7], uvs[6], uvs[7], colorR, colorG, colorB, colorA);
             addVertex(&vertex_buffer[vindex++], scratch[0], scratch[1], uvs[0], uvs[1], colorR, colorG, colorB, colorA);
-
-            scratch.SetSize(0);
         }
         else if (attachment->type == SP_ATTACHMENT_MESH)
         {
@@ -208,12 +236,7 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
             // and compute the world vertices
             spMeshAttachment* mesh = (spMeshAttachment*)attachment;
 
-            int num_world_vertices = mesh->super.worldVerticesLength / 2;
-
-            EnsureArrayFitsNumber(scratch, num_world_vertices*2);
-
-            int num_tri_vertices = mesh->trianglesCount; // It's a list of indices, where each 3-tuple define a triangle
-            EnsureArrayFitsNumber(vertex_buffer, num_tri_vertices);
+            int num_world_vertices = SUPER(mesh)->worldVerticesLength / 2;
 
             // Computed the world vertices positions for the vertices that make up
             // the mesh attachment. This assumes the world transform of the
@@ -241,10 +264,9 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
 
                 addVertex(&vertex_buffer[vindex++], scratch[index], scratch[index + 1], uvs[index], uvs[index + 1], colorR, colorG, colorB, colorA);
             }
-
-            scratch.SetSize(0);
         }
     }
+    scratch.SetSize(0);
 
     const dmVMath::Matrix4& w = world;
 
@@ -260,6 +282,8 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
             vertex->y = p.getY();
             vertex->z = p.getZ();
         }
+
+        assert(vcount == estimated_vcount);
     }
 
     return vcount;
