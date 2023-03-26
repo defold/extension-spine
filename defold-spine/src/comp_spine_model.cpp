@@ -758,6 +758,18 @@ namespace dmSpine
 
         uint32_t vertex_start = world->m_VertexBufferData.Size();
         uint32_t vertex_count = 0;
+
+        for (uint32_t *i = begin; i != end; ++i)
+        {
+            component_index = (uint32_t)buf[*i].m_UserData;
+            const SpineModelComponent* component = (const SpineModelComponent*) components[component_index];
+            vertex_count += dmSpine::CalcVertexBufferSize(component->m_SkeletonInstance, 0);
+        }
+
+        if (vertex_count > world->m_VertexBufferData.Capacity())
+            world->m_VertexBufferData.SetCapacity(vertex_count);
+
+        vertex_count = 0;
         for (uint32_t *i = begin; i != end; ++i)
         {
             component_index = (uint32_t)buf[*i].m_UserData;

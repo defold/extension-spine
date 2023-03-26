@@ -137,7 +137,8 @@ uint32_t CalcVertexBufferSize(const spSkeleton* skeleton, uint32_t* out_max_tria
                 max_triangle_count = num_tri_vertices;
         }
     }
-    *out_max_triangle_count = max_triangle_count;
+    if (out_max_triangle_count)
+        *out_max_triangle_count = max_triangle_count;
     return count;
 }
 
