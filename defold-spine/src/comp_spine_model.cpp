@@ -758,6 +758,18 @@ namespace dmSpine
 
         uint32_t vertex_start = world->m_VertexBufferData.Size();
         uint32_t vertex_count = 0;
+
+        for (uint32_t *i = begin; i != end; ++i)
+        {
+            component_index = (uint32_t)buf[*i].m_UserData;
+            const SpineModelComponent* component = (const SpineModelComponent*) components[component_index];
+            vertex_count += dmSpine::CalcVertexBufferSize(component->m_SkeletonInstance, 0);
+        }
+
+        if (vertex_count > world->m_VertexBufferData.Capacity())
+            world->m_VertexBufferData.SetCapacity(vertex_count);
+
+        vertex_count = 0;
         for (uint32_t *i = begin; i != end; ++i)
         {
             component_index = (uint32_t)buf[*i].m_UserData;
@@ -860,7 +872,7 @@ namespace dmSpine
         {
             case dmRender::RENDER_LIST_OPERATION_BEGIN:
             {
-                dmGraphics::SetVertexBufferData(world->m_VertexBuffer, 0, 0, dmGraphics::BUFFER_USAGE_STATIC_DRAW);
+                dmGraphics::SetVertexBufferData(world->m_VertexBuffer, 0, 0, dmGraphics::BUFFER_USAGE_DYNAMIC_DRAW);
                 world->m_RenderObjects.SetSize(0);
                 world->m_VertexBufferData.SetSize(0);
                 break;
@@ -873,7 +885,7 @@ namespace dmSpine
             case dmRender::RENDER_LIST_OPERATION_END:
             {
                 dmGraphics::SetVertexBufferData(world->m_VertexBuffer, sizeof(dmSpine::SpineVertex) * world->m_VertexBufferData.Size(),
-                                                world->m_VertexBufferData.Begin(), dmGraphics::BUFFER_USAGE_STATIC_DRAW);
+                                                world->m_VertexBufferData.Begin(), dmGraphics::BUFFER_USAGE_DYNAMIC_DRAW);
                 //DM_COUNTER("SpineVertexBuffer", world->m_VertexBufferData.Size() * sizeof(dmSpine::SpineVertex));
                 break;
             }

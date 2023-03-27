@@ -26,6 +26,7 @@ struct SpineModelBounds
     float maxY;
 };
 
+uint32_t CalcVertexBufferSize(const spSkeleton* skeleton, uint32_t* out_max_triangle_count);
 uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleton* skeleton, const dmVMath::Matrix4& world);
 void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds);
 
