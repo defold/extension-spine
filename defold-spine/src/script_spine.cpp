@@ -437,7 +437,7 @@ namespace dmSpine
         if (!CompSpineModelGetBone(component, bone_id, &bone_gameobject_id))
         {
             char buffer[128];
-            return DM_LUA_ERROR("the bone '%s' could not be found in component %s", lua_tostring(L, 2), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
+            return DM_LUA_ERROR("the bone '%s' could not be found in component %s", dmHashReverseSafe64(bone_id), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
         }
 
         dmScript::PushHash(L, bone_gameobject_id);
@@ -581,7 +581,7 @@ namespace dmSpine
 
         if (!CompSpineModelSetIKTargetPosition(component, ik_constraint_id, 1.0f, (Point3)*position))
         {
-            return DM_LUA_ERROR("the IK constraint target '%s' could not be found", lua_tostring(L, 2));
+            return DM_LUA_ERROR("the IK constraint target '%s' could not be found", dmHashReverseSafe64(ik_constraint_id));
         }
 
         return 0;
