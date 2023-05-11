@@ -1008,6 +1008,7 @@
    (workspace/register-resource-type workspace
                                      :ext spine-json-ext
                                      :node-type SpineSceneJson
+                                     :textual? true
                                      :load-fn load-spine-json
                                      :icon spine-json-icon
                                      :view-types [:default]
