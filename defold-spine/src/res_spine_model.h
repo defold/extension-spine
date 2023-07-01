@@ -4,6 +4,7 @@
 
 #include <dmsdk/render/render.h>
 #include <dmsdk/gamesys/resources/res_rig_scene.h>
+#include <dmsdk/gamesys/resources/res_material.h>
 
 #include "spine_ddf.h" // generated from the spine_ddf.proto
 
@@ -15,7 +16,7 @@ namespace dmSpine
     {
         dmGameSystemDDF::SpineModelDesc*    m_Ddf;
         SpineSceneResource*                 m_SpineScene;
-        dmRender::HMaterial                 m_Material;
+        dmGameSystem::MaterialResource*     m_Material;
         uint8_t                             m_CreateGoBones:1;
     };
 }

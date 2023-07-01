@@ -138,7 +138,7 @@ namespace dmSpine
     }
 
     static inline dmRender::HMaterial GetMaterial(const SpineModelComponent* component) {
-        return component->m_Material ? component->m_Material : component->m_Resource->m_Material;
+        return component->m_Material ? component->m_Material : component->m_Resource->m_Material->m_Material;
     }
 
     static void ReHash(SpineModelComponent* component)
