@@ -46,9 +46,9 @@ jobs:
       - name: Resolve libraries
         run: java -jar bob.jar resolve --email a@b.com --auth 123456
       - name: Build Tools
-        run: SERVER=${{env.BUILD_SERVER}} BOB=./bob.jar ./utils/build_plugins.sh x86_64-linux
+        run: SERVER=${{env.BUILD_SERVER}} DEFOLDSDK=${{env.DEFOLD_VERSION}} BOB=./bob.jar ./utils/build_plugins.sh x86_64-linux
       - name: Build
-        run: java -jar bob.jar --platform=${{ matrix.platform }} build --archive --build-server=${{env.BUILD_SERVER}}
+        run: java -jar bob.jar --platform=${{ matrix.platform }} build --archive --build-server=${{env.BUILD_SERVER}} --defoldsdk=${{env.DEFOLD_VERSION}}
       - name: Bundle
         run: java -jar bob.jar --platform=${{ matrix.platform }} bundle
 
@@ -85,11 +85,12 @@ jobs:
       - name: Build Tools
         run: |
           set SERVER=${{env.BUILD_SERVER}}
+          set DEFOLDSDK=${{env.DEFOLD_VERSION}}
           set BOB=./bob.jar
           ./utils/build_plugins.sh x86_64-win32
 
       - name: Build
-        run: java -jar bob.jar --platform=${{ matrix.platform }} build --archive --build-server=${{env.BUILD_SERVER}}
+        run: java -jar bob.jar --platform=${{ matrix.platform }} build --archive --build-server=${{env.BUILD_SERVER}} --defoldsdk=${{env.DEFOLD_VERSION}}
 
       - name: Bundle
         run: java -jar bob.jar --platform=${{ matrix.platform }} bundle
@@ -125,23 +126,11 @@ jobs:
           wget -q http://d.defold.com/archive/${{env.CHANNEL}}/${{env.DEFOLD_VERSION}}/bob/bob.jar
           java -jar bob.jar --version
 
-      - name: Java Version
-        run: |
-          java -version
-
-      - name: Plugin jar class version
-        run: |
-          JAR=./defold-spine/plugins/share/pluginSpineExt.jar ; unzip -p $JAR `unzip -l $JAR | grep '\.class$' | head -1` | file -
-
-      - name: Bob jar class version
-        run: |
-          JAR=./bob.jar ; unzip -p $JAR `unzip -l $JAR | grep '\.class$' | head -1` | file -
-
       - name: Resolve libraries
         run: java -jar bob.jar resolve --email a@b.com --auth 123456
       - name: Build Tools
-        run: SERVER=${{env.BUILD_SERVER}} BOB=./bob.jar ./utils/build_plugins.sh x86_64-macos
+        run: SERVER=${{env.BUILD_SERVER}} DEFOLDSDK=${{env.DEFOLD_VERSION}} BOB=./bob.jar ./utils/build_plugins.sh x86_64-macos
       - name: Build
-        run: java -jar bob.jar --platform=${{ matrix.platform }} build --archive --build-server=${{env.BUILD_SERVER}} -v
+        run: java -jar bob.jar --platform=${{ matrix.platform }} build --archive --build-server=${{env.BUILD_SERVER}} --defoldsdk=${{env.DEFOLD_VERSION}}
       - name: Bundle
         run: java -jar bob.jar --platform=${{ matrix.platform }} bundle
