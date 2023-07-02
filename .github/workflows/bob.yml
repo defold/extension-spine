@@ -133,6 +133,10 @@ jobs:
         run: |
           JAR=./defold-spine/plugins/share/pluginSpineExt.jar ; unzip -p $JAR `unzip -l $JAR | grep '\.class$' | head -1` | file -
 
+      - name: Bob jar class version
+        run: |
+          JAR=./bob.jar ; unzip -p $JAR `unzip -l $JAR | grep '\.class$' | head -1` | file -
+
       - name: Resolve libraries
         run: java -jar bob.jar resolve --email a@b.com --auth 123456
       - name: Build Tools
