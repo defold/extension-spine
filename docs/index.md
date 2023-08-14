@@ -1,6 +1,6 @@
 ---
 title: Spine animation in Defold
-brief: This manual explains how to bring Spine animations from _Spine_ or _Dragon Bone_ into Defold.
+brief: This manual explains how to bring Spine animations from _Spine_ into Defold.
 ---
 
 # Spine animation
@@ -96,19 +96,11 @@ end
 
 ## Animation tools
 
-The Spine JSON data format that Defold supports can be created by Esoteric Software's _Spine_ software. In addition, _Dragon Bones_ has the ability to export Spine JSON data files.
+The Spine JSON data format that Defold supports can be created by Esoteric Software's _Spine_ software.
 
 _Spine_ is available from [Esoteric Software](http://esotericsoftware.com).
 
 ![Spine](spine.png)
-
-_Dragon Bones_ is available from http://dragonbones.com
-
-![Dragon Bones](dragonbones.png)
-
-::: important
-_Dragon Bones_ should typically be able to export to Spine JSON data files without any problems. If your _Dragon Bones_ exported data file isn't rendered properly in Defold we recommend that you use the official [Spine Skeleton Viewer](http://esotericsoftware.com/spine-skeleton-viewer) to first verify that the data can be correctly parsed. If there is a problem with the exported data the Spine Skeleton Viewer can pinpoint problems in the JSON data file, for instance missing or incorrect fields.
-:::
 
 
 ## Importing a Spine character and animations
@@ -121,10 +113,6 @@ When you have a model and animations that you have created in Spine, the process
 - Create an _Atlas_ file and add all the images to it. (See [2D graphics documentation](/manuals/2dgraphics) for details on how to create an atlas and below for some caveats)
 
 ![Export JSON from Spine](spine_json_export.png)
-
-If you work in _Dragon Bones_, simply select *Spine* as your output data type. Also select *Images* as image type. This will export a ∫ file and all necessary images into a folder. Make sure to rename the `.json` file to `.spinejson`. Then add those to Defold as described above.
-
-![Export JSON from Dragon Bones](dragonbones_json_export.png)
 
 When you have the animation data and image files imported and set up in Defold, you need to create a _Spine scene_ resource file:
 
