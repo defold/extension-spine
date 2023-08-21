@@ -145,7 +145,7 @@ uint32_t CalcVertexBufferSize(const spSkeleton* skeleton, uint32_t* out_max_tria
 
 uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleton* skeleton, const dmVMath::Matrix4& world)
 {
-    static dmArray<float> scratch; // scratch buffer
+    dmArray<float> scratch; // scratch buffer
 
     int vindex = vertex_buffer.Size();
     int vindex_start = vindex;
