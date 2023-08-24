@@ -73,6 +73,8 @@ function build_plugin() {
     local platform=$1
     local platform_ne=$2
 
+    echo -e "\nBuild platform=${platform} platform_ne=${platform_ne}"
+
     java -jar $BOB --platform=$platform build --build-artifacts=plugins --variant $VARIANT --build-server=$SERVER --defoldsdk=$DEFOLDSDK
 
     copy_results $platform $platform_ne
@@ -81,7 +83,7 @@ function build_plugin() {
 
 PLATFORMS=$1
 if [ "" == "${PLATFORM}" ]; then
-    PLATFORMS="x86_64-macos x86_64-linux x86_64-win32"
+    PLATFORMS="x86_64-macos arm64-macos x86_64-linux x86_64-win32"
 fi
 
 if [[ $# -gt 0 ]] ; then
@@ -96,6 +98,9 @@ for platform in $PLATFORMS; do
 
     if [ "$platform" == "x86_64-macos" ]; then
         platform_ne="x86_64-osx"
+    fi
+    if [ "$platform" == "arm64-macos" ]; then
+        platform_ne="arm64-osx"
     fi
 
     build_plugin $platform $platform_ne
