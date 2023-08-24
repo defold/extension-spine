@@ -8,6 +8,7 @@ echo "SCRIPTDIR" $SCRIPTDIR
 SCRIPT=${SCRIPTDIR}/build_runtime_lib.sh
 
 ${SCRIPT} x86_64-osx
+${SCRIPT} arm64-osx
 ${SCRIPT} x86_64-linux
 ${SCRIPT} x86_64-win32
 ${SCRIPT} x86-win32
