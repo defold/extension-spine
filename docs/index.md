@@ -162,6 +162,16 @@ Apart from the properties *Id*, *Position* and *Rotation* the following componen
 *Skin*
 : If your model has skins, select the one you want it to start with.
 
+*Create Go Bones*
+: Check this to create bones that can be accessed at runtime.
+
+*Playback Rate*
+: Set this to change the animation playback rate.
+
+*Offset*
+: Set this to change how far into the animation to start. A value of 0 means that the animation will start from the beginning while a value of 0.5 will start the animation halfway from start to finish.
+
+
 You should now be able to view your Spine model in the editor:
 
 ![Spine model in editor](spinemodel.png)
