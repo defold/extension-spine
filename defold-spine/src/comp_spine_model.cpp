@@ -858,7 +858,7 @@ namespace dmSpine
 
             float radius =  Vectormath::Aos::length(corner_world - center_world);
 
-            bool intersect = dmIntersection::TestFrustumSphere(frustum, center_world, radius, true);
+            bool intersect = dmIntersection::TestFrustumSphere(frustum, center_world, radius);
             entry->m_Visibility = intersect ? dmRender::VISIBILITY_FULL : dmRender::VISIBILITY_NONE;
         }
     }
