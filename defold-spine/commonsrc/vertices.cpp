@@ -12,7 +12,7 @@
 namespace dmSpine
 {
 
-static inline void addVertex(dmSpine::SpineVertex* vertex, float x, float y, float u, float v, float r, float g, float b, float a)
+static inline void addVertex(dmSpine::SpineVertex* vertex, float x, float y, float u, float v, float r, float g, float b, float a, float page_index)
 {
    vertex->x = x;
    vertex->y = y;
@@ -23,6 +23,7 @@ static inline void addVertex(dmSpine::SpineVertex* vertex, float x, float y, flo
    vertex->g = g;
    vertex->b = b;
    vertex->a = a;
+   vertex->page_index = 0;
 }
 
 template <typename T>
@@ -215,6 +216,8 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
             float colorB = tintB * regionAttachment->color.b;
             float colorA = tintA * regionAttachment->color.a;
 
+            float page_index = 0;
+
             // Computed the world vertices positions for the 4 vertices that make up
             // the rectangular region attachment. This assumes the world transform of the
             // bone to which the slot (and hence attachment) is attached has been calculated
@@ -223,13 +226,13 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
 
             // Create 2 triangles, with 3 vertices each from the region's
             // world vertex positions and its UV coordinates (in the range [0-1]).
-            addVertex(&vertex_buffer[vindex++], scratch[0], scratch[1], uvs[0], uvs[1], colorR, colorG, colorB, colorA);
-            addVertex(&vertex_buffer[vindex++], scratch[2], scratch[3], uvs[2], uvs[3], colorR, colorG, colorB, colorA);
-            addVertex(&vertex_buffer[vindex++], scratch[4], scratch[5], uvs[4], uvs[5], colorR, colorG, colorB, colorA);
+            addVertex(&vertex_buffer[vindex++], scratch[0], scratch[1], uvs[0], uvs[1], colorR, colorG, colorB, colorA, page_index);
+            addVertex(&vertex_buffer[vindex++], scratch[2], scratch[3], uvs[2], uvs[3], colorR, colorG, colorB, colorA, page_index);
+            addVertex(&vertex_buffer[vindex++], scratch[4], scratch[5], uvs[4], uvs[5], colorR, colorG, colorB, colorA, page_index);
 
-            addVertex(&vertex_buffer[vindex++], scratch[4], scratch[5], uvs[4], uvs[5], colorR, colorG, colorB, colorA);
-            addVertex(&vertex_buffer[vindex++], scratch[6], scratch[7], uvs[6], uvs[7], colorR, colorG, colorB, colorA);
-            addVertex(&vertex_buffer[vindex++], scratch[0], scratch[1], uvs[0], uvs[1], colorR, colorG, colorB, colorA);
+            addVertex(&vertex_buffer[vindex++], scratch[4], scratch[5], uvs[4], uvs[5], colorR, colorG, colorB, colorA, page_index);
+            addVertex(&vertex_buffer[vindex++], scratch[6], scratch[7], uvs[6], uvs[7], colorR, colorG, colorB, colorA, page_index);
+            addVertex(&vertex_buffer[vindex++], scratch[0], scratch[1], uvs[0], uvs[1], colorR, colorG, colorB, colorA, page_index);
         }
         else if (attachment->type == SP_ATTACHMENT_MESH)
         {
@@ -257,13 +260,15 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
             float colorB = tintB * mesh->color.b;
             float colorA = tintA * mesh->color.a;
 
+            float page_index = 0;
+
             const float* uvs = mesh->uvs;
             int tri_count = mesh->trianglesCount;
             for (int t = 0; t < tri_count; ++t)
             {
                 int index = mesh->triangles[t] << 1;
 
-                addVertex(&vertex_buffer[vindex++], scratch[index], scratch[index + 1], uvs[index], uvs[index + 1], colorR, colorG, colorB, colorA);
+                addVertex(&vertex_buffer[vindex++], scratch[index], scratch[index + 1], uvs[index], uvs[index + 1], colorR, colorG, colorB, colorA, page_index);
             }
         }
     }
