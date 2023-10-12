@@ -23,7 +23,7 @@ static inline void addVertex(dmSpine::SpineVertex* vertex, float x, float y, flo
    vertex->g = g;
    vertex->b = b;
    vertex->a = a;
-   vertex->page_index = 0;
+   vertex->page_index = page_index;
 }
 
 template <typename T>
