@@ -16,6 +16,7 @@ struct SpineVertex
     float x, y, z;
     float u, v;
     float r, g, b, a;
+    float page_index;
 };
 
 struct SpineModelBounds

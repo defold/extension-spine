@@ -823,6 +823,12 @@ static void GuiGetVertices(const dmGameSystem::CustomNodeCtx* nodectx, uint32_t 
 {
     InternalGuiNode* node = (InternalGuiNode*)(nodectx->m_NodeData);
 
+    if (sizeof(dmSpine::SpineVertex) != struct_size)
+    {
+        dmLogOnceError("Size of SpineVertex is %u, but sizeof of gui BoxVertex is %u. Skipping GUI rendering\n", (uint32_t)sizeof(dmSpine::SpineVertex), struct_size);
+        return;
+    }
+
     //TODO: Verify the vertex declaration
     // In theory, we can check the vertex format to see which components to output
     // We currently know it's xyz-uv-rgba
