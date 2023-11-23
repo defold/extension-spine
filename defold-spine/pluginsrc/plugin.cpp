@@ -210,7 +210,7 @@ static dmGameSystemDDF::TextureSet* LoadAtlasFromBuffer(void* buffer, size_t buf
     dmDDF::Result e  = dmDDF::LoadMessage(buffer, (uint32_t)buffer_size, &texture_set_ddf);
     if ( e != dmDDF::RESULT_OK )
     {
-        dmLogError("Failed to load atlas from '%s'", path);
+        dmLogError("Failed to load atlas from '%s' (result: %d). Has the dmGameSystemDDF::TextureSet file format changed?", path, (int)e);
         return 0;
     }
     return texture_set_ddf;
@@ -691,4 +691,3 @@ static void UpdateRenderData(SpineFile* file)
 
     ro.m_WorldTransform = transform;
 }
-
