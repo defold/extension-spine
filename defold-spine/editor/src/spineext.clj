@@ -187,8 +187,9 @@
 
 
 (g/defnk produce-spine-scene-pb [_node-id spine-json atlas]
-  {:spine_json (resource/resource->proj-path spine-json)
-   :atlas (resource/resource->proj-path atlas)})
+  (protobuf/make-map-without-defaults spine-plugin-spinescene-cls
+    :spine-json (resource/resource->proj-path spine-json)
+    :atlas (resource/resource->proj-path atlas)))
 
 ;; (defn- transform-positions [^Matrix4d transform mesh]
 ;;   (let [p (Point3d.)]
@@ -777,18 +778,15 @@
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
 (g/defnk produce-model-pb [spine-scene-resource default-animation skin material-resource blend-mode create-go-bones playback-rate offset]
-  (cond-> {:spine-scene (resource/resource->proj-path spine-scene-resource)
-           :default-animation default-animation
-           :skin skin
-           :material (resource/resource->proj-path material-resource)
-           :blend-mode blend-mode
-           :create-go-bones create-go-bones}
-
-           (not= 1.0 playback-rate)
-           (assoc :playback-rate playback-rate)
-
-           (not= 0.0 offset)
-           (assoc :offset offset)))
+  (protobuf/make-map-without-defaults spine-plugin-spinemodel-cls
+    :spine-scene (resource/resource->proj-path spine-scene-resource)
+    :default-animation default-animation
+    :skin skin
+    :material (resource/resource->proj-path material-resource)
+    :blend-mode blend-mode
+    :create-go-bones create-go-bones
+    :playback-rate playback-rate
+    :offset offset))
 
 (defn ->skin-choicebox [spine-skins]
   (properties/->choicebox (cons "" (remove (partial = "default") spine-skins))))
@@ -916,8 +914,8 @@
                                   (validate-model-skin _node-id spine-scene skins skin)))
             (dynamic edit-type (g/fnk [skins] (->skin-choicebox skins))))
   (property create-go-bones g/Bool (default false))
-  (property playback-rate g/Num (default 1.0))
-  (property offset g/Num (default 0.0)
+  (property playback-rate g/Num (default (float 1.0)))
+  (property offset g/Num (default (float 0.0))
     (dynamic edit-type (g/constantly {:type :slider
                                       :min 0.0
                                       :max 1.0
@@ -990,37 +988,39 @@
 
 (defn register-resource-types [workspace]
   (concat
-   (resource-node/register-ddf-resource-type workspace
-                                             :ext spine-scene-ext
-                                             :label "Spine Scene"
-                                             :node-type SpineSceneNode
-                                             :ddf-type spine-plugin-spinescene-cls
-                                             :sanitize-fn sanitize-spine-scene
-                                             :load-fn load-spine-scene
-                                             :icon spine-scene-icon
-                                             :view-types [:scene :text]
-                                             :view-opts {:scene {:grid true}}
-                                             :template "/defold-spine/editor/resources/templates/template.spinescene")
-   (resource-node/register-ddf-resource-type workspace
-                                             :ext spine-model-ext
-                                             :label "Spine Model"
-                                             :node-type SpineModelNode
-                                             :ddf-type spine-plugin-spinemodel-cls
-                                             :load-fn load-spine-model
-                                             :icon spine-model-icon
-                                             :view-types [:scene :text]
-                                             :view-opts {:scene {:grid true}}
-                                             :tags #{:component}
-                                             :tag-opts {:component {:transform-properties #{:position :rotation :scale}}}
-                                             :template "/defold-spine/editor/resources/templates/template.spinemodel")
-   (workspace/register-resource-type workspace
-                                     :ext spine-json-ext
-                                     :node-type SpineSceneJson
-                                     :textual? true
-                                     :load-fn load-spine-json
-                                     :icon spine-json-icon
-                                     :view-types [:default]
-                                     :tags #{:embeddable})))
+    (resource-node/register-ddf-resource-type workspace
+      :ext spine-scene-ext
+      :label "Spine Scene"
+      :node-type SpineSceneNode
+      :ddf-type spine-plugin-spinescene-cls
+      :read-defaults false
+      :sanitize-fn sanitize-spine-scene
+      :load-fn load-spine-scene
+      :icon spine-scene-icon
+      :view-types [:scene :text]
+      :view-opts {:scene {:grid true}}
+      :template "/defold-spine/editor/resources/templates/template.spinescene")
+    (resource-node/register-ddf-resource-type workspace
+      :ext spine-model-ext
+      :label "Spine Model"
+      :node-type SpineModelNode
+      :ddf-type spine-plugin-spinemodel-cls
+      :read-defaults false
+      :load-fn load-spine-model
+      :icon spine-model-icon
+      :view-types [:scene :text]
+      :view-opts {:scene {:grid true}}
+      :tags #{:component}
+      :tag-opts {:component {:transform-properties #{:position :rotation :scale}}}
+      :template "/defold-spine/editor/resources/templates/template.spinemodel")
+    (workspace/register-resource-type workspace
+      :ext spine-json-ext
+      :node-type SpineSceneJson
+      :textual? true
+      :load-fn load-spine-json
+      :icon spine-json-icon
+      :view-types [:default]
+      :tags #{:embeddable})))
 
 
 ; The plugin
