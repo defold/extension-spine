@@ -212,8 +212,12 @@ namespace dmSpine
     static bool loadSequence(dmHashTable64<uint32_t>* name_to_index, spAtlasRegion* atlasRegions, const char *basePath, spSequence *sequence, spAtlasRegion* default_region) {
         bool is_atlas_available = name_to_index != 0;
 
+        // The C runtime seems a bit broken,
+        // and doesn't account for number of digits required regions->size
+        // So, instead, we simply add some extra room for X digits
+        uint32_t region_digits = 8;
         spTextureRegionArray *regions = sequence->regions;
-        char *path = (char*)MALLOC(char, strlen(basePath) + sequence->digits + 1);
+        char *path = (char*)MALLOC(char, strlen(basePath) + sequence->digits + region_digits + 1);
         path[0] = 0;
         int i;
         for (i = 0; i < regions->size; i++) {
