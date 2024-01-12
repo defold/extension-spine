@@ -467,19 +467,34 @@ namespace dmSpine
     {
         SpineModelComponent* component = (SpineModelComponent*)state->userData;
 
+        // Events are explained here: http://esotericsoftware.com/spine-api-reference#AnimationStateListener
         switch (type)
         {
-        // case SP_ANIMATION_START:
-        //     printf("Animation %s started on track %i\n", entry->animation->name, entry->trackIndex);
-        //     break;
-        // case SP_ANIMATION_INTERRUPT:
-        //     printf("Animation %s interrupted on track %i\n", entry->animation->name, entry->trackIndex);
-        //     break;
-        // case SP_ANIMATION_END:
-        //     printf("Animation %s ended on track %i\n", entry->animation->name, entry->trackIndex);
-        //     break;
+            // case SP_ANIMATION_START:
+            // {
+            //     printf("Animation %s started on track %i\n", entry->animation->name, entry->trackIndex);
+            //     break;
+            // }
+            // case SP_ANIMATION_INTERRUPT:
+            // {
+            //     printf("Animation %s interrupted on track %i\n", entry->animation->name, entry->trackIndex);
+            //     break;
+            // }
+            // case SP_ANIMATION_END:
+            // {
+            //     printf("Animation %s ended on track %i\n", entry->animation->name, entry->trackIndex);
+            //     break;
+            // }
             case SP_ANIMATION_COMPLETE:
             {
+                if (entry->mixingTo != 0)
+                {
+                    // While mixing, the previous animation completed.
+                    // The problem is that the track is already owned by the new animation, and we
+                    // cannot call the previous callback (as we haven't stored it)
+                    return;
+                }
+
                 SpineAnimationTrack& track = component->m_AnimationTracks[entry->trackIndex];
 
                 // Should we look at the looping state?
@@ -586,7 +601,7 @@ namespace dmSpine
             }
         }
         dmhash_t animation_id = dmHashString64(component->m_Resource->m_Ddf->m_DefaultAnimation);
-        PlayAnimation(component, animation_id, dmGameObject::PLAYBACK_LOOP_FORWARD, 0.0f, 
+        PlayAnimation(component, animation_id, dmGameObject::PLAYBACK_LOOP_FORWARD, 0.0f,
             component->m_Resource->m_Ddf->m_Offset, component->m_Resource->m_Ddf->m_PlaybackRate, 0);
             // TODO: Is the default playmode specified anywhere?
 
