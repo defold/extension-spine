@@ -200,36 +200,44 @@
 ;;                                           (.transform transform p)
 ;;                                           [(.x p) (.y p) (.z p)])))))))
 
+
 (shader/defshader spine-id-vertex-shader
+  (uniform mat4 view_proj)
   (attribute vec4 position)
   (attribute vec2 texcoord0)
+  (attribute float page_index)
   (varying vec2 var_texcoord0)
+  (varying float var_page_index)
   (defn void main []
-    (setq gl_Position (* gl_ModelViewProjectionMatrix position))
-    (setq var_texcoord0 texcoord0)))
+    (setq gl_Position (* view_proj (vec4 position.xyz 1.0)))
+    (setq var_texcoord0 texcoord0)
+    (setq var_page_index page_index)))
 
 (shader/defshader spine-id-fragment-shader
   (varying vec2 var_texcoord0)
-  (uniform sampler2D texture_sampler)
+  (varying float var_page_index)
   (uniform vec4 id)
+  (uniform sampler2DArray texture_sampler)
   (defn void main []
-    (setq vec4 color (texture2D texture_sampler var_texcoord0.xy))
+    (setq vec4 color (texture2DArray texture_sampler (vec3 var_texcoord0 var_page_index)))
     (if (> color.a 0.05)
       (setq gl_FragColor id)
       (discard))))
 
 (def spine-id-shader (shader/make-shader ::id-shader spine-id-vertex-shader spine-id-fragment-shader {"id" :id}))
 
-(vtx/defvertex vtx-pos-tex-col
+; See SpineVertex
+(vtx/defvertex vtx-pos-tex-col-index
   (vec3 position)
   (vec2 texcoord0)
-  (vec4 color))
+  (vec4 color)
+  (vec1 page_index))
 
 (defn generate-vertex-buffer [verts]
-  ; verts should be in the format [[x y z u v r g b a] [x y z...] ...]
+  ; verts should be in the format [[x y z u v r g b a p] [x y z...] ...]
   (let [vcount (count verts)]
     (when (> vcount 0)
-      (let [vb (->vtx-pos-tex-col vcount)
+      (let [vb (->vtx-pos-tex-col-index vcount)
             vb-out (persistent! (reduce conj! vb verts))]
         vb-out))))
 
@@ -237,7 +245,7 @@
 
 (defn transform-vertices-as-vec [vertices]
   ; vertices is a SpineVertex array
-  (map (fn [vert] [(.x vert) (.y vert) (.z vert) (.u vert) (.v vert) (.r vert) (.g vert) (.b vert) (.a vert)]) vertices))
+  (map (fn [vert] [(.x vert) (.y vert) (.z vert) (.u vert) (.v vert) (.r vert) (.g vert) (.b vert) (.a vert) (.page_index vert)]) vertices))
 
 (set! *warn-on-reflection* true)
 

@@ -68,11 +68,11 @@
 
 (defn- transform-vtx [^Matrix4d m4d color vtx]
   (let [[cr cg cb ca] color
-        [x y z u v r g b a] vtx
+        [x y z u v r g b a page_index] vtx
         p (Point3d.)
         _ (.set p x y z)
         _ (.transform m4d p)]
-    [(.x p) (.y p) (.z p) u v (* r cr) (* g cg) (* b cb) (* a ca)]))
+    [(.x p) (.y p) (.z p) u v (* r cr) (* g cg) (* b cb) (* a ca) page_index]))
 
 (defn- produce-local-vertices [handle skin anim dt]
   (if (not= handle nil)
@@ -80,7 +80,7 @@
           _ (if (not (str/blank? anim)) (spineext/plugin-set-animation handle anim))
           _ (spineext/plugin-update-vertices handle dt)
           vb-data (spineext/plugin-get-vertex-buffer-data handle) ; list of SpineVertex
-          vb-data-vec (spineext/transform-vertices-as-vec vb-data)] ; unpacked into lists of lists [[x y z u v r g b a]])
+          vb-data-vec (spineext/transform-vertices-as-vec vb-data)] ; unpacked into lists of lists [[x y z u v r g b a page_index]])
       vb-data-vec)
     []))
 
@@ -153,15 +153,15 @@
   (output spine-scene-pb g/Any (g/fnk [spine-scene-infos spine-scene]
                                       (:spine-scene-pb (or (spine-scene-infos spine-scene)
                                                            (spine-scene-infos "")))))
-  
+
   ;; The handle to the C++ resource
   (output spine-data-handle g/Any (g/fnk [spine-scene-infos spine-scene]
                                          (:spine-data-handle (or (spine-scene-infos spine-scene)
                                                                  (spine-scene-infos "")))))
-  
+
   (output spine-vertex-buffer g/Any :cached (g/fnk [spine-scene spine-data-handle spine-skin spine-default-animation]
                                                    (produce-local-vertices spine-data-handle spine-skin spine-default-animation 0.0)))
-  
+
   (output aabb g/Any (g/fnk [spine-scene-infos spine-scene spine-skin pivot]
                             (or (get-in spine-scene-infos [spine-scene :spine-skin-aabbs (if (= spine-skin "") "default" spine-skin)])
                                 geom/empty-bounding-box)))
@@ -177,7 +177,7 @@
                                                             (cond-> user-data
                                                               (not= :clipping-mode-none clipping-mode)
                                                               (assoc :clipping {:mode clipping-mode :inverted clipping-inverted :visible clipping-visible})))))
-  
+
   (output own-build-errors g/Any (g/fnk [_node-id build-errors-visual-node spine-anim-ids spine-default-animation spine-skin-ids spine-skin spine-scene spine-scene-names]
                                         (g/package-errors _node-id
                                                           build-errors-visual-node
@@ -239,7 +239,7 @@
   (input dep-build-targets g/Any)
   (input name-counts gui/NameCounts)
   (input spine-scene-resource resource/Resource)
-  
+
   (input spine-data-handle g/Any :substitute nil) ; The c++ pointer
   (output spine-data-handle g/Any (gu/passthrough spine-data-handle))
 
@@ -344,7 +344,7 @@
                                                          (attach-spine-scene self spine-scenes-node spine-scene))))]
                   (concat old-spine-scenes new-spine-scenes))))
 
-      
+
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
 (defn- fixup-spine-node [node-type-info node-desc]

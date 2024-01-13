@@ -148,9 +148,9 @@ public class Spine {
 
     // Matching the struct in vertices.h
     static public class SpineVertex extends Structure {
-        public float x, y, z, u, v, r, g, b, a;
+        public float x, y, z, u, v, r, g, b, a, page_index;
         protected List getFieldOrder() {
-            return Arrays.asList(new String[] {"x", "y", "z", "u", "v", "r", "g", "b", "a"});
+            return Arrays.asList(new String[] {"x", "y", "z", "u", "v", "r", "g", "b", "a", "page_index"});
         }
     }
 
