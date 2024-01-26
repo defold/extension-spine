@@ -97,6 +97,8 @@ namespace dmSpine
 
     bool CompSpineModelGetBone(SpineModelComponent* component, dmhash_t bone_name, dmhash_t* instance_id);
 
+    bool CompSpineModelSetBonePosition(SpineModelComponent* component, dmhash_t bone_name, Vectormath::Aos::Point3 position);
+
 }
 
 #endif // DM_GAMESYS_COMP_SPINE_MODEL_H
