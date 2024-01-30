@@ -420,8 +420,14 @@ namespace dmSpine
 
         if (track.m_CallbackInfo)
         {
-            RunTrackCallback(track.m_CallbackInfo, dmGameSystemDDF::SpineAnimationDone::m_DDFDescriptor, (const char*)&message, &sender, true);
-            track.m_CallbackInfo = 0x0;
+            uint32_t id = track.m_CallbackId;
+            RunTrackCallback(track.m_CallbackInfo, dmGameSystemDDF::SpineAnimationDone::m_DDFDescriptor, (const char*)&message, &sender);
+            // remove after usage only if it's the same callback
+            if (id == track.m_CallbackId)
+            {
+                ClearCompletionCallback(&track);
+            }
+
         }
         else
         {
@@ -466,7 +472,7 @@ namespace dmSpine
 
         if (track.m_CallbackInfo)
         {
-            RunTrackCallback(track.m_CallbackInfo, dmGameSystemDDF::SpineEvent::m_DDFDescriptor, (const char*)&message, &sender, false);
+            RunTrackCallback(track.m_CallbackInfo, dmGameSystemDDF::SpineEvent::m_DDFDescriptor, (const char*)&message, &sender);
         }
         else
         {
@@ -978,6 +984,15 @@ namespace dmSpine
         component->m_ReHash = 1;
     }
 
+    static uint32_t GetAndIncreaseCallbackId(uint32_t id)
+    {
+       if (id == 0xffffffff)
+       {
+          return 0;
+       }
+       return ++id;
+    }
+
     bool CompSpineModelPlayAnimation(SpineModelComponent* component, dmGameSystemDDF::SpinePlayAnimation* message, dmMessage::URL* sender, void* callback_info, lua_State* L)
     {
         bool result = PlayAnimation(component, message->m_AnimationId, (dmGameObject::Playback)message->m_Playback, message->m_BlendDuration,
@@ -987,6 +1002,7 @@ namespace dmSpine
             SpineAnimationTrack& track = component->m_AnimationTracks[message->m_Track - 1];
             track.m_Listener = *sender;
             track.m_Context = L;
+            track.m_CallbackId = GetAndIncreaseCallbackId(track.m_CallbackId);
             track.m_CallbackInfo = callback_info;
         }
         return result;

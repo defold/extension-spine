@@ -46,6 +46,7 @@ namespace dmSpine
         lua_State*                              m_Context;
 
         void*                                   m_CallbackInfo;
+        uint32_t                                m_CallbackId;
     };
 
     struct IKTarget
@@ -99,7 +100,7 @@ namespace dmSpine
     bool CompSpineModelGetBone(SpineModelComponent* component, dmhash_t bone_name, dmhash_t* instance_id);
 
     void DestroyCallback(void* callback_data);
-    void RunTrackCallback(void* callback_data, const dmDDF::Descriptor* desc, const char* data, const dmMessage::URL* sender, bool destroy_after_call);
+    void RunTrackCallback(void* callback_data, const dmDDF::Descriptor* desc, const char* data, const dmMessage::URL* sender);
 
 }
 

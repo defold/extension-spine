@@ -345,7 +345,7 @@ namespace dmSpine
         dmScript::DestroyCallback(cbk);
     }
 
-    void RunTrackCallback(void* callback_data, const dmDDF::Descriptor* desc, const char* data, const dmMessage::URL* sender, bool destroy_after_call)
+    void RunTrackCallback(void* callback_data, const dmDDF::Descriptor* desc, const char* data, const dmMessage::URL* sender)
     {
         dmScript::LuaCallbackInfo* cbk = (dmScript::LuaCallbackInfo*)callback_data;
         if (!dmScript::IsCallbackValid(cbk))
@@ -367,10 +367,6 @@ namespace dmSpine
         int ret = dmScript::PCall(L, 3, 0);
         (void)ret;
         dmScript::TeardownCallback(cbk);
-        if (destroy_after_call)
-        {
-            dmScript::DestroyCallback(cbk);
-        }
     }
 
     /*# cancel all animation on a spine model
