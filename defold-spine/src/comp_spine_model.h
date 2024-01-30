@@ -44,7 +44,8 @@ namespace dmSpine
         dmGameObject::Playback                  m_Playback;
         dmMessage::URL                          m_Listener;
         lua_State*                              m_Context;
-        int                                     m_AnimationCallbackRef;
+
+        void*                                   m_CallbackInfo;
     };
 
     struct IKTarget
@@ -82,7 +83,7 @@ namespace dmSpine
     };
 
     // For scripting
-    bool CompSpineModelPlayAnimation(SpineModelComponent* component, dmGameSystemDDF::SpinePlayAnimation* message, dmMessage::URL* sender, int callback_ref, lua_State* L);
+    bool CompSpineModelPlayAnimation(SpineModelComponent* component, dmGameSystemDDF::SpinePlayAnimation* message, dmMessage::URL* sender, void* callback_info, lua_State* L);
     bool CompSpineModelCancelAnimation(SpineModelComponent* component, dmGameSystemDDF::SpineCancelAnimation* message);
 
     bool CompSpineModelSetConstant(SpineModelComponent* component, dmGameSystemDDF::SetConstant* message);
@@ -96,6 +97,9 @@ namespace dmSpine
     bool CompSpineModelSetAttachment(SpineModelComponent* component, dmhash_t slot_id, dmhash_t attachment_id);
 
     bool CompSpineModelGetBone(SpineModelComponent* component, dmhash_t bone_name, dmhash_t* instance_id);
+
+    void DestroyCallback(void* callback_data);
+    void RunTrackCallback(void* callback_data, const dmDDF::Descriptor* desc, const char* data, const dmMessage::URL* sender, bool destroy_after_call);
 
 }
 

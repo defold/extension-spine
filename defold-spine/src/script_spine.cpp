@@ -306,14 +306,12 @@ namespace dmSpine
             lua_pop(L, 1);
         }
 
-        int functionref = 0;
+        dmScript::LuaCallbackInfo* cbk = 0x0;
         if (top > 4) // completed cb
         {
             if (lua_isfunction(L, 5))
             {
-                lua_pushvalue(L, 5);
-                // NOTE: By convention m_FunctionRef is offset by LUA_NOREF, see message.h in dlib
-                functionref = dmScript::RefInInstance(L) - LUA_NOREF;
+                cbk = dmScript::CreateCallback(L, 5);
             }
         }
 
@@ -327,13 +325,52 @@ namespace dmSpine
 
         dmMessage::URL sender;
         dmScript::GetURL(L, &sender);
-        if (!CompSpineModelPlayAnimation(component, &msg, &sender, functionref, L))
+        if (!CompSpineModelPlayAnimation(component, &msg, &sender, cbk, L))
         {
+            // destroy callback immediately if error happened
+            if (cbk)
+            {
+                dmScript::DestroyCallback(cbk);
+            }
             char buffer[128];
             dmLogError("Failed to run animation '%s' on component '%s'", lua_tostring(L, 2), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
         }
 
         return 0;
+    }
+
+    void DestroyCallback(void* callback_data)
+    {
+        dmScript::LuaCallbackInfo* cbk = (dmScript::LuaCallbackInfo*)callback_data;
+        dmScript::DestroyCallback(cbk);
+    }
+
+    void RunTrackCallback(void* callback_data, const dmDDF::Descriptor* desc, const char* data, const dmMessage::URL* sender, bool destroy_after_call)
+    {
+        dmScript::LuaCallbackInfo* cbk = (dmScript::LuaCallbackInfo*)callback_data;
+        if (!dmScript::IsCallbackValid(cbk))
+        {
+            dmLogError("Spine models callback is invalid.");
+            return;
+        }
+        lua_State* L = dmScript::GetCallbackLuaContext(cbk);
+        DM_LUA_STACK_CHECK(L, 0);
+
+        if (!dmScript::SetupCallback(cbk))
+        {
+            dmLogError("Failed to setup spine animation callback");
+            return;
+        }
+        lua_pushstring(L, desc->m_Name);
+        dmScript::PushDDF(L, desc, data, false);
+        // dmScript::PushURL(L, sender); // function unavaliable in dmsdk
+        int ret = dmScript::PCall(L, 3, 0);
+        (void)ret;
+        dmScript::TeardownCallback(cbk);
+        if (destroy_after_call)
+        {
+            dmScript::DestroyCallback(cbk);
+        }
     }
 
     /*# cancel all animation on a spine model
