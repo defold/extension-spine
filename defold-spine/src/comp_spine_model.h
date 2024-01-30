@@ -22,6 +22,7 @@
 #include <dmsdk/gameobject/gameobject.h>
 #include <dmsdk/gamesys/render_constants.h>
 #include <dmsdk/render/render.h>
+#include <dmsdk/gamesys/script.h>
 // The engine ddf formats aren't stored in the "dmsdk" folder (yet)
 #include <gamesys/gamesys_ddf.h>
 
@@ -45,7 +46,7 @@ namespace dmSpine
         dmMessage::URL                          m_Listener;
         lua_State*                              m_Context;
 
-        void*                                   m_CallbackInfo;
+        dmScript::LuaCallbackInfo*              m_CallbackInfo;
         uint32_t                                m_CallbackId;
     };
 
@@ -84,7 +85,7 @@ namespace dmSpine
     };
 
     // For scripting
-    bool CompSpineModelPlayAnimation(SpineModelComponent* component, dmGameSystemDDF::SpinePlayAnimation* message, dmMessage::URL* sender, void* callback_info, lua_State* L);
+    bool CompSpineModelPlayAnimation(SpineModelComponent* component, dmGameSystemDDF::SpinePlayAnimation* message, dmMessage::URL* sender, dmScript::LuaCallbackInfo* callback_info, lua_State* L);
     bool CompSpineModelCancelAnimation(SpineModelComponent* component, dmGameSystemDDF::SpineCancelAnimation* message);
 
     bool CompSpineModelSetConstant(SpineModelComponent* component, dmGameSystemDDF::SetConstant* message);
@@ -99,8 +100,7 @@ namespace dmSpine
 
     bool CompSpineModelGetBone(SpineModelComponent* component, dmhash_t bone_name, dmhash_t* instance_id);
 
-    void DestroyCallback(void* callback_data);
-    void RunTrackCallback(void* callback_data, const dmDDF::Descriptor* desc, const char* data, const dmMessage::URL* sender);
+    void RunTrackCallback(dmScript::LuaCallbackInfo* callback_data, const dmDDF::Descriptor* desc, const char* data, const dmMessage::URL* sender);
 
 }
 

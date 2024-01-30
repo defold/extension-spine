@@ -299,9 +299,9 @@ namespace dmSpine
 
     static void ClearCompletionCallback(SpineAnimationTrack* track)
     {
-        if (track->m_AnimationInstance && track->m_CallbackInfo)
+        if (track->m_CallbackInfo)
         {
-            DestroyCallback(track->m_CallbackInfo);
+            dmScript::DestroyCallback(track->m_CallbackInfo);
             track->m_CallbackInfo = 0x0;
         }
     }
@@ -422,7 +422,10 @@ namespace dmSpine
         {
             uint32_t id = track.m_CallbackId;
             RunTrackCallback(track.m_CallbackInfo, dmGameSystemDDF::SpineAnimationDone::m_DDFDescriptor, (const char*)&message, &sender);
-            // remove after usage only if it's the same callback
+            // If, in a Lua callback, the user calls spine.play_anim(),
+            // it will destroy the current callback and create a new one (if specified).
+            // Therefore, we need to check whether we are going to remove the same callback
+            // that we are running. If not, it has already been removed.
             if (id == track.m_CallbackId)
             {
                 ClearCompletionCallback(&track);
@@ -984,16 +987,7 @@ namespace dmSpine
         component->m_ReHash = 1;
     }
 
-    static uint32_t GetAndIncreaseCallbackId(uint32_t id)
-    {
-       if (id == 0xffffffff)
-       {
-          return 0;
-       }
-       return ++id;
-    }
-
-    bool CompSpineModelPlayAnimation(SpineModelComponent* component, dmGameSystemDDF::SpinePlayAnimation* message, dmMessage::URL* sender, void* callback_info, lua_State* L)
+    bool CompSpineModelPlayAnimation(SpineModelComponent* component, dmGameSystemDDF::SpinePlayAnimation* message, dmMessage::URL* sender, dmScript::LuaCallbackInfo* callback_info, lua_State* L)
     {
         bool result = PlayAnimation(component, message->m_AnimationId, (dmGameObject::Playback)message->m_Playback, message->m_BlendDuration,
                                                 message->m_Offset, message->m_PlaybackRate, message->m_Track - 1);
@@ -1002,7 +996,7 @@ namespace dmSpine
             SpineAnimationTrack& track = component->m_AnimationTracks[message->m_Track - 1];
             track.m_Listener = *sender;
             track.m_Context = L;
-            track.m_CallbackId = GetAndIncreaseCallbackId(track.m_CallbackId);
+            track.m_CallbackId++;
             track.m_CallbackInfo = callback_info;
         }
         return result;

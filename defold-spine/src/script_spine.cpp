@@ -4,7 +4,6 @@
 #include <dmsdk/dlib/message.h>
 #include <dmsdk/dlib/vmath.h>
 #include <dmsdk/gameobject/script.h>
-#include <dmsdk/gamesys/script.h>
 
 // The engine ddf formats aren't stored in the "dmsdk" folder (yet)
 #include <gamesys/gamesys_ddf.h>
@@ -22,6 +21,7 @@
 namespace dmScript
 {
     bool GetURL(lua_State* L, dmMessage::URL* out_url);
+    void PushURL(lua_State* L, const dmMessage::URL& m);
 }
 
 namespace dmSpine
@@ -339,15 +339,8 @@ namespace dmSpine
         return 0;
     }
 
-    void DestroyCallback(void* callback_data)
+    void RunTrackCallback(dmScript::LuaCallbackInfo* cbk, const dmDDF::Descriptor* desc, const char* data, const dmMessage::URL* sender)
     {
-        dmScript::LuaCallbackInfo* cbk = (dmScript::LuaCallbackInfo*)callback_data;
-        dmScript::DestroyCallback(cbk);
-    }
-
-    void RunTrackCallback(void* callback_data, const dmDDF::Descriptor* desc, const char* data, const dmMessage::URL* sender)
-    {
-        dmScript::LuaCallbackInfo* cbk = (dmScript::LuaCallbackInfo*)callback_data;
         if (!dmScript::IsCallbackValid(cbk))
         {
             dmLogError("Spine models callback is invalid.");
@@ -363,8 +356,8 @@ namespace dmSpine
         }
         lua_pushstring(L, desc->m_Name);
         dmScript::PushDDF(L, desc, data, false);
-        // dmScript::PushURL(L, sender); // function unavaliable in dmsdk
-        int ret = dmScript::PCall(L, 3, 0);
+        dmScript::PushURL(L, *sender);
+        int ret = dmScript::PCall(L, 4, 0);
         (void)ret;
         dmScript::TeardownCallback(cbk);
     }
