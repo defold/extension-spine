@@ -343,6 +343,7 @@ namespace dmSpine
         {
             SpineAnimationTrack track;
             track.m_AnimationInstance = nullptr;
+            track.m_CallbackInfo = 0x0;
             component->m_AnimationTracks.Push(track);
         }
         SpineAnimationTrack& track = component->m_AnimationTracks[track_index];
