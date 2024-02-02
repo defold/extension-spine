@@ -354,7 +354,7 @@ namespace dmSpine
             dmLogError("Failed to setup spine animation callback");
             return;
         }
-        lua_pushstring(L, desc->m_Name);
+        dmScript::PushHash(L, desc->m_NameHash);
         dmScript::PushDDF(L, desc, data, false);
         dmScript::PushURL(L, *sender);
         int ret = dmScript::PCall(L, 4, 0);
