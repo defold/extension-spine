@@ -706,7 +706,7 @@ static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNo
 
     node->m_Transform = dmVMath::Matrix4::identity();
 
-    dmGui::SetNodeTexture(node->m_GuiScene, node->m_GuiNode, dmGui::NODE_TEXTURE_TYPE_TEXTURE_SET, node->m_SpineScene->m_TextureSet);
+    dmGui::SetNodeTexture(node->m_GuiScene, node->m_GuiNode, dmGui::NODE_TEXTURE_TYPE_TEXTURE_SET, (dmGui::HTextureSource)node->m_SpineScene->m_TextureSet);
 
     if (create_bones)
     {
@@ -848,7 +848,7 @@ static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
     if (node->m_FirstUpdate)
     {
         node->m_FirstUpdate = 0;
-        dmGui::SetNodeTexture(node->m_GuiScene, node->m_GuiNode, dmGui::NODE_TEXTURE_TYPE_TEXTURE_SET, node->m_SpineScene->m_TextureSet);
+        dmGui::SetNodeTexture(node->m_GuiScene, node->m_GuiNode, dmGui::NODE_TEXTURE_TYPE_TEXTURE_SET, (dmGui::HTextureSource)node->m_SpineScene->m_TextureSet);
     }
 // end temp fix
 
