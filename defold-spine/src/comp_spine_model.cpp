@@ -912,28 +912,10 @@ namespace dmSpine
         if (use_inherit_blend)
         {
             uint32_t draw_desc_count = world->m_DrawDescs.Size();
-
             dmArray<SpineDrawDesc> scratch_draw_descs;
-            scratch_draw_descs.SetCapacity(draw_desc_count);
-            scratch_draw_descs.SetSize(draw_desc_count);
+            MergeDrawDescs(world->m_DrawDescs, scratch_draw_descs);
 
-            SpineDrawDesc* current_draw_desc = scratch_draw_descs.Begin();
-            *current_draw_desc = world->m_DrawDescs[0];
-
-            for (int i = 1; i < draw_desc_count; ++i)
-            {
-                if (current_draw_desc->m_BlendMode == world->m_DrawDescs[i].m_BlendMode)
-                {
-                    current_draw_desc->m_VertexCount += world->m_DrawDescs[i].m_VertexCount;
-                }
-                else
-                {
-                    current_draw_desc++;
-                    *current_draw_desc = world->m_DrawDescs[i];
-                }
-            }
-
-            uint32_t merged_size    = current_draw_desc - scratch_draw_descs.Begin() + 1;
+            uint32_t merged_size = scratch_draw_descs.Size();
             uint32_t ro_count_begin = world->m_RenderObjects.Size();
             world->m_RenderObjects.SetSize(world->m_RenderObjects.Size() + merged_size);
 

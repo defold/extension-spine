@@ -37,5 +37,6 @@ uint32_t CalcVertexBufferSize(const spSkeleton* skeleton, uint32_t* out_max_tria
 uint32_t CalcDrawDescCount(const spSkeleton* skeleton);
 uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleton* skeleton, const dmVMath::Matrix4& world, dmArray<SpineDrawDesc>* draw_descs);
 void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds);
+void MergeDrawDescs(const dmArray<SpineDrawDesc>& src, dmArray<SpineDrawDesc>& dst);
 
 } // dmSpine

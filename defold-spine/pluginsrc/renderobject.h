@@ -64,7 +64,7 @@ namespace dmSpinePlugin
         uint32_t                        m_NumConstants;
         uint32_t                        m_VertexStart;
         uint32_t                        m_VertexCount;
-        uint32_t                        : 32;
+        uint32_t                        m_BlendFactor;
 
         bool                            m_SetBlendFactors;
         bool                            m_SetStencilTest;

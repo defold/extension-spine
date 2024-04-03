@@ -676,24 +676,35 @@ static void UpdateRenderData(SpineFile* file)
     file->m_RenderObjects.SetSize(0);
     file->m_VertexBuffer.SetSize(0);
 
-    uint32_t ro_count = 1;
+    uint32_t ro_count = dmSpine::CalcDrawDescCount(file->m_SkeletonInstance);
     AdjustArraySize(file->m_RenderObjects, ro_count);
 
+    dmArray<dmSpine::SpineDrawDesc> draw_descs;
+    draw_descs.SetCapacity(ro_count);
+
     dmVMath::Matrix4 transform = dmVMath::Matrix4::identity();
-    dmSpine::GenerateVertexData(file->m_VertexBuffer, file->m_SkeletonInstance, transform, 0);
+    dmSpine::GenerateVertexData(file->m_VertexBuffer, file->m_SkeletonInstance, transform, &draw_descs);
 
-    dmSpinePlugin::RenderObject& ro = file->m_RenderObjects[0];
-    ro.Init();
-    ro.m_VertexStart       = 0; // byte offset
-    ro.m_VertexCount       = file->m_VertexBuffer.Size();
-    ro.m_SetStencilTest    = 0;
-    ro.m_UseIndexBuffer    = 0;
-    ro.m_IsTriangleStrip   = 0; // 0 == GL_TRIANGLES, 1 == GL_TRIANGLE_STRIP
+    dmArray<dmSpine::SpineDrawDesc> merged_draw_descs;
+    MergeDrawDescs(draw_descs, merged_draw_descs);
 
-    ro.m_SetFaceWinding    = 0;
-    ro.m_FaceWindingCCW    = dmGraphics::FACE_WINDING_CCW;
+    file->m_RenderObjects.SetSize(merged_draw_descs.Size());
 
-    //ro.AddConstant(UNIFORM_TINT, dmVMath::Vector4(1.0f, 1.0f, 1.0f, 1.0f));
+    for (int i = 0; i < merged_draw_descs.Size(); ++i)
+    {
+        dmSpinePlugin::RenderObject& ro = file->m_RenderObjects[i];
+        ro.Init();
+        ro.m_VertexStart       = merged_draw_descs[i].m_VertexStart; // byte offset
+        ro.m_VertexCount       = merged_draw_descs[i].m_VertexCount;
+        ro.m_SetStencilTest    = 0;
+        ro.m_UseIndexBuffer    = 0;
+        ro.m_IsTriangleStrip   = 0; // 0 == GL_TRIANGLES, 1 == GL_TRIANGLE_STRIP
+        ro.m_BlendFactor       = merged_draw_descs[i].m_BlendMode;
+        ro.m_SetFaceWinding    = 0;
+        ro.m_FaceWindingCCW    = dmGraphics::FACE_WINDING_CCW;
 
-    ro.m_WorldTransform = transform;
+        //ro.AddConstant(UNIFORM_TINT, dmVMath::Vector4(1.0f, 1.0f, 1.0f, 1.0f));
+
+        ro.m_WorldTransform = transform;
+    }
 }

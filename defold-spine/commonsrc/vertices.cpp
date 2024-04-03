@@ -299,4 +299,30 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
     return vcount;
 }
 
+void MergeDrawDescs(const dmArray<SpineDrawDesc>& src, dmArray<SpineDrawDesc>& dst)
+{
+    dst.SetCapacity(src.Size());
+    dst.SetSize(src.Size());
+
+    SpineDrawDesc* current_draw_desc = dst.Begin();
+    *current_draw_desc = src[0];
+
+    // If we are using "inherit" blending mode, we need to produce render objects based
+    // on the blend mode. If two consecutive draws have the same blend mode, we can merge them.
+    for (int i = 1; i < src.Size(); ++i)
+    {
+        if (current_draw_desc->m_BlendMode == src[i].m_BlendMode)
+        {
+            current_draw_desc->m_VertexCount += src[i].m_VertexCount;
+        }
+        else
+        {
+            current_draw_desc++;
+            *current_draw_desc = src[i];
+        }
+    }
+    uint32_t trimmed_size = current_draw_desc - dst.Begin() + 1;
+    dst.SetSize(trimmed_size);
+}
+
 } // dmSpine
