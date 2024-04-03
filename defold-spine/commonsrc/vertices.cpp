@@ -9,6 +9,8 @@
 #include <float.h>                      // using FLT_MAX
 #include <dmsdk/dlib/math.h>
 
+#include <stdio.h>
+
 namespace dmSpine
 {
 
@@ -143,8 +145,22 @@ uint32_t CalcVertexBufferSize(const spSkeleton* skeleton, uint32_t* out_max_tria
     return count;
 }
 
+uint32_t CalcDrawDescCount(const spSkeleton* skeleton)
+{
+    uint32_t count = 0;
+    for (int s = 0; s < skeleton->slotsCount; ++s, ++count)
+    {
+        spSlot* slot = skeleton->drawOrder[s];
+        spAttachment* attachment = slot->attachment;
+        if (!attachment)
+        {
+            continue;
+        }
+    }
+    return count;
+}
 
-uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleton* skeleton, const dmVMath::Matrix4& world)
+uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleton* skeleton, const dmVMath::Matrix4& world, dmArray<SpineDrawDesc>* draw_descs_out)
 {
     dmArray<float> scratch; // scratch buffer
 
@@ -170,28 +186,7 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
             continue;
         }
 
-        // We let the user override the blend mode for the whole spine scene at the .spinemodel level
-        // // Fetch the blend mode from the slot and
-        // // translate it to the engine blend mode
-        // BlendMode engineBlendMode;
-        // switch (slot->data->blendMode) {
-        //    case SP_BLEND_MODE_NORMAL:
-        //       engineBlendMode = BLEND_NORMAL;
-        //       break;
-        //    case SP_BLEND_MODE_ADDITIVE:
-        //       engineBlendMode = BLEND_ADDITIVE;
-        //       break;
-        //    case SP_BLEND_MODE_MULTIPLY:
-        //       engineBlendMode = BLEND_MULTIPLY;
-        //       break;
-        //    case SP_BLEND_MODE_SCREEN:
-        //       engineBlendMode = BLEND_SCREEN;
-        //       break;
-        //    default:
-        //       // unknown Spine blend mode, fall back to
-        //       // normal blend mode
-        //       engineBlendMode = BLEND_NORMAL;
-        // }
+        uint32_t batch_vindex_start = vindex;
 
         // Calculate the tinting color based on the skeleton's color
         // and the slot's color. Each color channel is given in the
@@ -270,6 +265,15 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
 
                 addVertex(&vertex_buffer[vindex++], scratch[index], scratch[index + 1], uvs[index], uvs[index + 1], colorR, colorG, colorB, colorA, page_index);
             }
+        }
+
+        if (draw_descs_out)
+        {
+            SpineDrawDesc desc;
+            desc.m_VertexStart = batch_vindex_start;
+            desc.m_BlendMode   = (uint32_t) slot->data->blendMode;
+            desc.m_VertexCount = vindex - batch_vindex_start;
+            draw_descs_out->Push(desc);
         }
     }
     scratch.SetSize(0);

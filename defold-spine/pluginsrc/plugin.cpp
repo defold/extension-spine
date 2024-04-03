@@ -680,7 +680,7 @@ static void UpdateRenderData(SpineFile* file)
     AdjustArraySize(file->m_RenderObjects, ro_count);
 
     dmVMath::Matrix4 transform = dmVMath::Matrix4::identity();
-    dmSpine::GenerateVertexData(file->m_VertexBuffer, file->m_SkeletonInstance, transform);
+    dmSpine::GenerateVertexData(file->m_VertexBuffer, file->m_SkeletonInstance, transform, 0);
 
     dmSpinePlugin::RenderObject& ro = file->m_RenderObjects[0];
     ro.Init();

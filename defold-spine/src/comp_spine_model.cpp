@@ -19,6 +19,7 @@ extern "C" {
 #include <spine/Bone.h>
 #include <spine/Skeleton.h>
 #include <spine/Slot.h>
+#include <spine/SlotData.h>
 #include <spine/AnimationState.h>
 #include <spine/Attachment.h>
 #include <spine/RegionAttachment.h>
@@ -69,7 +70,6 @@ namespace dmSpine
     static void ResourceReloadedCallback(const dmResource::ResourceReloadedParams& params);
     static void DestroyComponent(struct SpineModelWorld* world, uint32_t index);
 
-
     struct SpineModelWorld
     {
         dmObjectPool<SpineModelComponent*>  m_Components;
@@ -78,6 +78,7 @@ namespace dmSpine
         dmGraphics::HVertexDeclaration      m_VertexDeclaration;
         dmGraphics::HVertexBuffer           m_VertexBuffer;
         dmArray<dmSpine::SpineVertex>       m_VertexBufferData;
+        dmArray<SpineDrawDesc>              m_DrawDescs;
         dmResource::HFactory                m_Factory;
     };
 
@@ -782,58 +783,51 @@ namespace dmSpine
         return dmGameObject::UPDATE_RESULT_OK;
     }
 
-
-    static void RenderBatch(SpineModelWorld* world, dmRender::HRenderContext render_context, dmRender::RenderListEntry *buf, uint32_t* begin, uint32_t* end)
+    static inline dmGameSystemDDF::SpineModelDesc::BlendMode SpineBlendModeToRenderBlendMode(spBlendMode sp_blend_mode)
     {
-        //DM_PROFILE(SpineModel, "RenderBatch");
-
-        dmArray<SpineModelComponent*>& components = world->m_Components.GetRawObjects();
-
-        uint32_t component_index = (uint32_t)buf[*begin].m_UserData;
-        const SpineModelComponent* first = (const SpineModelComponent*) components[component_index];
-        const SpineModelResource* resource = first->m_Resource;
-
-        uint32_t vertex_start = world->m_VertexBufferData.Size();
-        uint32_t vertex_count = 0;
-
-        for (uint32_t *i = begin; i != end; ++i)
+        switch(sp_blend_mode)
         {
-            component_index = (uint32_t)buf[*i].m_UserData;
-            const SpineModelComponent* component = (const SpineModelComponent*) components[component_index];
-            vertex_count += dmSpine::CalcVertexBufferSize(component->m_SkeletonInstance, 0);
+            case SP_BLEND_MODE_NORMAL:
+                return dmGameSystemDDF::SpineModelDesc::BLEND_MODE_ALPHA;
+            case SP_BLEND_MODE_ADDITIVE:
+                return dmGameSystemDDF::SpineModelDesc::BLEND_MODE_ADD;
+            case SP_BLEND_MODE_MULTIPLY:
+                return dmGameSystemDDF::SpineModelDesc::BLEND_MODE_MULT;
+            case SP_BLEND_MODE_SCREEN:
+                return dmGameSystemDDF::SpineModelDesc::BLEND_MODE_SCREEN;
+            default:break;
         }
+        return dmGameSystemDDF::SpineModelDesc::BLEND_MODE_ALPHA;
+    }
 
-        if (vertex_count > world->m_VertexBufferData.Capacity())
-            world->m_VertexBufferData.SetCapacity(vertex_count);
-
-        vertex_count = 0;
-        for (uint32_t *i = begin; i != end; ++i)
-        {
-            component_index = (uint32_t)buf[*i].m_UserData;
-            const SpineModelComponent* component = (const SpineModelComponent*) components[component_index];
-            vertex_count += dmSpine::GenerateVertexData(world->m_VertexBufferData, component->m_SkeletonInstance, component->m_World);
-        }
-
-        world->m_RenderObjects.SetSize(world->m_RenderObjects.Size()+1);
-        dmRender::RenderObject& ro = world->m_RenderObjects.Back();
-
+    static void FillRenderObject(SpineModelWorld*  world,
+        dmRender::HRenderContext                   render_context,
+        dmRender::RenderObject&                    ro,
+        dmGameSystem::HComponentRenderConstants    constants,
+        dmGraphics::HTexture                       texture,
+        dmRender::HMaterial                        material,
+        dmGameSystemDDF::SpineModelDesc::BlendMode blend_mode,
+        uint32_t                                   vertex_start,
+        uint32_t                                   vertex_count)
+    {
         ro.Init();
         ro.m_VertexDeclaration = world->m_VertexDeclaration;
-        ro.m_VertexBuffer = world->m_VertexBuffer;
-        ro.m_PrimitiveType = dmGraphics::PRIMITIVE_TRIANGLES;
-        ro.m_VertexStart = vertex_start;
-        ro.m_VertexCount = vertex_count;
-        ro.m_Textures[0] = resource->m_SpineScene->m_TextureSet->m_Texture->m_Texture; // spine - texture set resource - texture resource - texture
-        ro.m_Material = GetMaterial(first);
+        ro.m_VertexBuffer      = world->m_VertexBuffer;
+        ro.m_PrimitiveType     = dmGraphics::PRIMITIVE_TRIANGLES;
+        ro.m_VertexStart       = vertex_start;
+        ro.m_VertexCount       = vertex_count;
+        ro.m_Textures[0]       = texture;
+        ro.m_Material          = material;
 
-        if (first->m_RenderConstants)
+        if (constants)
         {
-            dmGameSystem::EnableRenderObjectConstants(&ro, first->m_RenderConstants);
+            dmGameSystem::EnableRenderObjectConstants(&ro, constants);
         }
 
-        dmGameSystemDDF::SpineModelDesc::BlendMode blend_mode = resource->m_Ddf->m_BlendMode;
+        ro.m_SetBlendFactors = 1;
+
         switch (blend_mode)
-        {
+         {
             case dmGameSystemDDF::SpineModelDesc::BLEND_MODE_ALPHA:
                 ro.m_SourceBlendFactor = dmGraphics::BLEND_FACTOR_ONE;
                 ro.m_DestinationBlendFactor = dmGraphics::BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
@@ -860,9 +854,105 @@ namespace dmSpine
             break;
         }
 
-        ro.m_SetBlendFactors = 1;
-
         dmRender::AddToRender(render_context, &ro);
+    }
+
+    static void RenderBatch(SpineModelWorld* world, dmRender::HRenderContext render_context, dmRender::RenderListEntry *buf, uint32_t* begin, uint32_t* end)
+    {
+        //DM_PROFILE(SpineModel, "RenderBatch");
+
+        dmArray<SpineModelComponent*>& components = world->m_Components.GetRawObjects();
+
+        uint32_t component_index           = (uint32_t)buf[*begin].m_UserData;
+        const SpineModelComponent* first   = (const SpineModelComponent*) components[component_index];
+        const SpineModelResource* resource = first->m_Resource;
+
+        dmGameSystemDDF::SpineModelDesc::BlendMode blend_mode = resource->m_Ddf->m_BlendMode;
+        bool use_inherit_blend = blend_mode == dmGameSystemDDF::SpineModelDesc::BLEND_MODE_INHERIT;
+
+        uint32_t vertex_start           = world->m_VertexBufferData.Size();
+        uint32_t vertex_count           = 0;
+        uint32_t draw_desc_buffer_count = 0;
+
+        world->m_DrawDescs.SetSize(0);
+
+        for (uint32_t *i = begin; i != end; ++i)
+        {
+            component_index = (uint32_t)buf[*i].m_UserData;
+            const SpineModelComponent* component = (const SpineModelComponent*) components[component_index];
+            vertex_count += dmSpine::CalcVertexBufferSize(component->m_SkeletonInstance, 0);
+
+            if (use_inherit_blend)
+            {
+                draw_desc_buffer_count += dmSpine::CalcDrawDescCount(component->m_SkeletonInstance);
+            }
+        }
+
+        if (draw_desc_buffer_count && draw_desc_buffer_count > world->m_DrawDescs.Capacity())
+        {
+            world->m_DrawDescs.SetCapacity(draw_desc_buffer_count);
+        }
+
+        if (vertex_count > world->m_VertexBufferData.Capacity())
+        {
+            world->m_VertexBufferData.SetCapacity(vertex_count);
+        }
+
+        vertex_count = 0;
+        for (uint32_t *i = begin; i != end; ++i)
+        {
+            component_index = (uint32_t)buf[*i].m_UserData;
+            const SpineModelComponent* component = (const SpineModelComponent*) components[component_index];
+            vertex_count += dmSpine::GenerateVertexData(world->m_VertexBufferData, component->m_SkeletonInstance, component->m_World, use_inherit_blend ? &world->m_DrawDescs : 0);
+        }
+
+        dmGraphics::HTexture texture = resource->m_SpineScene->m_TextureSet->m_Texture->m_Texture; // spine - texture set resource - texture resource - texture
+        dmRender::HMaterial material = GetMaterial(first);
+
+        if (use_inherit_blend)
+        {
+            uint32_t draw_desc_count = world->m_DrawDescs.Size();
+
+            dmArray<SpineDrawDesc> scratch_draw_descs;
+            scratch_draw_descs.SetCapacity(draw_desc_count);
+            scratch_draw_descs.SetSize(draw_desc_count);
+
+            SpineDrawDesc* current_draw_desc = scratch_draw_descs.Begin();
+            *current_draw_desc = world->m_DrawDescs[0];
+
+            for (int i = 1; i < draw_desc_count; ++i)
+            {
+                if (current_draw_desc->m_BlendMode == world->m_DrawDescs[i].m_BlendMode)
+                {
+                    current_draw_desc->m_VertexCount += world->m_DrawDescs[i].m_VertexCount;
+                }
+                else
+                {
+                    current_draw_desc++;
+                    *current_draw_desc = world->m_DrawDescs[i];
+                }
+            }
+
+            uint32_t merged_size    = current_draw_desc - scratch_draw_descs.Begin() + 1;
+            uint32_t ro_count_begin = world->m_RenderObjects.Size();
+            world->m_RenderObjects.SetSize(world->m_RenderObjects.Size() + merged_size);
+
+            for (int i = 0; i < merged_size; ++i)
+            {
+                dmRender::RenderObject& ro = world->m_RenderObjects[ro_count_begin + i];
+                FillRenderObject(world, render_context, ro, first->m_RenderConstants, texture, material,
+                    SpineBlendModeToRenderBlendMode((spBlendMode) scratch_draw_descs[i].m_BlendMode),
+                    scratch_draw_descs[i].m_VertexStart,
+                    scratch_draw_descs[i].m_VertexCount);
+            }
+        }
+        else
+        {
+            uint32_t ro_index = world->m_RenderObjects.Size();
+            world->m_RenderObjects.SetSize(ro_index + 1);
+            dmRender::RenderObject& ro = world->m_RenderObjects[ro_index];
+            FillRenderObject(world, render_context, ro, first->m_RenderConstants, texture, material, blend_mode, vertex_start, vertex_count);
+        }
     }
 
     static void RenderListFrustumCulling(dmRender::RenderListVisibilityParams const &params)
