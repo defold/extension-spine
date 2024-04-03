@@ -9,8 +9,6 @@
 #include <float.h>                      // using FLT_MAX
 #include <dmsdk/dlib/math.h>
 
-#include <stdio.h>
-
 namespace dmSpine
 {
 
@@ -148,7 +146,7 @@ uint32_t CalcVertexBufferSize(const spSkeleton* skeleton, uint32_t* out_max_tria
 uint32_t CalcDrawDescCount(const spSkeleton* skeleton)
 {
     uint32_t count = 0;
-    for (int s = 0; s < skeleton->slotsCount; ++s, ++count)
+    for (int s = 0; s < skeleton->slotsCount; ++s)
     {
         spSlot* slot = skeleton->drawOrder[s];
         spAttachment* attachment = slot->attachment;
@@ -156,6 +154,7 @@ uint32_t CalcDrawDescCount(const spSkeleton* skeleton)
         {
             continue;
         }
+        count++;
     }
     return count;
 }

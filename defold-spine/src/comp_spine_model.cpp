@@ -19,7 +19,6 @@ extern "C" {
 #include <spine/Bone.h>
 #include <spine/Skeleton.h>
 #include <spine/Slot.h>
-#include <spine/SlotData.h>
 #include <spine/AnimationState.h>
 #include <spine/Attachment.h>
 #include <spine/RegionAttachment.h>
@@ -78,7 +77,7 @@ namespace dmSpine
         dmGraphics::HVertexDeclaration      m_VertexDeclaration;
         dmGraphics::HVertexBuffer           m_VertexBuffer;
         dmArray<dmSpine::SpineVertex>       m_VertexBufferData;
-        dmArray<SpineDrawDesc>              m_DrawDescs;
+        dmArray<SpineDrawDesc>              m_DrawDescBuffer;
         dmResource::HFactory                m_Factory;
     };
 
@@ -874,7 +873,8 @@ namespace dmSpine
         uint32_t vertex_count           = 0;
         uint32_t draw_desc_buffer_count = 0;
 
-        world->m_DrawDescs.SetSize(0);
+        // This is a temporary scratch buffer just used for this batch call, so we make sure to reset it.
+        world->m_DrawDescBuffer.SetSize(0);
 
         for (uint32_t *i = begin; i != end; ++i)
         {
@@ -888,9 +888,9 @@ namespace dmSpine
             }
         }
 
-        if (draw_desc_buffer_count && draw_desc_buffer_count > world->m_DrawDescs.Capacity())
+        if (draw_desc_buffer_count && draw_desc_buffer_count > world->m_DrawDescBuffer.Capacity())
         {
-            world->m_DrawDescs.SetCapacity(draw_desc_buffer_count);
+            world->m_DrawDescBuffer.SetCapacity(draw_desc_buffer_count);
         }
 
         if (vertex_count > world->m_VertexBufferData.Capacity())
@@ -903,7 +903,7 @@ namespace dmSpine
         {
             component_index = (uint32_t)buf[*i].m_UserData;
             const SpineModelComponent* component = (const SpineModelComponent*) components[component_index];
-            vertex_count += dmSpine::GenerateVertexData(world->m_VertexBufferData, component->m_SkeletonInstance, component->m_World, use_inherit_blend ? &world->m_DrawDescs : 0);
+            vertex_count += dmSpine::GenerateVertexData(world->m_VertexBufferData, component->m_SkeletonInstance, component->m_World, use_inherit_blend ? &world->m_DrawDescBuffer : 0);
         }
 
         dmGraphics::HTexture texture = resource->m_SpineScene->m_TextureSet->m_Texture->m_Texture; // spine - texture set resource - texture resource - texture
@@ -911,9 +911,9 @@ namespace dmSpine
 
         if (use_inherit_blend)
         {
-            uint32_t draw_desc_count = world->m_DrawDescs.Size();
+            uint32_t draw_desc_count = world->m_DrawDescBuffer.Size();
             dmArray<SpineDrawDesc> scratch_draw_descs;
-            MergeDrawDescs(world->m_DrawDescs, scratch_draw_descs);
+            MergeDrawDescs(world->m_DrawDescBuffer, scratch_draw_descs);
 
             uint32_t merged_size = scratch_draw_descs.Size();
             uint32_t ro_count_begin = world->m_RenderObjects.Size();
