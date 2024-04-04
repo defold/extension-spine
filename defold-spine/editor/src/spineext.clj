@@ -347,21 +347,20 @@
   (doall (map (fn [constant] (set-constant! gl shader constant)) (.m_Constants ro))))
 
 (defn- blend-factor-value-to-blend-mode [blend-factor-value]
-       (case blend-factor-value
-             0 :blend-mode-alpha
-             1 :blend-mode-add
-             2 :blend-mode-mult
-             3 :blend-mode-screen
-             :blend-mode-alpha))
+  (case blend-factor-value
+    0 :blend-mode-alpha
+    1 :blend-mode-add
+    2 :blend-mode-mult
+    3 :blend-mode-screen
+    :blend-mode-alpha))
 
 (defn- do-render-object! [^GL2 gl render-args shader renderable ro]
   (let [start (.m_VertexStart ro) ; the name is from the engine, but in this case refers to the index
         count (.m_VertexCount ro)
-        ro-blend-factor-value (.m_BlendFactor ro)
         renderable-user-data (:user-data renderable)
         renderable-blend-mode (:blend-mode renderable-user-data)
         blend-mode (if (= renderable-blend-mode :blend-mode-inherit)
-                     (blend-factor-value-to-blend-mode ro-blend-factor-value)
+                     (blend-factor-value-to-blend-mode (.m_BlendFactor ro))
                      renderable-blend-mode)
         face-winding (if (not= (.m_FaceWindingCCW ro) 0) GL/GL_CCW GL/GL_CW)
         _ (set-constants! gl shader ro)
@@ -387,8 +386,7 @@
       (gl/gl-draw-arrays gl triangle-mode start count))
     (when use-index-buffer
       (gl/gl-draw-elements gl triangle-mode start count))
-    ; reset blend state
-    (.glBlendFunc gl GL/GL_SRC_ALPHA GL/GL_ONE_MINUS_SRC_ALPHA)))
+    (gl/set-blend-mode gl :blend-mode-alpha)))
 
 (set! *warn-on-reflection* true)
 
