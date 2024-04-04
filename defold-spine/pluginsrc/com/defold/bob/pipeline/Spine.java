@@ -256,7 +256,7 @@ public class Spine {
         public int                  m_NumConstants;
         public int                  m_VertexStart;
         public int                  m_VertexCount;
-        public int                  pad1;
+        public int                  m_BlendFactor;
         public byte                 m_SetBlendFactors;
         public byte                 m_SetStencilTest;
         public byte                 m_SetFaceWinding;
@@ -268,7 +268,7 @@ public class Spine {
         protected List getFieldOrder() {
             return Arrays.asList(new String[] {
                 "m_StencilTestParams", "m_WorldTransform", "m_Constants",
-                "m_NumConstants", "m_VertexStart", "m_VertexCount", "pad1",
+                "m_NumConstants", "m_VertexStart", "m_VertexCount", "m_BlendFactor",
                 "m_SetBlendFactors", "m_SetStencilTest", "m_SetFaceWinding", "m_FaceWindingCCW", "m_UseIndexBuffer", "m_IsTriangleStrip", "pad2"});
         }
 
