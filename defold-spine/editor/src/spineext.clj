@@ -347,9 +347,22 @@
 (defn- set-constants! [^GL2 gl shader ro]
   (doall (map (fn [constant] (set-constant! gl shader constant)) (.m_Constants ro))))
 
+(defn- blend-factor-value-to-blend-mode [blend-factor-value]
+  (case blend-factor-value
+    0 :blend-mode-alpha
+    1 :blend-mode-add
+    2 :blend-mode-mult
+    3 :blend-mode-screen
+    :blend-mode-alpha))
+
 (defn- do-render-object! [^GL2 gl render-args shader renderable ro]
   (let [start (.m_VertexStart ro) ; the name is from the engine, but in this case refers to the index
         count (.m_VertexCount ro)
+        renderable-user-data (:user-data renderable)
+        renderable-blend-mode (:blend-mode renderable-user-data)
+        blend-mode (if (= renderable-blend-mode :blend-mode-inherit)
+                     (blend-factor-value-to-blend-mode (.m_BlendFactor ro))
+                     renderable-blend-mode)
         face-winding (if (not= (.m_FaceWindingCCW ro) 0) GL/GL_CCW GL/GL_CW)
         _ (set-constants! gl shader ro)
         ro-transform (double-array (.m (.m_WorldTransform ro)))
@@ -364,7 +377,7 @@
                                                           (:view render-args)
                                                           (:projection render-args)
                                                           (:texture render-args)))]
-
+    (gl/set-blend-mode gl blend-mode)
     (shader/set-uniform shader gl "world_view_proj" (:world-view-proj render-args))
     (when (not= (.m_SetFaceWinding ro) 0)
       (gl/gl-front-face gl face-winding))
@@ -374,8 +387,7 @@
       (gl/gl-draw-arrays gl triangle-mode start count))
     (when use-index-buffer
       (gl/gl-draw-elements gl triangle-mode start count))
-    ; reset blend state
-    (.glBlendFunc gl GL/GL_SRC_ALPHA GL/GL_ONE_MINUS_SRC_ALPHA)))
+    (gl/set-blend-mode gl :blend-mode-alpha)))
 
 (set! *warn-on-reflection* true)
 
@@ -392,7 +404,6 @@
 (defn- render-group-transparent [^GL2 gl render-args override-shader group]
   (let [renderable (:renderable group)
         user-data (:user-data renderable)
-        blend-mode (:blend-mode user-data)
         gpu-texture (or (get user-data :gpu-texture) texture/white-pixel)
         shader (if (not= override-shader nil) override-shader (:shader user-data))
         vb (:vertex-buffer group)
@@ -400,7 +411,6 @@
         vertex-binding (vtx/use-with ::spine-trans vb shader)]
     (gl/with-gl-bindings gl render-args [gpu-texture shader vertex-binding]
       (setup-gl gl)
-      (gl/set-blend-mode gl blend-mode)
       (doall (map (fn [ro] (do-render-object! gl render-args shader renderable ro)) render-objects))
       (restore-gl gl))))
 
@@ -429,20 +439,19 @@
 
 (g/defnk produce-main-scene [_node-id aabb material-shader gpu-texture default-tex-params aabb spine-scene-pb spine-data-handle]
   (when (and gpu-texture)
-    (let [blend-mode :blend-mode-alpha]
-      (assoc {:node-id _node-id :aabb aabb}
-             :renderable {:render-fn render-spine-scenes
-                          :tags #{:spine}
-                          :batch-key [gpu-texture material-shader]
-                          :select-batch-key _node-id
-                          :user-data {:aabb aabb
-                                      :spine-scene-pb spine-scene-pb
-                                      :spine-data-handle spine-data-handle
-                                      :shader material-shader
-                                      :gpu-texture gpu-texture
-                                      :tex-params default-tex-params
-                                      :blend-mode blend-mode}
-                          :passes [pass/transparent pass/selection]}))))
+    (assoc {:node-id _node-id :aabb aabb}
+           :renderable {:render-fn render-spine-scenes
+                        :tags #{:spine}
+                        :batch-key [gpu-texture material-shader]
+                        :select-batch-key _node-id
+                        :user-data {:aabb aabb
+                                    :spine-scene-pb spine-scene-pb
+                                    :spine-data-handle spine-data-handle
+                                    :shader material-shader
+                                    :gpu-texture gpu-texture
+                                    :tex-params default-tex-params
+                                    :blend-mode :blend-mode-alpha}
+                        :passes [pass/transparent pass/selection]})))
 
 (defn- make-spine-outline-scene [_node-id aabb]
   {:aabb aabb
@@ -777,7 +786,7 @@
 
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
-(g/defnk produce-model-pb [spine-scene-resource default-animation skin material-resource blend-mode create-go-bones playback-rate offset]
+(g/defnk produce-model-pb [spine-scene-resource blend-mode default-animation skin material-resource create-go-bones playback-rate offset]
   (protobuf/make-map-without-defaults spine-plugin-spinemodel-cls
     :spine-scene (resource/resource->proj-path spine-scene-resource)
     :default-animation default-animation
@@ -951,13 +960,14 @@
 
   (output updatable g/Any :cached produce-spine-data-handle-updatable)
 
-  (output scene g/Any :cached (g/fnk [_node-id spine-main-scene aabb material-shader tex-params spine-data-handle default-animation skin updatable]
+  (output scene g/Any :cached (g/fnk [_node-id spine-main-scene aabb blend-mode material-shader tex-params spine-data-handle default-animation skin updatable]
                                      (if (and (some? material-shader) (some? (:renderable spine-main-scene)))
                                        (let [aabb aabb
                                              spine-scene-node-id (:node-id spine-main-scene)]
                                          (-> spine-main-scene
                                              (assoc-in [:renderable :user-data :shader] material-shader)
                                              (update-in [:renderable :user-data :gpu-texture] texture/set-params tex-params)
+                                             (assoc-in [:renderable :user-data :blend-mode] blend-mode)
                                              (assoc-in [:renderable :user-data :skin] skin)
                                              (assoc-in [:renderable :user-data :animation] default-animation)
                                              (assoc-in [:renderable :user-data :spine-data-handle] spine-data-handle)

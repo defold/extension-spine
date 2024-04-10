@@ -1,7 +1,7 @@
 script: "/main/main.gui_script"
 fonts {
-  name: "system_font"
-  font: "/builtins/fonts/system_font.font"
+  name: "default"
+  font: "/main/default.font"
 }
 textures {
   name: "main"
@@ -65,6 +65,7 @@ nodes {
   custom_type: 405028931
   enabled: true
   visible: true
+  material: ""
 }
 nodes {
   position {
@@ -122,6 +123,7 @@ nodes {
   custom_type: 0
   enabled: true
   visible: true
+  material: ""
 }
 nodes {
   position {
@@ -179,6 +181,7 @@ nodes {
   custom_type: 0
   enabled: true
   visible: true
+  material: ""
 }
 nodes {
   position {
@@ -233,6 +236,7 @@ nodes {
   custom_type: 405028931
   enabled: true
   visible: true
+  material: ""
 }
 nodes {
   position {
@@ -268,7 +272,7 @@ nodes {
   type: TYPE_TEXT
   blend_mode: BLEND_MODE_ALPHA
   text: "clone"
-  font: "system_font"
+  font: "default"
   id: "text"
   xanchor: XANCHOR_NONE
   yanchor: YANCHOR_NONE
@@ -299,6 +303,7 @@ nodes {
   custom_type: 0
   enabled: true
   visible: true
+  material: ""
 }
 nodes {
   position {
@@ -352,6 +357,7 @@ nodes {
   custom_type: 405028931
   enabled: true
   visible: true
+  material: ""
 }
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT

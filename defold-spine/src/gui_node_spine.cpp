@@ -706,7 +706,7 @@ static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNo
 
     node->m_Transform = dmVMath::Matrix4::identity();
 
-    dmGui::SetNodeTexture(node->m_GuiScene, node->m_GuiNode, dmGui::NODE_TEXTURE_TYPE_TEXTURE_SET, node->m_SpineScene->m_TextureSet);
+    dmGui::SetNodeTexture(node->m_GuiScene, node->m_GuiNode, dmGui::NODE_TEXTURE_TYPE_TEXTURE_SET, (dmGui::HTextureSource)node->m_SpineScene->m_TextureSet);
 
     if (create_bones)
     {
@@ -834,7 +834,7 @@ static void GuiGetVertices(const dmGameSystem::CustomNodeCtx* nodectx, uint32_t 
     // We currently know it's xyz-uv-rgba
     dmArray<dmSpine::SpineVertex>* vbdata = (dmArray<dmSpine::SpineVertex>*)&vertices;
 
-    uint32_t num_vertices = dmSpine::GenerateVertexData(*vbdata, node->m_SkeletonInstance, node->m_Transform);
+    uint32_t num_vertices = dmSpine::GenerateVertexData(*vbdata, node->m_SkeletonInstance, node->m_Transform, 0);
     (void)num_vertices;
 }
 
@@ -848,7 +848,7 @@ static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
     if (node->m_FirstUpdate)
     {
         node->m_FirstUpdate = 0;
-        dmGui::SetNodeTexture(node->m_GuiScene, node->m_GuiNode, dmGui::NODE_TEXTURE_TYPE_TEXTURE_SET, node->m_SpineScene->m_TextureSet);
+        dmGui::SetNodeTexture(node->m_GuiScene, node->m_GuiNode, dmGui::NODE_TEXTURE_TYPE_TEXTURE_SET, (dmGui::HTextureSource)node->m_SpineScene->m_TextureSet);
     }
 // end temp fix
 

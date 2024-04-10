@@ -7,8 +7,15 @@ local function play_animation(self)
 
 	--spine.play_anim("#spinemodel", "run", go.PLAYBACK_ONCE_FORWARD)
 
-	spine.play_anim(self.url, "run", go.PLAYBACK_LOOP_FORWARD, {}, callback)
-	--spine.play_anim(self.url, "run", go.PLAYBACK_ONCE_FORWARD, {}, callback)
+	
+	spine.play_anim(self.url, "run", go.PLAYBACK_ONCE_FORWARD, {}, 
+		function(self, message_id, message, sender)
+			assert(type(message_id) ~= "string")
+			pprint("GO callback", message_id, message, sender)
+			if (message_id == hash("spine_animation_done")) then
+				spine.play_anim(self.url, "run", go.PLAYBACK_LOOP_FORWARD, {}, callback)
+			end
+		end)
 	--spine.play_anim(self.url, "run", go.PLAYBACK_ONCE_FORWARD)
 
 	self.is_playing = true

@@ -69,7 +69,6 @@ namespace dmSpine
     static void ResourceReloadedCallback(const dmResource::ResourceReloadedParams& params);
     static void DestroyComponent(struct SpineModelWorld* world, uint32_t index);
 
-
     struct SpineModelWorld
     {
         dmObjectPool<SpineModelComponent*>  m_Components;
@@ -78,6 +77,7 @@ namespace dmSpine
         dmGraphics::HVertexDeclaration      m_VertexDeclaration;
         dmGraphics::HVertexBuffer           m_VertexBuffer;
         dmArray<dmSpine::SpineVertex>       m_VertexBufferData;
+        dmArray<SpineDrawDesc>              m_DrawDescBuffer;
         dmResource::HFactory                m_Factory;
     };
 
@@ -299,10 +299,10 @@ namespace dmSpine
 
     static void ClearCompletionCallback(SpineAnimationTrack* track)
     {
-        if (track->m_AnimationInstance && track->m_AnimationCallbackRef)
+        if (track->m_CallbackInfo)
         {
-            dmScript::UnrefInInstance(track->m_Context, track->m_AnimationCallbackRef+LUA_NOREF);
-            track->m_AnimationCallbackRef = 0;
+            dmScript::DestroyCallback(track->m_CallbackInfo);
+            track->m_CallbackInfo = 0x0;
         }
     }
 
@@ -343,6 +343,7 @@ namespace dmSpine
         {
             SpineAnimationTrack track;
             track.m_AnimationInstance = nullptr;
+            track.m_CallbackInfo = 0x0;
             component->m_AnimationTracks.Push(track);
         }
         SpineAnimationTrack& track = component->m_AnimationTracks[track_index];
@@ -358,7 +359,7 @@ namespace dmSpine
         track.m_AnimationInstance->mixDuration = blend_duration;
         track.m_AnimationInstance->trackTime = dmMath::Clamp(offset, track.m_AnimationInstance->animationStart, track.m_AnimationInstance->animationEnd);
 
-        track.m_AnimationCallbackRef = 0;
+        track.m_CallbackInfo = 0x0;
         dmMessage::ResetURL(&track.m_Listener);
 
         return true;
@@ -418,10 +419,27 @@ namespace dmSpine
         message.m_Playback    = track.m_Playback;
         message.m_Track       = entry->trackIndex + 1;
 
-        dmGameObject::Result result = dmGameObject::PostDDF(&message, &sender, &receiver, track.m_AnimationCallbackRef, true);
-        if (result != dmGameObject::RESULT_OK)
+        if (track.m_CallbackInfo)
         {
-            dmLogError("Could not send animation_done to listener: %d", result);
+            uint32_t id = track.m_CallbackId;
+            RunTrackCallback(track.m_CallbackInfo, dmGameSystemDDF::SpineAnimationDone::m_DDFDescriptor, (const char*)&message, &sender);
+            // If, in a Lua callback, the user calls spine.play_anim(),
+            // it will destroy the current callback and create a new one (if specified).
+            // Therefore, we need to check whether we are going to remove the same callback
+            // that we are running. If not, it has already been removed.
+            if (id == track.m_CallbackId)
+            {
+                ClearCompletionCallback(&track);
+            }
+
+        }
+        else
+        {
+            dmGameObject::Result result = dmGameObject::PostDDF(&message, &sender, &receiver, 0, true);
+            if (result != dmGameObject::RESULT_OK)
+            {
+                dmLogError("Could not send animation_done to listener: %d", result);
+            }
         }
     }
 
@@ -456,10 +474,17 @@ namespace dmSpine
         message.m_Node.m_ContextTableRef = 0;
         message.m_Track       = entry->trackIndex + 1;
 
-        dmGameObject::Result result = dmGameObject::PostDDF(&message, &sender, &receiver, track.m_AnimationCallbackRef, false);
-        if (result != dmGameObject::RESULT_OK)
+        if (track.m_CallbackInfo)
         {
-            dmLogError("Could not send animation event '%s' from animation '%s' to listener: %d", entry->animation->name, event->data->name, result);
+            RunTrackCallback(track.m_CallbackInfo, dmGameSystemDDF::SpineEvent::m_DDFDescriptor, (const char*)&message, &sender);
+        }
+        else
+        {
+            dmGameObject::Result result = dmGameObject::PostDDF(&message, &sender, &receiver, 0, false);
+            if (result != dmGameObject::RESULT_OK)
+            {
+                dmLogError("Could not send animation event '%s' from animation '%s' to listener: %d", entry->animation->name, event->data->name, result);
+            }
         }
     }
 
@@ -502,10 +527,6 @@ namespace dmSpine
                 {
                     // We only send the event if it's not looping (same behavior as before)
                     SendAnimationDone(component, state, entry, event);
-
-                    // The animation has ended, so we won't send any more on this
-                    track.m_AnimationCallbackRef = 0;
-                    track.m_AnimationInstance = nullptr;
                 }
 
                 if (IsPingPong(track.m_Playback))
@@ -761,58 +782,51 @@ namespace dmSpine
         return dmGameObject::UPDATE_RESULT_OK;
     }
 
-
-    static void RenderBatch(SpineModelWorld* world, dmRender::HRenderContext render_context, dmRender::RenderListEntry *buf, uint32_t* begin, uint32_t* end)
+    static inline dmGameSystemDDF::SpineModelDesc::BlendMode SpineBlendModeToRenderBlendMode(spBlendMode sp_blend_mode)
     {
-        //DM_PROFILE(SpineModel, "RenderBatch");
-
-        dmArray<SpineModelComponent*>& components = world->m_Components.GetRawObjects();
-
-        uint32_t component_index = (uint32_t)buf[*begin].m_UserData;
-        const SpineModelComponent* first = (const SpineModelComponent*) components[component_index];
-        const SpineModelResource* resource = first->m_Resource;
-
-        uint32_t vertex_start = world->m_VertexBufferData.Size();
-        uint32_t vertex_count = 0;
-
-        for (uint32_t *i = begin; i != end; ++i)
+        switch(sp_blend_mode)
         {
-            component_index = (uint32_t)buf[*i].m_UserData;
-            const SpineModelComponent* component = (const SpineModelComponent*) components[component_index];
-            vertex_count += dmSpine::CalcVertexBufferSize(component->m_SkeletonInstance, 0);
+            case SP_BLEND_MODE_NORMAL:
+                return dmGameSystemDDF::SpineModelDesc::BLEND_MODE_ALPHA;
+            case SP_BLEND_MODE_ADDITIVE:
+                return dmGameSystemDDF::SpineModelDesc::BLEND_MODE_ADD;
+            case SP_BLEND_MODE_MULTIPLY:
+                return dmGameSystemDDF::SpineModelDesc::BLEND_MODE_MULT;
+            case SP_BLEND_MODE_SCREEN:
+                return dmGameSystemDDF::SpineModelDesc::BLEND_MODE_SCREEN;
+            default:break;
         }
+        return dmGameSystemDDF::SpineModelDesc::BLEND_MODE_ALPHA;
+    }
 
-        if (vertex_count > world->m_VertexBufferData.Capacity())
-            world->m_VertexBufferData.SetCapacity(vertex_count);
-
-        vertex_count = 0;
-        for (uint32_t *i = begin; i != end; ++i)
-        {
-            component_index = (uint32_t)buf[*i].m_UserData;
-            const SpineModelComponent* component = (const SpineModelComponent*) components[component_index];
-            vertex_count += dmSpine::GenerateVertexData(world->m_VertexBufferData, component->m_SkeletonInstance, component->m_World);
-        }
-
-        world->m_RenderObjects.SetSize(world->m_RenderObjects.Size()+1);
-        dmRender::RenderObject& ro = world->m_RenderObjects.Back();
-
+    static void FillRenderObject(SpineModelWorld*  world,
+        dmRender::HRenderContext                   render_context,
+        dmRender::RenderObject&                    ro,
+        dmGameSystem::HComponentRenderConstants    constants,
+        dmGraphics::HTexture                       texture,
+        dmRender::HMaterial                        material,
+        dmGameSystemDDF::SpineModelDesc::BlendMode blend_mode,
+        uint32_t                                   vertex_start,
+        uint32_t                                   vertex_count)
+    {
         ro.Init();
         ro.m_VertexDeclaration = world->m_VertexDeclaration;
-        ro.m_VertexBuffer = world->m_VertexBuffer;
-        ro.m_PrimitiveType = dmGraphics::PRIMITIVE_TRIANGLES;
-        ro.m_VertexStart = vertex_start;
-        ro.m_VertexCount = vertex_count;
-        ro.m_Textures[0] = resource->m_SpineScene->m_TextureSet->m_Texture->m_Texture; // spine - texture set resource - texture resource - texture
-        ro.m_Material = GetMaterial(first);
+        ro.m_VertexBuffer      = world->m_VertexBuffer;
+        ro.m_PrimitiveType     = dmGraphics::PRIMITIVE_TRIANGLES;
+        ro.m_VertexStart       = vertex_start;
+        ro.m_VertexCount       = vertex_count;
+        ro.m_Textures[0]       = texture;
+        ro.m_Material          = material;
 
-        if (first->m_RenderConstants)
+        if (constants)
         {
-            dmGameSystem::EnableRenderObjectConstants(&ro, first->m_RenderConstants);
+            dmGameSystem::EnableRenderObjectConstants(&ro, constants);
         }
 
-        dmGameSystemDDF::SpineModelDesc::BlendMode blend_mode = resource->m_Ddf->m_BlendMode;
+        ro.m_SetBlendFactors = 1;
+
         switch (blend_mode)
-        {
+         {
             case dmGameSystemDDF::SpineModelDesc::BLEND_MODE_ALPHA:
                 ro.m_SourceBlendFactor = dmGraphics::BLEND_FACTOR_ONE;
                 ro.m_DestinationBlendFactor = dmGraphics::BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
@@ -839,9 +853,88 @@ namespace dmSpine
             break;
         }
 
-        ro.m_SetBlendFactors = 1;
-
         dmRender::AddToRender(render_context, &ro);
+    }
+
+    static void RenderBatch(SpineModelWorld* world, dmRender::HRenderContext render_context, dmRender::RenderListEntry *buf, uint32_t* begin, uint32_t* end)
+    {
+        //DM_PROFILE(SpineModel, "RenderBatch");
+
+        dmArray<SpineModelComponent*>& components = world->m_Components.GetRawObjects();
+
+        uint32_t component_index           = (uint32_t)buf[*begin].m_UserData;
+        const SpineModelComponent* first   = (const SpineModelComponent*) components[component_index];
+        const SpineModelResource* resource = first->m_Resource;
+
+        dmGameSystemDDF::SpineModelDesc::BlendMode blend_mode = resource->m_Ddf->m_BlendMode;
+        bool use_inherit_blend = blend_mode == dmGameSystemDDF::SpineModelDesc::BLEND_MODE_INHERIT;
+
+        uint32_t vertex_start           = world->m_VertexBufferData.Size();
+        uint32_t vertex_count           = 0;
+        uint32_t draw_desc_buffer_count = 0;
+
+        // This is a temporary scratch buffer just used for this batch call, so we make sure to reset it.
+        world->m_DrawDescBuffer.SetSize(0);
+
+        for (uint32_t *i = begin; i != end; ++i)
+        {
+            component_index = (uint32_t)buf[*i].m_UserData;
+            const SpineModelComponent* component = (const SpineModelComponent*) components[component_index];
+            vertex_count += dmSpine::CalcVertexBufferSize(component->m_SkeletonInstance, 0);
+
+            if (use_inherit_blend)
+            {
+                draw_desc_buffer_count += dmSpine::CalcDrawDescCount(component->m_SkeletonInstance);
+            }
+        }
+
+        if (draw_desc_buffer_count && draw_desc_buffer_count > world->m_DrawDescBuffer.Capacity())
+        {
+            world->m_DrawDescBuffer.SetCapacity(draw_desc_buffer_count);
+        }
+
+        if (vertex_count > world->m_VertexBufferData.Capacity())
+        {
+            world->m_VertexBufferData.SetCapacity(vertex_count);
+        }
+
+        vertex_count = 0;
+        for (uint32_t *i = begin; i != end; ++i)
+        {
+            component_index = (uint32_t)buf[*i].m_UserData;
+            const SpineModelComponent* component = (const SpineModelComponent*) components[component_index];
+            vertex_count += dmSpine::GenerateVertexData(world->m_VertexBufferData, component->m_SkeletonInstance, component->m_World, use_inherit_blend ? &world->m_DrawDescBuffer : 0);
+        }
+
+        dmGraphics::HTexture texture = resource->m_SpineScene->m_TextureSet->m_Texture->m_Texture; // spine - texture set resource - texture resource - texture
+        dmRender::HMaterial material = GetMaterial(first);
+
+        if (use_inherit_blend)
+        {
+            uint32_t draw_desc_count = world->m_DrawDescBuffer.Size();
+            dmArray<SpineDrawDesc> scratch_draw_descs;
+            MergeDrawDescs(world->m_DrawDescBuffer, scratch_draw_descs);
+
+            uint32_t merged_size = scratch_draw_descs.Size();
+            uint32_t ro_count_begin = world->m_RenderObjects.Size();
+            world->m_RenderObjects.SetSize(world->m_RenderObjects.Size() + merged_size);
+
+            for (int i = 0; i < merged_size; ++i)
+            {
+                dmRender::RenderObject& ro = world->m_RenderObjects[ro_count_begin + i];
+                FillRenderObject(world, render_context, ro, first->m_RenderConstants, texture, material,
+                    SpineBlendModeToRenderBlendMode((spBlendMode) scratch_draw_descs[i].m_BlendMode),
+                    scratch_draw_descs[i].m_VertexStart,
+                    scratch_draw_descs[i].m_VertexCount);
+            }
+        }
+        else
+        {
+            uint32_t ro_index = world->m_RenderObjects.Size();
+            world->m_RenderObjects.SetSize(ro_index + 1);
+            dmRender::RenderObject& ro = world->m_RenderObjects[ro_index];
+            FillRenderObject(world, render_context, ro, first->m_RenderConstants, texture, material, blend_mode, vertex_start, vertex_count);
+        }
     }
 
     static void RenderListFrustumCulling(dmRender::RenderListVisibilityParams const &params)
@@ -967,7 +1060,7 @@ namespace dmSpine
         component->m_ReHash = 1;
     }
 
-    bool CompSpineModelPlayAnimation(SpineModelComponent* component, dmGameSystemDDF::SpinePlayAnimation* message, dmMessage::URL* sender, int callback_ref, lua_State* L)
+    bool CompSpineModelPlayAnimation(SpineModelComponent* component, dmGameSystemDDF::SpinePlayAnimation* message, dmMessage::URL* sender, dmScript::LuaCallbackInfo* callback_info, lua_State* L)
     {
         bool result = PlayAnimation(component, message->m_AnimationId, (dmGameObject::Playback)message->m_Playback, message->m_BlendDuration,
                                                 message->m_Offset, message->m_PlaybackRate, message->m_Track - 1);
@@ -976,7 +1069,8 @@ namespace dmSpine
             SpineAnimationTrack& track = component->m_AnimationTracks[message->m_Track - 1];
             track.m_Listener = *sender;
             track.m_Context = L;
-            track.m_AnimationCallbackRef = callback_ref;
+            track.m_CallbackId++;
+            track.m_CallbackInfo = callback_info;
         }
         return result;
     }
