@@ -504,7 +504,7 @@ static void UpdateTransform(dmGui::HScene scene, dmGui::HNode node, const spBone
     float sy = spBone_getWorldScaleY((spBone*)bone);
 
     dmGui::SetNodeProperty(scene, node, dmGui::PROPERTY_POSITION, dmVMath::Vector4(bone->worldX, bone->worldY, 0, 0));
-    dmGui::SetNodeProperty(scene, node, dmGui::PROPERTY_ROTATION, dmVMath::Vector4(0, 0, radians, 0));
+    dmGui::SetNodeProperty(scene, node, dmGui::PROPERTY_EULER, dmVMath::Vector4(0, 0, radians, 0));
     dmGui::SetNodeProperty(scene, node, dmGui::PROPERTY_SCALE, dmVMath::Vector4(sx, sy, 1, 0));
 }
 
