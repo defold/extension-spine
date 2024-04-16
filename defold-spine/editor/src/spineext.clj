@@ -13,42 +13,35 @@
 (ns editor.spineext
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
-            [editor.protobuf :as protobuf]
             [dynamo.graph :as g]
-            [util.murmur :as murmur]
             [editor.build-target :as bt]
-            [editor.graph-util :as gu]
+            [editor.defold-project :as project]
             [editor.geom :as geom]
-            [editor.material :as material]
-            [editor.math :as math]
             [editor.gl :as gl]
+            [editor.gl.pass :as pass]
             [editor.gl.shader :as shader]
             [editor.gl.texture :as texture]
             [editor.gl.vertex :as vtx]
-            [editor.defold-project :as project]
-            [editor.resource :as resource]
-            [editor.resource-node :as resource-node]
-            [editor.scene-cache :as scene-cache] ; debug only
-            [editor.scene-picking :as scene-picking]
-            [editor.render :as render]
-            [editor.validation :as validation]
-            [editor.workspace :as workspace]
-            [editor.gl.pass :as pass]
-            [editor.types :as types]
+            [editor.graph-util :as gu]
+            [editor.material :as material]
+            [editor.math :as math]
             [editor.outline :as outline]
             [editor.properties :as properties]
-            [editor.rig :as rig])
+            [editor.protobuf :as protobuf]
+            [editor.render :as render]
+            [editor.resource :as resource]
+            [editor.resource-node :as resource-node]
+            [editor.types :as types]
+            [editor.validation :as validation]
+            [editor.workspace :as workspace]
+            [util.murmur :as murmur])
   (:import [com.dynamo.bob.textureset TextureSetGenerator$UVTransform]
-           [com.dynamo.bob.util BezierUtil RigUtil$Transform]
+           [com.jogamp.opengl GL GL2]
            [editor.gl.shader ShaderLifecycle]
            [editor.types AABB]
-           [com.jogamp.opengl GL GL2 GLContext]
-           [org.apache.commons.io IOUtils]
            [java.io IOException]
-           [java.util HashSet]
-           [java.net URL]
-           [javax.vecmath Matrix4d Vector3d Vector4d]))
-
+           [javax.vecmath Matrix4d Vector3d Vector4d]
+           [org.apache.commons.io IOUtils]))
 
 (set! *warn-on-reflection* true)
 
@@ -637,20 +630,19 @@
       (handle-read-error error _node-id spine-json-resource))))
 
 (defn- sanitize-spine-scene [spine-scene-desc]
-  {:pre (map? spine-scene-desc)} ; Spine$SpineSceneDesc in map format.
+  {:pre [(map? spine-scene-desc)]} ; Spine$SpineSceneDesc in map format.
   (dissoc spine-scene-desc :sample-rate)) ; Deprecated field.
 
-(defn- load-spine-scene [project self resource spine]
-  (let [spine-resource (workspace/resolve-resource resource (:spine-json spine))
-        atlas          (workspace/resolve-resource resource (:atlas spine))
-        ; used for previewing a .spinescene as it doesn't have a material specified
-        material       (workspace/resolve-resource resource spine-material-path)]
+(defn- load-spine-scene [project self resource spine-scene-desc]
+  {:pre [(map? spine-scene-desc)]} ; Spine$SpineSceneDesc in map format.
+  (let [resolve-resource #(workspace/resolve-resource resource %)
+        default-material-resource (resolve-resource spine-material-path)]
     (concat
-     (g/connect project :default-tex-params self :default-tex-params)
-     (g/set-property self
-                     :spine-json spine-resource
-                     :atlas atlas
-                     :material material))))
+      (g/connect project :default-tex-params self :default-tex-params)
+      (g/set-property self :material default-material-resource)
+      (gu/set-properties-from-pb-map self spine-plugin-spinescene-cls spine-scene-desc
+        spine-json (resolve-resource :spine-json)
+        atlas (resolve-resource :atlas)))))
 
 ;; (defn- make-spine-skeleton-scene [_node-id aabb gpu-texture scene-structure]
 ;;   (let [scene {:node-id _node-id :aabb aabb}]
@@ -854,15 +846,20 @@
                                          :dep-resources dep-resources}
                              :deps dep-build-targets})])))
 
-(defn load-spine-model [project self resource spine]
-  (let [resolve-fn (partial workspace/resolve-resource resource)
-        spine (-> spine
-                  (update :spine-scene resolve-fn)
-                  (update :material resolve-fn))]
+(defn load-spine-model [project self resource spine-model-desc]
+  {:pre [(map? spine-model-desc)]} ; Spine$SpineModelDesc in map format.
+  (let [resolve-resource #(workspace/resolve-resource resource %)]
     (concat
-     (g/connect project :default-tex-params self :default-tex-params)
-     (for [[k v] spine]
-       (g/set-property self k v)))))
+      (g/connect project :default-tex-params self :default-tex-params)
+      (gu/set-properties-from-pb-map self spine-plugin-spinemodel-cls spine-model-desc
+        spine-scene (resolve-resource :spine-scene)
+        default-animation :default-animation
+        skin :skin
+        blend-mode :blend-mode
+        material (resolve-resource (:material :or spine-material-path))
+        create-go-bones :create-go-bones
+        playback-rate :playback-rate
+        offset :offset))))
 
 (defn- step-animation
   [state dt spine-data-handle animation skin]
