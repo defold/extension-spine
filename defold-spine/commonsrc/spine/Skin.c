@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated September 24, 2021. Replaces all prior versions.
+ * Last updated July 28, 2023. Replaces all prior versions.
  *
- * Copyright (c) 2013-2021, Esoteric Software LLC
+ * Copyright (c) 2013-2023, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software
- * or otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software or
+ * otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,8 +23,8 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
+ * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
 #include <spine/Skin.h>
@@ -39,10 +39,12 @@ _SP_ARRAY_IMPLEMENT_TYPE(spTransformConstraintDataArray, spTransformConstraintDa
 
 _SP_ARRAY_IMPLEMENT_TYPE(spPathConstraintDataArray, spPathConstraintData *)
 
+_SP_ARRAY_IMPLEMENT_TYPE(spPhysicsConstraintDataArray, spPhysicsConstraintData *)
+
 _Entry *_Entry_create(int slotIndex, const char *name, spAttachment *attachment) {
 	_Entry *self = NEW(_Entry);
 	self->slotIndex = slotIndex;
-	MALLOC_STR(self->name, name);
+	MALLOC_STR(self->name, (char *) name);
 	self->attachment = attachment;
 	return self;
 }
@@ -67,11 +69,13 @@ static void _SkinHashTableEntry_dispose(_SkinHashTableEntry *self) {
 
 spSkin *spSkin_create(const char *name) {
 	spSkin *self = SUPER(NEW(_spSkin));
-	MALLOC_STR(self->name, name);
+	MALLOC_STR(self->name, (char *) name);
 	self->bones = spBoneDataArray_create(4);
 	self->ikConstraints = spIkConstraintDataArray_create(4);
 	self->transformConstraints = spTransformConstraintDataArray_create(4);
 	self->pathConstraints = spPathConstraintDataArray_create(4);
+	self->physicsConstraints = spPhysicsConstraintDataArray_create(4);
+	spColor_setFromFloats(&self->color, 0.99607843f, 0.61960787f, 0.30980393f, 1);
 	return self;
 }
 
@@ -103,6 +107,7 @@ void spSkin_dispose(spSkin *self) {
 	spIkConstraintDataArray_dispose(self->ikConstraints);
 	spTransformConstraintDataArray_dispose(self->transformConstraints);
 	spPathConstraintDataArray_dispose(self->pathConstraints);
+	spPhysicsConstraintDataArray_dispose(self->physicsConstraints);
 	FREE(self->name);
 	FREE(self);
 }
@@ -197,6 +202,11 @@ void spSkin_addSkin(spSkin *self, const spSkin *other) {
 			spPathConstraintDataArray_add(self->pathConstraints, other->pathConstraints->items[i]);
 	}
 
+	for (i = 0; i < other->physicsConstraints->size; i++) {
+		if (!spPhysicsConstraintDataArray_contains(self->physicsConstraints, other->physicsConstraints->items[i]))
+			spPhysicsConstraintDataArray_add(self->physicsConstraints, other->physicsConstraints->items[i]);
+	}
+
 	entry = spSkin_getAttachments(other);
 	while (entry) {
 		spSkin_setAttachment(self, entry->slotIndex, entry->name, entry->attachment);
@@ -226,6 +236,11 @@ void spSkin_copySkin(spSkin *self, const spSkin *other) {
 	for (i = 0; i < other->pathConstraints->size; i++) {
 		if (!spPathConstraintDataArray_contains(self->pathConstraints, other->pathConstraints->items[i]))
 			spPathConstraintDataArray_add(self->pathConstraints, other->pathConstraints->items[i]);
+	}
+
+	for (i = 0; i < other->physicsConstraints->size; i++) {
+		if (!spPhysicsConstraintDataArray_contains(self->physicsConstraints, other->physicsConstraints->items[i]))
+			spPhysicsConstraintDataArray_add(self->physicsConstraints, other->physicsConstraints->items[i]);
 	}
 
 	entry = spSkin_getAttachments(other);
@@ -278,4 +293,5 @@ void spSkin_clear(spSkin *self) {
 	spIkConstraintDataArray_clear(self->ikConstraints);
 	spTransformConstraintDataArray_clear(self->transformConstraints);
 	spPathConstraintDataArray_clear(self->pathConstraints);
+	spPhysicsConstraintDataArray_clear(self->physicsConstraints);
 }

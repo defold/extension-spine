@@ -702,7 +702,7 @@ static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNo
     node->m_AnimationStateInstance->listener = SpineEventListener;
 
     spSkeleton_setToSetupPose(node->m_SkeletonInstance);
-    spSkeleton_updateWorldTransform(node->m_SkeletonInstance);
+    spSkeleton_updateWorldTransform(node->m_SkeletonInstance, SP_PHYSICS_NONE);
 
     node->m_Transform = dmVMath::Matrix4::identity();
 
@@ -877,9 +877,13 @@ static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
     {
         spAnimationState_update(node->m_AnimationStateInstance, anim_dt);
         spAnimationState_apply(node->m_AnimationStateInstance, node->m_SkeletonInstance);
+        spSkeleton_update(node->m_SkeletonInstance, anim_dt);
+        spSkeleton_updateWorldTransform(node->m_SkeletonInstance, SP_PHYSICS_UPDATE);
     }
-
-    spSkeleton_updateWorldTransform(node->m_SkeletonInstance);
+    else
+    {
+        spSkeleton_updateWorldTransform(node->m_SkeletonInstance, SP_PHYSICS_NONE);
+    }   
     DM_PROPERTY_ADD_U32(rmtp_SpineGuiNodes, 1);
     UpdateBones(node);
 }

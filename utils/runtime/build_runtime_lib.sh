@@ -2,7 +2,7 @@
 
 set -e
 
-VERSION=4.1
+VERSION=4.2
 #URL=https://github.com/EsotericSoftware/spine-runtimes/archive/refs/tags/${VERSION}.zip
 URL=https://github.com/EsotericSoftware/spine-runtimes/archive/refs/heads/${VERSION}.zip
 UNPACK_FOLDER="spine-runtimes-${VERSION}"

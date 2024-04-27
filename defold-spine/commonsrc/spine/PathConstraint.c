@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated September 24, 2021. Replaces all prior versions.
+ * Last updated July 28, 2023. Replaces all prior versions.
  *
- * Copyright (c) 2013-2021, Esoteric Software LLC
+ * Copyright (c) 2013-2023, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software
- * or otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software or
+ * otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,8 +23,8 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
+ * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
 #include <spine/PathConstraint.h>
@@ -39,9 +39,9 @@
 spPathConstraint *spPathConstraint_create(spPathConstraintData *data, const spSkeleton *skeleton) {
 	int i;
 	spPathConstraint *self = NEW(spPathConstraint);
-	CONST_CAST(spPathConstraintData *, self->data) = data;
+	self->data = data;
 	self->bonesCount = data->bonesCount;
-	CONST_CAST(spBone **, self->bones) = MALLOC(spBone *, self->bonesCount);
+	self->bones = MALLOC(spBone *, self->bonesCount);
 	for (i = 0; i < self->bonesCount; ++i)
 		self->bones[i] = spSkeleton_findBone(skeleton, self->data->bones[i]->name);
 	self->target = spSkeleton_findSlot(skeleton, self->data->target->name);
@@ -117,13 +117,9 @@ void spPathConstraint_update(spPathConstraint *self) {
 				for (i = 0, n = spacesCount - 1; i < n; i++) {
 					spBone *bone = bones[i];
 					setupLength = bone->data->length;
-					if (setupLength < EPSILON)
-						lengths[i] = 0;
-					else {
-						x = setupLength * bone->a;
-						y = setupLength * bone->c;
-						lengths[i] = SQRT(x * x + y * y);
-					}
+					x = setupLength * bone->a;
+					y = setupLength * bone->c;
+					lengths[i] = SQRT(x * x + y * y);
 				}
 			}
 			for (i = 1, n = spacesCount; i < n; i++) spaces[i] = spacing;
@@ -179,15 +175,15 @@ void spPathConstraint_update(spPathConstraint *self) {
 	}
 	for (i = 0, p = 3; i < boneCount; i++, p += 3) {
 		spBone *bone = bones[i];
-		CONST_CAST(float, bone->worldX) += (boneX - bone->worldX) * mixX;
-		CONST_CAST(float, bone->worldY) += (boneY - bone->worldY) * mixY;
+		bone->worldX += (boneX - bone->worldX) * mixX;
+		bone->worldY += (boneY - bone->worldY) * mixY;
 		x = positions[p], y = positions[p + 1], dx = x - boneX, dy = y - boneY;
 		if (scale) {
 			length = lengths[i];
 			if (length != 0) {
 				s = (SQRT(dx * dx + dy * dy) / length - 1) * mixRotate + 1;
-				CONST_CAST(float, bone->a) *= s;
-				CONST_CAST(float, bone->c) *= s;
+				bone->a *= s;
+				bone->c *= s;
 			}
 		}
 		boneX = x;
@@ -216,13 +212,22 @@ void spPathConstraint_update(spPathConstraint *self) {
 			r *= mixRotate;
 			cosine = COS(r);
 			sine = SIN(r);
-			CONST_CAST(float, bone->a) = cosine * a - sine * c;
-			CONST_CAST(float, bone->b) = cosine * b - sine * d;
-			CONST_CAST(float, bone->c) = sine * a + cosine * c;
-			CONST_CAST(float, bone->d) = sine * b + cosine * d;
+			bone->a = cosine * a - sine * c;
+			bone->b = cosine * b - sine * d;
+			bone->c = sine * a + cosine * c;
+			bone->d = sine * b + cosine * d;
 		}
 		spBone_updateAppliedTransform(bone);
 	}
+}
+
+void spPathConstraint_setToSetupPose(spPathConstraint *self) {
+	spPathConstraintData *data = self->data;
+	self->position = data->position;
+	self->spacing = data->spacing;
+	self->mixRotate = data->mixRotate;
+	self->mixX = data->mixX;
+	self->mixY = data->mixY;
 }
 
 static void _addBeforePosition(float p, float *temp, int i, float *out, int o) {
