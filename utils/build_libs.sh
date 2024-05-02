@@ -80,6 +80,7 @@ for platform in $PLATFORMS; do
     esac
 
     TARGET_LIB_DIR=${PROJECT_LIB_DIR}/${platform_ne}
+    rm -f ${TARGET_LIB_DIR}
     mkdir -p ${TARGET_LIB_DIR}
 
     # make sure it doesn't pick up the project's app manifest
