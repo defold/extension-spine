@@ -11,8 +11,6 @@
 #include <float.h>                      // using FLT_MAX
 #include <dmsdk/dlib/math.h>
 
-#include <dmsdk/dlib/log.h>
-
 namespace dmSpine
 {
     static const uint32_t ATTACHMENT_REGION_NUM_FLOATS = 4*2;
