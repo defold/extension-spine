@@ -35,6 +35,7 @@
 #include <spine/AnimationState.h>
 #include <spine/SkeletonData.h>
 #include <spine/Skeleton.h>
+#include <spine/SkeletonClipping.h>
 
 static const dmhash_t UNIFORM_TINT = dmHashString64("tint");
 
@@ -676,6 +677,8 @@ static void UpdateRenderData(SpineFile* file)
     file->m_RenderObjects.SetSize(0);
     file->m_VertexBuffer.SetSize(0);
 
+    spSkeletonClipping* clipper = spSkeletonClipping_create();
+
     uint32_t ro_count = dmSpine::CalcDrawDescCount(file->m_SkeletonInstance);
     AdjustArraySize(file->m_RenderObjects, ro_count);
 
@@ -683,7 +686,7 @@ static void UpdateRenderData(SpineFile* file)
     draw_descs.SetCapacity(ro_count);
 
     dmVMath::Matrix4 transform = dmVMath::Matrix4::identity();
-    dmSpine::GenerateVertexData(file->m_VertexBuffer, file->m_SkeletonInstance, transform, &draw_descs);
+    dmSpine::GenerateVertexData(file->m_VertexBuffer, file->m_SkeletonInstance, clipper, transform, &draw_descs);
 
     dmArray<dmSpine::SpineDrawDesc> merged_draw_descs;
     MergeDrawDescs(draw_descs, merged_draw_descs);
@@ -707,4 +710,6 @@ static void UpdateRenderData(SpineFile* file)
 
         ro.m_WorldTransform = transform;
     }
+
+    spSkeletonClipping_dispose(clipper);
 }
