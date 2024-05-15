@@ -918,20 +918,23 @@ namespace dmSpine
         if (use_inherit_blend)
         {
             uint32_t draw_desc_count = world->m_DrawDescBuffer.Size();
-            dmArray<SpineDrawDesc> scratch_draw_descs;
-            MergeDrawDescs(world->m_DrawDescBuffer, scratch_draw_descs);
-
-            uint32_t merged_size = scratch_draw_descs.Size();
-            uint32_t ro_count_begin = world->m_RenderObjects.Size();
-            world->m_RenderObjects.SetSize(world->m_RenderObjects.Size() + merged_size);
-
-            for (int i = 0; i < merged_size; ++i)
+            if (draw_desc_count > 0)
             {
-                dmRender::RenderObject& ro = world->m_RenderObjects[ro_count_begin + i];
-                FillRenderObject(world, render_context, ro, first->m_RenderConstants, texture, material,
-                    SpineBlendModeToRenderBlendMode((spBlendMode) scratch_draw_descs[i].m_BlendMode),
-                    scratch_draw_descs[i].m_VertexStart,
-                    scratch_draw_descs[i].m_VertexCount);
+                dmArray<SpineDrawDesc> scratch_draw_descs;
+                MergeDrawDescs(world->m_DrawDescBuffer, scratch_draw_descs);
+
+                uint32_t merged_size = scratch_draw_descs.Size();
+                uint32_t ro_count_begin = world->m_RenderObjects.Size();
+                world->m_RenderObjects.SetSize(world->m_RenderObjects.Size() + merged_size);
+
+                for (int i = 0; i < merged_size; ++i)
+                {
+                    dmRender::RenderObject& ro = world->m_RenderObjects[ro_count_begin + i];
+                    FillRenderObject(world, render_context, ro, first->m_RenderConstants, texture, material,
+                        SpineBlendModeToRenderBlendMode((spBlendMode) scratch_draw_descs[i].m_BlendMode),
+                        scratch_draw_descs[i].m_VertexStart,
+                        scratch_draw_descs[i].m_VertexCount);
+                }
             }
         }
         else

@@ -403,6 +403,11 @@ void MergeDrawDescs(const dmArray<SpineDrawDesc>& src, dmArray<SpineDrawDesc>& d
     dst.SetCapacity(src.Size());
     dst.SetSize(src.Size());
 
+    if (src.Size() == 0)
+    {
+        return;
+    }
+
     SpineDrawDesc* current_draw_desc = dst.Begin();
     *current_draw_desc = src[0];
 
