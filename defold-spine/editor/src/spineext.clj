@@ -460,11 +460,11 @@
   (inherits outline/OutlineNode)
   (property name g/Str (dynamic read-only? (g/constantly true)))
   (property position types/Vec3
-            (dynamic edit-type (g/constantly (properties/vec3->vec2 0.0)))
+            (dynamic edit-type (g/constantly {:type types/Vec2}))
             (dynamic read-only? (g/constantly true)))
   (property rotation g/Num (dynamic read-only? (g/constantly true)))
   (property scale types/Vec3
-            (dynamic edit-type (g/constantly (properties/vec3->vec2 1.0)))
+            (dynamic edit-type (g/constantly {:type types/Vec2}))
             (dynamic read-only? (g/constantly true)))
   (property length g/Num
             (dynamic read-only? (g/constantly true)))
@@ -503,7 +503,7 @@
         scale-y (.-scaleY spine-bone)
         length (.-length spine-bone)
         parent-graph-id (g/node-id->graph-id parent-id)
-        bone-tx-data (g/make-nodes parent-graph-id [bone [SpineBone :name name :position [x y 0] :rotation rotation :scale [scale-x scale-y 1.0] :length length]]
+        bone-tx-data (g/make-nodes parent-graph-id [bone [SpineBone :name name :position [x y protobuf/float-zero] :rotation rotation :scale [scale-x scale-y protobuf/float-one] :length length]]
                                    ; Hook this node into the parent's lists
                                    (g/connect bone :_node-id parent-id :nodes)
                                    (g/connect bone :node-outline parent-id :child-outlines)
@@ -830,7 +830,7 @@
 (defn- build-spine-model [resource dep-resources user-data]
   (let [pb (:proto-msg user-data)
         pb (reduce #(assoc %1 (first %2) (second %2)) pb (map (fn [[label res]] [label (resource/proj-path (get dep-resources res))]) (:dep-resources user-data)))]
-    {:resource resource :content (protobuf/map->bytes (workspace/load-class! "com.dynamo.spine.proto.Spine$SpineModelDesc") pb)}))
+    {:resource resource :content (protobuf/map->bytes spine-plugin-spinemodel-cls pb)}))
 
 (g/defnk produce-model-build-targets [_node-id own-build-errors resource model-pb spine-scene-resource material-resource dep-build-targets]
   (g/precluding-errors own-build-errors
@@ -1026,9 +1026,7 @@
       :textual? true
       :load-fn load-spine-json
       :icon spine-json-icon
-      :view-types [:default]
-      :tags #{:embeddable})))
-
+      :view-types [:default])))
 
 ; The plugin
 (defn load-plugin-spine [workspace]

@@ -99,7 +99,6 @@
 (g/defnk produce-spine-node-msg [visual-base-node-msg spine-scene spine-default-animation spine-skin clipping-mode clipping-visible clipping-inverted]
   (merge visual-base-node-msg
          (protobuf/make-map-without-defaults Gui$NodeDesc
-           :size [1.0 1.0 0.0 0.0] ; TODO(save-value): Remove once the runtime can handle zero-sized objects.
            :size-mode :size-mode-auto
            :spine-scene spine-scene
            :spine-default-animation spine-default-animation
@@ -350,7 +349,6 @@
 (defn- fixup-spine-node [node-type-info node-desc]
   (let [node-type (:type node-desc)]
     (cond-> (assoc node-desc
-              :size [1.0 1.0 0.0 0.0] ; TODO(save-value): Remove once the runtime can handle zero-sized objects.
               :size-mode :size-mode-auto)
 
             (= :type-spine node-type)
