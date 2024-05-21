@@ -275,7 +275,7 @@ namespace dmSpine
 
         SpineModelComponent* component = 0;
         dmMessage::URL receiver; // needed for error output
-        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
+        dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
 
         dmhash_t anim_id = dmScript::CheckHashOrString(L, 2);
         lua_Integer playback = luaL_checkinteger(L, 3);
@@ -400,7 +400,7 @@ namespace dmSpine
 
         SpineModelComponent* component = 0;
         dmMessage::URL receiver;
-        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
+        dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
 
         lua_Integer track = dmSpine::ALL_TRACKS;
         if (top > 1) // Options table
@@ -456,7 +456,7 @@ namespace dmSpine
 
         SpineModelComponent* component = 0;
         dmMessage::URL receiver; // needed for error output
-        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
+        dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
 
         dmhash_t bone_id = dmScript::CheckHashOrString(L, 2);
         dmhash_t bone_gameobject_id;
@@ -503,7 +503,7 @@ namespace dmSpine
 
         SpineModelComponent* component = 0;
         dmMessage::URL receiver; // needed for error output
-        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
+        dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
 
     //TODO: Use top to check if there is an argument there?
         dmhash_t skin_id = 0;
@@ -552,7 +552,7 @@ namespace dmSpine
 
         SpineModelComponent* component = 0;
         dmMessage::URL receiver; // needed for error output
-        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
+        dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
 
         dmhash_t slot_id = dmScript::CheckHashOrString(L, 2);
 
@@ -600,7 +600,7 @@ namespace dmSpine
         DM_LUA_STACK_CHECK(L, 0);
 
         SpineModelComponent* component = 0;
-        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, 0);
+        dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, 0);
 
         dmhash_t ik_constraint_id = dmScript::CheckHashOrString(L, 2);
         Vectormath::Aos::Vector3* position = dmScript::CheckVector3(L, 3);
@@ -642,7 +642,7 @@ namespace dmSpine
 
         dmMessage::URL target_url;
         SpineModelComponent* component = 0;
-        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &target_url);
+        dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &target_url);
 
         dmhash_t ik_constraint_id = dmScript::CheckHashOrString(L, 2);
 
@@ -692,7 +692,7 @@ namespace dmSpine
         DM_LUA_STACK_CHECK(L, 0);
 
         SpineModelComponent* component = 0;
-        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, 0);
+        dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, 0);
 
         dmhash_t ik_constraint_id = dmScript::CheckHashOrString(L, 2);
 
@@ -735,7 +735,7 @@ namespace dmSpine
 
         SpineModelComponent* component = 0;
         dmMessage::URL receiver;
-        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
+        dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
 
         dmhash_t name_hash = dmScript::CheckHashOrString(L, 2);
         Vectormath::Aos::Vector4* value = dmScript::CheckVector4(L, 3);
@@ -781,7 +781,7 @@ namespace dmSpine
 
         SpineModelComponent* component = 0;
         dmMessage::URL receiver;
-        dmGameObject::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
+        dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
 
         dmhash_t name_hash = dmScript::CheckHashOrString(L, 2);
 

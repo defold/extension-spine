@@ -265,7 +265,7 @@ namespace dmSpine
     static void* CompSpineModelGetComponent(const dmGameObject::ComponentGetParams& params)
     {
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
-        uint32_t index = (uint32_t)*params.m_UserData;
+        uint32_t index = (uint32_t) params.m_UserData;
         return GetComponentFromIndex(world, index);
     }
 
