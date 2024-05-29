@@ -1000,7 +1000,6 @@
       :label "Spine Scene"
       :node-type SpineSceneNode
       :ddf-type spine-plugin-spinescene-cls
-      :read-defaults false
       :sanitize-fn sanitize-spine-scene
       :load-fn load-spine-scene
       :icon spine-scene-icon
@@ -1012,7 +1011,6 @@
       :label "Spine Model"
       :node-type SpineModelNode
       :ddf-type spine-plugin-spinemodel-cls
-      :read-defaults false
       :load-fn load-spine-model
       :icon spine-model-icon
       :view-types [:scene :text]
