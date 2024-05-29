@@ -24,6 +24,7 @@ extern "C" {
 #include <spine/RegionAttachment.h>
 #include <spine/MeshAttachment.h>
 #include <spine/SkeletonBounds.h>
+#include <spine/SkeletonClipping.h>
 
 } // extern C
 
@@ -79,6 +80,7 @@ namespace dmSpine
         dmArray<dmSpine::SpineVertex>       m_VertexBufferData;
         dmArray<SpineDrawDesc>              m_DrawDescBuffer;
         dmResource::HFactory                m_Factory;
+        spSkeletonClipping*                 m_SkeletonClipper;
     };
 
     struct SpineModelContext
@@ -122,6 +124,8 @@ namespace dmSpine
 
         dmResource::RegisterResourceReloadedCallback(context->m_Factory, ResourceReloadedCallback, world);
 
+        world->m_SkeletonClipper = spSkeletonClipping_create();
+
         return dmGameObject::CREATE_RESULT_OK;
     }
 
@@ -132,6 +136,8 @@ namespace dmSpine
         dmGraphics::DeleteVertexBuffer(world->m_VertexBuffer);
 
         dmResource::UnregisterResourceReloadedCallback(((SpineModelContext*)params.m_Context)->m_Factory, ResourceReloadedCallback, world);
+
+        spSkeletonClipping_dispose(world->m_SkeletonClipper);
 
         delete world;
 
@@ -259,7 +265,7 @@ namespace dmSpine
     static void* CompSpineModelGetComponent(const dmGameObject::ComponentGetParams& params)
     {
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
-        uint32_t index = (uint32_t)*params.m_UserData;
+        uint32_t index = (uint32_t) params.m_UserData;
         return GetComponentFromIndex(world, index);
     }
 
@@ -880,7 +886,7 @@ namespace dmSpine
         {
             component_index = (uint32_t)buf[*i].m_UserData;
             const SpineModelComponent* component = (const SpineModelComponent*) components[component_index];
-            vertex_count += dmSpine::CalcVertexBufferSize(component->m_SkeletonInstance, 0);
+            vertex_count += dmSpine::CalcVertexBufferSize(component->m_SkeletonInstance, world->m_SkeletonClipper, 0);
 
             if (use_inherit_blend)
             {
@@ -903,7 +909,7 @@ namespace dmSpine
         {
             component_index = (uint32_t)buf[*i].m_UserData;
             const SpineModelComponent* component = (const SpineModelComponent*) components[component_index];
-            vertex_count += dmSpine::GenerateVertexData(world->m_VertexBufferData, component->m_SkeletonInstance, component->m_World, use_inherit_blend ? &world->m_DrawDescBuffer : 0);
+            vertex_count += dmSpine::GenerateVertexData(world->m_VertexBufferData, component->m_SkeletonInstance, world->m_SkeletonClipper, component->m_World, use_inherit_blend ? &world->m_DrawDescBuffer : 0);
         }
 
         dmGraphics::HTexture texture = resource->m_SpineScene->m_TextureSet->m_Texture->m_Texture; // spine - texture set resource - texture resource - texture
@@ -912,20 +918,23 @@ namespace dmSpine
         if (use_inherit_blend)
         {
             uint32_t draw_desc_count = world->m_DrawDescBuffer.Size();
-            dmArray<SpineDrawDesc> scratch_draw_descs;
-            MergeDrawDescs(world->m_DrawDescBuffer, scratch_draw_descs);
-
-            uint32_t merged_size = scratch_draw_descs.Size();
-            uint32_t ro_count_begin = world->m_RenderObjects.Size();
-            world->m_RenderObjects.SetSize(world->m_RenderObjects.Size() + merged_size);
-
-            for (int i = 0; i < merged_size; ++i)
+            if (draw_desc_count > 0)
             {
-                dmRender::RenderObject& ro = world->m_RenderObjects[ro_count_begin + i];
-                FillRenderObject(world, render_context, ro, first->m_RenderConstants, texture, material,
-                    SpineBlendModeToRenderBlendMode((spBlendMode) scratch_draw_descs[i].m_BlendMode),
-                    scratch_draw_descs[i].m_VertexStart,
-                    scratch_draw_descs[i].m_VertexCount);
+                dmArray<SpineDrawDesc> scratch_draw_descs;
+                MergeDrawDescs(world->m_DrawDescBuffer, scratch_draw_descs);
+
+                uint32_t merged_size = scratch_draw_descs.Size();
+                uint32_t ro_count_begin = world->m_RenderObjects.Size();
+                world->m_RenderObjects.SetSize(world->m_RenderObjects.Size() + merged_size);
+
+                for (int i = 0; i < merged_size; ++i)
+                {
+                    dmRender::RenderObject& ro = world->m_RenderObjects[ro_count_begin + i];
+                    FillRenderObject(world, render_context, ro, first->m_RenderConstants, texture, material,
+                        SpineBlendModeToRenderBlendMode((spBlendMode) scratch_draw_descs[i].m_BlendMode),
+                        scratch_draw_descs[i].m_VertexStart,
+                        scratch_draw_descs[i].m_VertexCount);
+                }
             }
         }
         else
