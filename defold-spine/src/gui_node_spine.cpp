@@ -13,6 +13,7 @@
 
 #include <spine/extension.h>
 #include <spine/Skeleton.h>
+#include <spine/SkeletonClipping.h>
 #include <spine/Slot.h>
 #include <spine/AnimationState.h>
 #include <spine/Attachment.h>
@@ -36,7 +37,7 @@ static const dmhash_t SPINE_SCENE_SUFFIX        = dmHashString64(".spinescenec")
 
 struct GuiNodeTypeContext
 {
-    // In case we need something later. Here for visibility
+    spSkeletonClipping* m_SkeletonClipper;
 };
 
 struct InternalGuiNode
@@ -821,7 +822,7 @@ static void GuiSetNodeDesc(const dmGameSystem::CompGuiNodeContext* ctx, const dm
 
 static void GuiGetVertices(const dmGameSystem::CustomNodeCtx* nodectx, uint32_t decl_size, dmBuffer::StreamDeclaration* decl, uint32_t struct_size, dmArray<uint8_t>& vertices)
 {
-    InternalGuiNode* node = (InternalGuiNode*)(nodectx->m_NodeData);
+    InternalGuiNode* node = (InternalGuiNode*) nodectx->m_NodeData;
 
     if (sizeof(dmSpine::SpineVertex) != struct_size)
     {
@@ -829,12 +830,14 @@ static void GuiGetVertices(const dmGameSystem::CustomNodeCtx* nodectx, uint32_t 
         return;
     }
 
+    GuiNodeTypeContext* type_context = (GuiNodeTypeContext*) nodectx->m_TypeContext;
+
     //TODO: Verify the vertex declaration
     // In theory, we can check the vertex format to see which components to output
     // We currently know it's xyz-uv-rgba
     dmArray<dmSpine::SpineVertex>* vbdata = (dmArray<dmSpine::SpineVertex>*)&vertices;
 
-    uint32_t num_vertices = dmSpine::GenerateVertexData(*vbdata, node->m_SkeletonInstance, node->m_Transform, 0);
+    uint32_t num_vertices = dmSpine::GenerateVertexData(*vbdata, node->m_SkeletonInstance, type_context->m_SkeletonClipper, node->m_Transform, 0);
     (void)num_vertices;
 }
 
@@ -891,6 +894,9 @@ static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
 static dmGameObject::Result GuiNodeTypeSpineCreate(const dmGameSystem::CompGuiNodeTypeCtx* ctx, dmGameSystem::CompGuiNodeType* type)
 {
     GuiNodeTypeContext* type_context = new GuiNodeTypeContext;
+
+    type_context->m_SkeletonClipper = spSkeletonClipping_create();
+
     dmGameSystem::CompGuiNodeTypeSetContext(type, type_context);
 
     dmGameSystem::CompGuiNodeTypeSetCreateFn(type, GuiCreate);
@@ -909,6 +915,8 @@ static dmGameObject::Result GuiNodeTypeSpineCreate(const dmGameSystem::CompGuiNo
 static dmGameObject::Result GuiNodeTypeSpineDestroy(const dmGameSystem::CompGuiNodeTypeCtx* ctx, dmGameSystem::CompGuiNodeType* type)
 {
     GuiNodeTypeContext* type_context = (GuiNodeTypeContext*)dmGameSystem::CompGuiNodeTypeGetContext(type);
+    spSkeletonClipping_dispose(type_context->m_SkeletonClipper);
+
     delete type_context;
     return dmGameObject::RESULT_OK;
 }
