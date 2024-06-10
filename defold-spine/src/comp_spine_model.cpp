@@ -41,7 +41,7 @@ extern "C" {
 #include <dmsdk/gameobject/component.h>
 #include <dmsdk/gamesys/property.h>
 #include <dmsdk/gamesys/resources/res_textureset.h>
-#include <dmsdk/resource/resource.h>
+#include <dmsdk/resource/resource.hpp>
 #include <gameobject/gameobject_ddf.h>
 
 #include <common/vertices.h>
@@ -67,7 +67,7 @@ namespace dmSpine
 
     static const uint32_t INVALID_ANIMATION_INDEX = 0xFFFFFFFF;
 
-    static void ResourceReloadedCallback(const dmResource::ResourceReloadedParams& params);
+    static void ResourceReloadedCallback(const dmResource::ResourceReloadedParams* params);
     static void DestroyComponent(struct SpineModelWorld* world, uint32_t index);
 
     struct SpineModelWorld
@@ -1314,7 +1314,7 @@ namespace dmSpine
         return dmGameSystem::SetMaterialConstant(GetMaterial(component), params.m_PropertyId, params.m_Value, params.m_Options.m_Index, CompSpineModelSetConstantCallback, component);
     }
 
-    static void ResourceReloadedCallback(const dmResource::ResourceReloadedParams& params)
+    static void ResourceReloadedCallback(const dmResource::ResourceReloadedParams* params)
     {
         // E.g. if the Spine json or atlas has changed, we may need to update things here
 
