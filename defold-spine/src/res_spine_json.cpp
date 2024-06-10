@@ -1,5 +1,6 @@
 #include "res_spine_json.h"
 #include <memory.h>
+#include <malloc.h>
 #include <string.h>
 #include <stdio.h>
 
