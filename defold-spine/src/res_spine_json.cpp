@@ -1,8 +1,13 @@
 #include "res_spine_json.h"
 #include <memory.h>
-#include <malloc.h>
 #include <string.h>
 #include <stdio.h>
+
+#ifdef __MACH__
+    #include <malloc/malloc.h>
+#else
+    #include <malloc.h>
+#endif
 
 #include <dmsdk/dlib/log.h>
 #include <dmsdk/resource/resource.h>
