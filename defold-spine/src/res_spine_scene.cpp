@@ -6,7 +6,7 @@
 
 #include <dmsdk/dlib/log.h>
 #include <dmsdk/dlib/math.h>
-#include <dmsdk/resource/resource.hpp>
+#include <dmsdk/resource/resource.h>
 
 #include <spine/SkeletonJson.h>
 #include <spine/AnimationStateData.h>

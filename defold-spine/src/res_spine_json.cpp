@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #include <dmsdk/dlib/log.h>
-#include <dmsdk/resource/resource.hpp>
+#include <dmsdk/resource/resource.h>
 
 namespace dmSpine
 {
