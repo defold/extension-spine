@@ -133,71 +133,71 @@ namespace dmSpine
         delete[] resource->m_Regions;
     }
 
-    static dmResource::Result ResourceTypeScene_Preload(const dmResource::ResourcePreloadParams& params)
+    static dmResource::Result ResourceTypeScene_Preload(const dmResource::ResourcePreloadParams* params)
     {
         dmGameSystemDDF::SpineSceneDesc* ddf;
-        dmDDF::Result e = dmDDF::LoadMessage(params.m_Buffer, params.m_BufferSize, &dmGameSystemDDF_SpineSceneDesc_DESCRIPTOR, (void**) &ddf);
+        dmDDF::Result e = dmDDF::LoadMessage(params->m_Buffer, params->m_BufferSize, &dmGameSystemDDF_SpineSceneDesc_DESCRIPTOR, (void**) &ddf);
         if (e != dmDDF::RESULT_OK)
         {
             return dmResource::RESULT_DDF_ERROR;
         }
 
-        dmResource::PreloadHint(params.m_HintInfo, ddf->m_SpineJson);
-        dmResource::PreloadHint(params.m_HintInfo, ddf->m_Atlas);
+        dmResource::PreloadHint(params->m_HintInfo, ddf->m_SpineJson);
+        dmResource::PreloadHint(params->m_HintInfo, ddf->m_Atlas);
 
-        *params.m_PreloadData = ddf;
+        *params->m_PreloadData = ddf;
         return dmResource::RESULT_OK;
     }
 
-    static dmResource::Result ResourceTypeScene_Create(const dmResource::ResourceCreateParams& params)
+    static dmResource::Result ResourceTypeScene_Create(const dmResource::ResourceCreateParams* params)
     {
         SpineSceneResource* scene_resource = new SpineSceneResource();
-        scene_resource->m_Ddf = (dmGameSystemDDF::SpineSceneDesc*) params.m_PreloadData;
-        dmResource::Result r = AcquireResources(params.m_Factory, scene_resource, params.m_Filename);
+        scene_resource->m_Ddf = (dmGameSystemDDF::SpineSceneDesc*) params->m_PreloadData;
+        dmResource::Result r = AcquireResources(params->m_Factory, scene_resource, params->m_Filename);
         if (r == dmResource::RESULT_OK)
         {
-            params.m_Resource->m_Resource = (void*) scene_resource;
+            dmResource::SetResource(params->m_Resource, scene_resource);
         }
         else
         {
-            ReleaseResources(params.m_Factory, scene_resource);
+            ReleaseResources(params->m_Factory, scene_resource);
             delete scene_resource;
         }
         return r;
     }
 
-    static dmResource::Result ResourceTypeScene_Destroy(const dmResource::ResourceDestroyParams& params)
+    static dmResource::Result ResourceTypeScene_Destroy(const dmResource::ResourceDestroyParams* params)
     {
-        SpineSceneResource* scene_resource = (SpineSceneResource*)params.m_Resource->m_Resource;
-        ReleaseResources(params.m_Factory, scene_resource);
+        SpineSceneResource* scene_resource = (SpineSceneResource*)dmResource::GetResource(params->m_Resource);
+        ReleaseResources(params->m_Factory, scene_resource);
         delete scene_resource;
         return dmResource::RESULT_OK;
     }
 
-    static dmResource::Result ResourceTypeScene_Recreate(const dmResource::ResourceRecreateParams& params)
+    static dmResource::Result ResourceTypeScene_Recreate(const dmResource::ResourceRecreateParams* params)
     {
         dmGameSystemDDF::SpineSceneDesc* ddf;
-        dmDDF::Result e = dmDDF::LoadMessage(params.m_Buffer, params.m_BufferSize, &dmGameSystemDDF_SpineSceneDesc_DESCRIPTOR, (void**) &ddf);
+        dmDDF::Result e = dmDDF::LoadMessage(params->m_Buffer, params->m_BufferSize, &dmGameSystemDDF_SpineSceneDesc_DESCRIPTOR, (void**) &ddf);
         if (e != dmDDF::RESULT_OK)
         {
             return dmResource::RESULT_DDF_ERROR;
         }
-        SpineSceneResource* resource = (SpineSceneResource*)params.m_Resource->m_Resource;
-        ReleaseResources(params.m_Factory, resource);
+        SpineSceneResource* resource = (SpineSceneResource*)dmResource::GetResource(params->m_Resource);
+        ReleaseResources(params->m_Factory, resource);
         resource->m_Ddf = ddf;
-        return AcquireResources(params.m_Factory, resource, params.m_Filename);
+        return AcquireResources(params->m_Factory, resource, params->m_Filename);
     }
 
-    static dmResource::Result ResourceTypeScene_Register(dmResource::ResourceTypeRegisterContext& ctx)
+    static ResourceResult ResourceTypeScene_Register(HResourceTypeContext ctx, HResourceType type)
     {
-        return dmResource::RegisterType(ctx.m_Factory,
-                                           ctx.m_Name,
-                                           0, // context
-                                           ResourceTypeScene_Preload,
-                                           ResourceTypeScene_Create,
-                                           0, // post create
-                                           ResourceTypeScene_Destroy,
-                                           ResourceTypeScene_Recreate);
+        return (ResourceResult)dmResource::SetupType(ctx,
+                                                   type,
+                                                   0, // context
+                                                   ResourceTypeScene_Preload,
+                                                   ResourceTypeScene_Create,
+                                                   0, // post create
+                                                   ResourceTypeScene_Destroy,
+                                                   ResourceTypeScene_Recreate);
 
     }
 }
