@@ -614,7 +614,7 @@ namespace dmSpine
         component->m_AnimationTracks.SetCapacity(8);
 
         spSkeleton_setToSetupPose(component->m_SkeletonInstance);
-        spSkeleton_updateWorldTransform(component->m_SkeletonInstance, SP_PHYSICS_UPDATE));
+        spSkeleton_updateWorldTransform(component->m_SkeletonInstance, SP_PHYSICS_UPDATE);
 
         // Create GO<->bone representation
         // We need to make sure that bone GOs are created before we start the default animation.
