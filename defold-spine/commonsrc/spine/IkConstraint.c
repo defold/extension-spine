@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated September 24, 2021. Replaces all prior versions.
+ * Last updated July 28, 2023. Replaces all prior versions.
  *
- * Copyright (c) 2013-2021, Esoteric Software LLC
+ * Copyright (c) 2013-2023, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software
- * or otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software or
+ * otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,8 +23,8 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
+ * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
 #include <float.h>
@@ -36,7 +36,7 @@ spIkConstraint *spIkConstraint_create(spIkConstraintData *data, const spSkeleton
 	int i;
 
 	spIkConstraint *self = NEW(spIkConstraint);
-	CONST_CAST(spIkConstraintData *, self->data) = data;
+	self->data = data;
 	self->bendDirection = data->bendDirection;
 	self->compress = data->compress;
 	self->stretch = data->stretch;
@@ -71,6 +71,14 @@ void spIkConstraint_update(spIkConstraint *self) {
 	}
 }
 
+void spIkConstraint_setToSetupPose(spIkConstraint *self) {
+	self->bendDirection = self->data->bendDirection;
+	self->compress = self->data->compress;
+	self->stretch = self->data->stretch;
+	self->softness = self->data->softness;
+	self->mix = self->data->mix;
+}
+
 void spIkConstraint_apply1(spBone *bone, float targetX, float targetY, int /*boolean*/ compress, int /*boolean*/ stretch,
 						   int /*boolean*/ uniform, float alpha) {
 	spBone *p = bone->parent;
@@ -78,12 +86,12 @@ void spIkConstraint_apply1(spBone *bone, float targetX, float targetY, int /*boo
 	float rotationIK = -bone->ashearX - bone->arotation;
 	float tx = 0, ty = 0, sx = 0, sy = 0, s = 0, sa = 0, sc = 0;
 
-	switch (bone->data->transformMode) {
-		case SP_TRANSFORMMODE_ONLYTRANSLATION:
-			tx = targetX - bone->worldX;
-			ty = targetY - bone->worldY;
+	switch (bone->data->inherit) {
+		case SP_INHERIT_ONLYTRANSLATION:
+			tx = (targetX - bone->worldX) * SIGNUM(bone->skeleton->scaleX);
+			ty = (targetY - bone->worldY) * SIGNUM(bone->skeleton->scaleY);
 			break;
-		case SP_TRANSFORMMODE_NOROTATIONORREFLECTION: {
+		case SP_INHERIT_NOROTATIONORREFLECTION: {
 			s = ABS(pa * pd - pb * pc) / MAX(0.0001f, pa * pa + pc * pc);
 			sa = pa / bone->skeleton->scaleX;
 			sc = pc / bone->skeleton->scaleY;
@@ -113,9 +121,9 @@ void spIkConstraint_apply1(spBone *bone, float targetX, float targetY, int /*boo
 	sy = bone->ascaleY;
 	if (compress || stretch) {
 		float b, dd;
-		switch (bone->data->transformMode) {
-			case SP_TRANSFORMMODE_NOSCALE:
-			case SP_TRANSFORMMODE_NOSCALEORREFLECTION:
+		switch (bone->data->inherit) {
+			case SP_INHERIT_NOSCALE:
+			case SP_INHERIT_NOSCALEORREFLECTION:
 				tx = targetX - bone->worldX;
 				ty = targetY - bone->worldY;
 			default:;
@@ -246,8 +254,9 @@ void spIkConstraint_apply2(spBone *parent, spBone *child, float targetX, float t
 			r0 = q / c2;
 			r1 = c0 / q;
 			r = ABS(r0) < ABS(r1) ? r0 : r1;
-			if (r * r <= dd) {
-				y = SQRT(dd - r * r) * bendDir;
+			y = dd - r * r;
+			if (y > 0) {
+				y = SQRT(y) * bendDir;
 				a1 = ta - ATAN2(y, r);
 				a2 = ATAN2(y / psy, (r - l1) / psx);
 				goto break_outer;

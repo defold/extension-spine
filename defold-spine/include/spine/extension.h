@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated September 24, 2021. Replaces all prior versions.
+ * Last updated July 28, 2023. Replaces all prior versions.
  *
- * Copyright (c) 2013-2021, Esoteric Software LLC
+ * Copyright (c) 2013-2023, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software
- * or otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software or
+ * otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,8 +23,8 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
+ * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
 /*
@@ -81,9 +81,6 @@
 /* Cast to a sub class. Not type safe, use with care. */
 #define SUB_CAST(TYPE, VALUE) ((TYPE*)VALUE)
 
-/* Casts away const. Can be used as an lvalue. Not type safe, use with care. */
-#define CONST_CAST(TYPE, VALUE) (*(TYPE*)&VALUE)
-
 /* Gets the vtable for the specified type. Not type safe, use with care. */
 #define VTABLE(TYPE, VALUE) ((_##TYPE##Vtable*)((TYPE*)VALUE)->vtable)
 
@@ -91,15 +88,17 @@
 #define FREE(VALUE) _spFree((void*)VALUE)
 
 /* Allocates a new char[], assigns it to TO, and copies FROM to it. Can be used on const types. */
-#define MALLOC_STR(TO, FROM) strcpy(CONST_CAST(char*, TO) = (char*)MALLOC(char, strlen(FROM) + 1), FROM)
+#define MALLOC_STR(TO, FROM) strcpy(TO = (char*)MALLOC(char, strlen(FROM) + 1), FROM)
 
 #define PI 3.1415926535897932385f
 #define PI2 (PI * 2)
+#define INV_PI2 (1 / PI2)
 #define DEG_RAD (PI / 180)
 #define RAD_DEG (180 / PI)
 
 #define ABS(A) ((A) < 0? -(A): (A))
 #define SIGNUM(A) ((A) < 0? -1.0f: (A) > 0 ? 1.0f : 0.0f)
+#define CEIL(a) ((float)ceil(a))
 
 #ifdef __STDC_VERSION__
 #define FMOD(A,B) fmodf(A, B)
@@ -130,6 +129,8 @@
 #ifndef MAX
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 #endif
+
+#define ATAN2DEG(A, B)  ((float)ATAN2(A, B) * RAD_DEG)
 
 #define UNUSED(x) (void)(x)
 
@@ -175,7 +176,7 @@ void *_spRealloc(void *ptr, size_t size);
 
 void _spFree(void *ptr);
 
-float _spRandom();
+float _spRandom(void);
 
 SP_API void _spSetMalloc(void *(*_malloc)(size_t size));
 
@@ -185,7 +186,7 @@ SP_API void _spSetRealloc(void *(*_realloc)(void *ptr, size_t size));
 
 SP_API void _spSetFree(void (*_free)(void *ptr));
 
-SP_API void _spSetRandom(float (*_random)());
+SP_API void _spSetRandom(float (*_random)(void));
 
 char *_spReadFile(const char *path, int *length);
 

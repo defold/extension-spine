@@ -289,7 +289,7 @@ extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* json, size_t json_size,
     }
 
     spSkeleton_setToSetupPose(file->m_SkeletonInstance);
-    spSkeleton_updateWorldTransform(file->m_SkeletonInstance);
+    spSkeleton_updateWorldTransform(file->m_SkeletonInstance, SP_PHYSICS_POSE);
 
     file->m_Path = strdup(path);
 
@@ -481,7 +481,8 @@ static void UpdateVertices(SpineFile* file, float dt)
 
     spAnimationState_update(file->m_AnimationStateInstance, dt);
     spAnimationState_apply(file->m_AnimationStateInstance, file->m_SkeletonInstance);
-    spSkeleton_updateWorldTransform(file->m_SkeletonInstance);
+    spSkeleton_update(file->m_SkeletonInstance, dt);
+    spSkeleton_updateWorldTransform(file->m_SkeletonInstance, SP_PHYSICS_UPDATE);
 
     UpdateRenderData(file); // Update the draw call list
 }

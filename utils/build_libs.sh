@@ -62,7 +62,7 @@ function copy_results() {
         copyfile $path $target_dir
     done
     for path in ./build/$platform_ne/*.lib; do
-        copyfile $path $target_dir;;
+        copyfile $path $target_dir
     done
 }
 
@@ -80,7 +80,7 @@ for platform in $PLATFORMS; do
     esac
 
     TARGET_LIB_DIR=${PROJECT_LIB_DIR}/${platform_ne}
-    rm -f ${TARGET_LIB_DIR}
+    rm -rf ${TARGET_LIB_DIR}
     mkdir -p ${TARGET_LIB_DIR}
 
     # make sure it doesn't pick up the project's app manifest
