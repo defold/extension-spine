@@ -3,6 +3,12 @@
 #include <string.h>
 #include <stdio.h>
 
+#ifdef __MACH__
+    #include <malloc/malloc.h>
+#else
+    #include <malloc.h>
+#endif
+
 #include <dmsdk/dlib/log.h>
 #include <dmsdk/resource/resource.h>
 
@@ -31,35 +37,35 @@ namespace dmSpine
         delete resource;
     }
 
-    static dmResource::Result ResourceTypeJson_Create(const dmResource::ResourceCreateParams& params)
+    static dmResource::Result ResourceTypeJson_Create(const dmResource::ResourceCreateParams* params)
     {
-        SpineJsonResource* resource = CreateResource(params.m_Buffer, params.m_BufferSize);
+        SpineJsonResource* resource = CreateResource(params->m_Buffer, params->m_BufferSize);
         if (!resource)
         {
             return dmResource::RESULT_OUT_OF_RESOURCES;
         }
 
-        params.m_Resource->m_Resource = (void*)resource;
-        params.m_Resource->m_ResourceSize = resource->m_Length;
+        dmResource::SetResource(params->m_Resource, resource);
+        dmResource::SetResourceSize(params->m_Resource, resource->m_Length);
         return dmResource::RESULT_OK;
     }
 
-    static dmResource::Result ResourceTypeJson_Destroy(const dmResource::ResourceDestroyParams& params)
+    static dmResource::Result ResourceTypeJson_Destroy(const dmResource::ResourceDestroyParams* params)
     {
-        SpineJsonResource* resource = (SpineJsonResource*)params.m_Resource->m_Resource;
+        SpineJsonResource* resource = (SpineJsonResource*)dmResource::GetResource(params->m_Resource);
         DestroyResource(resource);
         return dmResource::RESULT_OK;
     }
 
-    static dmResource::Result ResourceTypeJson_Recreate(const dmResource::ResourceRecreateParams& params)
+    static dmResource::Result ResourceTypeJson_Recreate(const dmResource::ResourceRecreateParams* params)
     {
-        SpineJsonResource* new_resource = CreateResource(params.m_Buffer, params.m_BufferSize);
+        SpineJsonResource* new_resource = CreateResource(params->m_Buffer, params->m_BufferSize);
         if (!new_resource)
         {
             return dmResource::RESULT_OUT_OF_RESOURCES;
         }
 
-        SpineJsonResource* old_resource = (SpineJsonResource*) params.m_Resource->m_Resource;
+        SpineJsonResource* old_resource = (SpineJsonResource*) dmResource::GetResource(params->m_Resource);
 
         // swap the internals
         // we wish to keep the "old" resource, since that pointer might be shared in the system
@@ -70,20 +76,20 @@ namespace dmSpine
         new_resource->m_Json = tmp;
         DestroyResource(new_resource);
 
-        params.m_Resource->m_ResourceSize = old_resource->m_Length;
+        dmResource::SetResourceSize(params->m_Resource, old_resource->m_Length);
         return dmResource::RESULT_OK;
     }
 
-    static dmResource::Result ResourceTypeJson_Register(dmResource::ResourceTypeRegisterContext& ctx)
+    static ResourceResult ResourceTypeJson_Register(HResourceTypeContext ctx, HResourceType type)
     {
-        return dmResource::RegisterType(ctx.m_Factory,
-                                           ctx.m_Name,
-                                           0, // context
-                                           0, // preload
-                                           ResourceTypeJson_Create,
-                                           0, // post create
-                                           ResourceTypeJson_Destroy,
-                                           ResourceTypeJson_Recreate);
+        return (ResourceResult)dmResource::SetupType(ctx,
+                                                       type,
+                                                       0, // context
+                                                       0, // preload
+                                                       ResourceTypeJson_Create,
+                                                       0, // post create
+                                                       ResourceTypeJson_Destroy,
+                                                       ResourceTypeJson_Recreate);
 
     }
 }
