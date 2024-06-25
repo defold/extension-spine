@@ -15,16 +15,16 @@
 
 extern "C" {
 
-#include <spine/extension.h>
-#include <spine/Bone.h>
-#include <spine/Skeleton.h>
-#include <spine/Slot.h>
 #include <spine/AnimationState.h>
 #include <spine/Attachment.h>
-#include <spine/RegionAttachment.h>
+#include <spine/Bone.h>
 #include <spine/MeshAttachment.h>
+#include <spine/RegionAttachment.h>
+#include <spine/Skeleton.h>
 #include <spine/SkeletonBounds.h>
 #include <spine/SkeletonClipping.h>
+#include <spine/Slot.h>
+#include <spine/extension.h>
 
 } // extern C
 
@@ -614,7 +614,7 @@ namespace dmSpine
         component->m_AnimationTracks.SetCapacity(8);
 
         spSkeleton_setToSetupPose(component->m_SkeletonInstance);
-        spSkeleton_updateWorldTransform(component->m_SkeletonInstance);
+        spSkeleton_updateWorldTransform(component->m_SkeletonInstance, SP_PHYSICS_UPDATE);
 
         // Create GO<->bone representation
         // We need to make sure that bone GOs are created before we start the default animation.
@@ -770,7 +770,8 @@ namespace dmSpine
 
             ApplyIKTargets(&component);
 
-            spSkeleton_updateWorldTransform(component.m_SkeletonInstance);
+            spSkeleton_update(component.m_SkeletonInstance, dt);
+            spSkeleton_updateWorldTransform(component.m_SkeletonInstance, SP_PHYSICS_UPDATE);
 
             // Update the game world objects
             UpdateBones(&component);

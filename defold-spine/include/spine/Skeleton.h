@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated September 24, 2021. Replaces all prior versions.
+ * Last updated July 28, 2023. Replaces all prior versions.
  *
- * Copyright (c) 2013-2021, Esoteric Software LLC
+ * Copyright (c) 2013-2023, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software
- * or otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software or
+ * otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,8 +23,8 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
+ * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
 #ifndef SPINE_SKELETON_H_
@@ -37,17 +37,18 @@
 #include <spine/IkConstraint.h>
 #include <spine/TransformConstraint.h>
 #include <spine/PathConstraint.h>
+#include <spine/PhysicsConstraint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 typedef struct spSkeleton {
-	spSkeletonData *const data;
+	spSkeletonData *data;
 
 	int bonesCount;
 	spBone **bones;
-	spBone *const root;
+	spBone *root;
 
 	int slotsCount;
 	spSlot **slots;
@@ -62,10 +63,15 @@ typedef struct spSkeleton {
 	int pathConstraintsCount;
 	spPathConstraint **pathConstraints;
 
-	spSkin *const skin;
+    int physicsConstraintsCount;
+    spPhysicsConstraint **physicsConstraints;
+
+	spSkin *skin;
 	spColor color;
 	float scaleX, scaleY;
 	float x, y;
+
+    float time;
 } spSkeleton;
 
 SP_API spSkeleton *spSkeleton_create(spSkeletonData *data);
@@ -76,7 +82,9 @@ SP_API void spSkeleton_dispose(spSkeleton *self);
  * are added or removed. */
 SP_API void spSkeleton_updateCache(spSkeleton *self);
 
-SP_API void spSkeleton_updateWorldTransform(const spSkeleton *self);
+SP_API void spSkeleton_updateWorldTransform(const spSkeleton *self, spPhysics physics);
+
+SP_API void spSkeleton_update(spSkeleton *self, float delta);
 
 /* Sets the bones, constraints, and slots to their setup pose values. */
 SP_API void spSkeleton_setToSetupPose(const spSkeleton *self);
@@ -118,6 +126,13 @@ SP_API spTransformConstraint *spSkeleton_findTransformConstraint(const spSkeleto
 
 /* Returns 0 if the path constraint was not found. */
 SP_API spPathConstraint *spSkeleton_findPathConstraint(const spSkeleton *self, const char *constraintName);
+
+/* Returns 0 if the physics constraint was not found. */
+SP_API spPhysicsConstraint *spSkeleton_findPhysicsConstraint(const spSkeleton *self, const char *constraintName);
+
+SP_API void spSkeleton_physicsTranslate(spSkeleton *self, float x, float y);
+
+SP_API void spSkeleton_physicsRotate(spSkeleton *self, float x, float y, float degrees);
 
 #ifdef __cplusplus
 }

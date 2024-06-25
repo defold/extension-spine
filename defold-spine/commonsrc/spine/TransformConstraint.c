@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated September 24, 2021. Replaces all prior versions.
+ * Last updated July 28, 2023. Replaces all prior versions.
  *
- * Copyright (c) 2013-2021, Esoteric Software LLC
+ * Copyright (c) 2013-2023, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software
- * or otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software or
+ * otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,8 +23,8 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
+ * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
 #include <spine/Skeleton.h>
@@ -34,7 +34,7 @@
 spTransformConstraint *spTransformConstraint_create(spTransformConstraintData *data, const spSkeleton *skeleton) {
 	int i;
 	spTransformConstraint *self = NEW(spTransformConstraint);
-	CONST_CAST(spTransformConstraintData *, self->data) = data;
+	self->data = data;
 	self->mixRotate = data->mixRotate;
 	self->mixX = data->mixX;
 	self->mixY = data->mixY;
@@ -42,7 +42,7 @@ spTransformConstraint *spTransformConstraint_create(spTransformConstraintData *d
 	self->mixScaleY = data->mixScaleY;
 	self->mixShearY = data->mixShearY;
 	self->bonesCount = data->bonesCount;
-	CONST_CAST(spBone **, self->bones) = MALLOC(spBone *, self->bonesCount);
+	self->bones = MALLOC(spBone *, self->bonesCount);
 	for (i = 0; i < self->bonesCount; ++i)
 		self->bones[i] = spSkeleton_findBone(skeleton, self->data->bones[i]->name);
 	self->target = spSkeleton_findBone(skeleton, self->data->target->name);
@@ -77,29 +77,29 @@ void _spTransformConstraint_applyAbsoluteWorld(spTransformConstraint *self) {
 			r *= mixRotate;
 			cosine = COS(r);
 			sine = SIN(r);
-			CONST_CAST(float, bone->a) = cosine * a - sine * c;
-			CONST_CAST(float, bone->b) = cosine * b - sine * d;
-			CONST_CAST(float, bone->c) = sine * a + cosine * c;
-			CONST_CAST(float, bone->d) = sine * b + cosine * d;
+			bone->a = cosine * a - sine * c;
+			bone->b = cosine * b - sine * d;
+			bone->c = sine * a + cosine * c;
+			bone->d = sine * b + cosine * d;
 		}
 
 		if (translate) {
 			spBone_localToWorld(target, self->data->offsetX, self->data->offsetY, &x, &y);
-			CONST_CAST(float, bone->worldX) += (x - bone->worldX) * mixX;
-			CONST_CAST(float, bone->worldY) += (y - bone->worldY) * mixY;
+			bone->worldX += (x - bone->worldX) * mixX;
+			bone->worldY += (y - bone->worldY) * mixY;
 		}
 
 		if (mixScaleX > 0) {
 			s = SQRT(bone->a * bone->a + bone->c * bone->c);
 			if (s != 0) s = (s + (SQRT(ta * ta + tc * tc) - s + self->data->offsetScaleX) * mixScaleX) / s;
-			CONST_CAST(float, bone->a) *= s;
-			CONST_CAST(float, bone->c) *= s;
+			bone->a *= s;
+			bone->c *= s;
 		}
 		if (mixScaleY != 0) {
 			s = SQRT(bone->b * bone->b + bone->d * bone->d);
 			if (s != 0) s = (s + (SQRT(tb * tb + td * td) - s + self->data->offsetScaleY) * mixScaleY) / s;
-			CONST_CAST(float, bone->b) *= s;
-			CONST_CAST(float, bone->d) *= s;
+			bone->b *= s;
+			bone->d *= s;
 		}
 
 		if (mixShearY > 0) {
@@ -111,8 +111,8 @@ void _spTransformConstraint_applyAbsoluteWorld(spTransformConstraint *self) {
 			else if (r < -PI)
 				r += PI2;
 			r = by + (r + offsetShearY) * mixShearY;
-			CONST_CAST(float, bone->b) = COS(r) * s;
-			CONST_CAST(float, bone->d) = SIN(r) * s;
+			bone->b = COS(r) * s;
+			bone->d = SIN(r) * s;
 		}
 		spBone_updateAppliedTransform(bone);
 	}
@@ -141,27 +141,27 @@ void _spTransformConstraint_applyRelativeWorld(spTransformConstraint *self) {
 			r *= mixRotate;
 			cosine = COS(r);
 			sine = SIN(r);
-			CONST_CAST(float, bone->a) = cosine * a - sine * c;
-			CONST_CAST(float, bone->b) = cosine * b - sine * d;
-			CONST_CAST(float, bone->c) = sine * a + cosine * c;
-			CONST_CAST(float, bone->d) = sine * b + cosine * d;
+			bone->a = cosine * a - sine * c;
+			bone->b = cosine * b - sine * d;
+			bone->c = sine * a + cosine * c;
+			bone->d = sine * b + cosine * d;
 		}
 
 		if (translate != 0) {
 			spBone_localToWorld(target, self->data->offsetX, self->data->offsetY, &x, &y);
-			CONST_CAST(float, bone->worldX) += (x * mixX);
-			CONST_CAST(float, bone->worldY) += (y * mixY);
+			bone->worldX += (x * mixX);
+			bone->worldY += (y * mixY);
 		}
 
 		if (mixScaleX != 0) {
 			s = (SQRT(ta * ta + tc * tc) - 1 + self->data->offsetScaleX) * mixScaleX + 1;
-			CONST_CAST(float, bone->a) *= s;
-			CONST_CAST(float, bone->c) *= s;
+			bone->a *= s;
+			bone->c *= s;
 		}
 		if (mixScaleY > 0) {
 			s = (SQRT(tb * tb + td * td) - 1 + self->data->offsetScaleY) * mixScaleY + 1;
-			CONST_CAST(float, bone->b) *= s;
-			CONST_CAST(float, bone->d) *= s;
+			bone->b *= s;
+			bone->d *= s;
 		}
 
 		if (mixShearY > 0) {
@@ -172,8 +172,8 @@ void _spTransformConstraint_applyRelativeWorld(spTransformConstraint *self) {
 			b = bone->b, d = bone->d;
 			r = ATAN2(d, b) + (r - PI / 2 + offsetShearY) * mixShearY;
 			s = SQRT(b * b + d * d);
-			CONST_CAST(float, bone->b) = COS(r) * s;
-			CONST_CAST(float, bone->d) = SIN(r) * s;
+			bone->b = COS(r) * s;
+			bone->d = SIN(r) * s;
 		}
 
 		spBone_updateAppliedTransform(bone);
@@ -193,7 +193,7 @@ void _spTransformConstraint_applyAbsoluteLocal(spTransformConstraint *self) {
 		rotation = bone->arotation;
 		if (mixRotate != 0) {
 			r = target->arotation - rotation + self->data->offsetRotation;
-			r -= (16384 - (int) (16384.499999999996 - r / 360)) * 360;
+			r -= CEIL(r / 360 - 0.5) * 360;
 			rotation += r * mixRotate;
 		}
 
@@ -210,7 +210,7 @@ void _spTransformConstraint_applyAbsoluteLocal(spTransformConstraint *self) {
 		shearY = bone->ashearY;
 		if (mixShearY != 0) {
 			r = target->ashearY - shearY + self->data->offsetShearY;
-			r -= (16384 - (int) (16384.499999999996 - r / 360)) * 360;
+			r -= CEIL(r / 360 - 0.5) * 360;
 			shearY += r * mixShearY;
 		}
 
@@ -256,4 +256,14 @@ void spTransformConstraint_update(spTransformConstraint *self) {
 		else
 			_spTransformConstraint_applyAbsoluteWorld(self);
 	}
+}
+
+void spTransformConstraint_setToSetupPose(spTransformConstraint *self) {
+	spTransformConstraintData *data = self->data;
+	self->mixRotate = data->mixRotate;
+	self->mixX = data->mixX;
+	self->mixY = data->mixY;
+	self->mixScaleX = data->mixScaleX;
+	self->mixScaleY = data->mixScaleY;
+	self->mixShearY = data->mixShearY;
 }
