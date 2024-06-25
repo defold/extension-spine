@@ -13,42 +13,35 @@
 (ns editor.spineext
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
-            [editor.protobuf :as protobuf]
             [dynamo.graph :as g]
-            [util.murmur :as murmur]
             [editor.build-target :as bt]
-            [editor.graph-util :as gu]
+            [editor.defold-project :as project]
             [editor.geom :as geom]
-            [editor.material :as material]
-            [editor.math :as math]
             [editor.gl :as gl]
+            [editor.gl.pass :as pass]
             [editor.gl.shader :as shader]
             [editor.gl.texture :as texture]
             [editor.gl.vertex :as vtx]
-            [editor.defold-project :as project]
-            [editor.resource :as resource]
-            [editor.resource-node :as resource-node]
-            [editor.scene-cache :as scene-cache] ; debug only
-            [editor.scene-picking :as scene-picking]
-            [editor.render :as render]
-            [editor.validation :as validation]
-            [editor.workspace :as workspace]
-            [editor.gl.pass :as pass]
-            [editor.types :as types]
+            [editor.graph-util :as gu]
+            [editor.material :as material]
+            [editor.math :as math]
             [editor.outline :as outline]
             [editor.properties :as properties]
-            [editor.rig :as rig])
+            [editor.protobuf :as protobuf]
+            [editor.render :as render]
+            [editor.resource :as resource]
+            [editor.resource-node :as resource-node]
+            [editor.types :as types]
+            [editor.validation :as validation]
+            [editor.workspace :as workspace]
+            [util.murmur :as murmur])
   (:import [com.dynamo.bob.textureset TextureSetGenerator$UVTransform]
-           [com.dynamo.bob.util BezierUtil RigUtil$Transform]
+           [com.jogamp.opengl GL GL2]
            [editor.gl.shader ShaderLifecycle]
            [editor.types AABB]
-           [com.jogamp.opengl GL GL2 GLContext]
-           [org.apache.commons.io IOUtils]
            [java.io IOException]
-           [java.util HashSet]
-           [java.net URL]
-           [javax.vecmath Matrix4d Vector3d Vector4d]))
-
+           [javax.vecmath Matrix4d Vector3d Vector4d]
+           [org.apache.commons.io IOUtils]))
 
 (set! *warn-on-reflection* true)
 
@@ -187,8 +180,9 @@
 
 
 (g/defnk produce-spine-scene-pb [_node-id spine-json atlas]
-  {:spine_json (resource/resource->proj-path spine-json)
-   :atlas (resource/resource->proj-path atlas)})
+  (protobuf/make-map-without-defaults spine-plugin-spinescene-cls
+    :spine-json (resource/resource->proj-path spine-json)
+    :atlas (resource/resource->proj-path atlas)))
 
 ;; (defn- transform-positions [^Matrix4d transform mesh]
 ;;   (let [p (Point3d.)]
@@ -466,11 +460,11 @@
   (inherits outline/OutlineNode)
   (property name g/Str (dynamic read-only? (g/constantly true)))
   (property position types/Vec3
-            (dynamic edit-type (g/constantly (properties/vec3->vec2 0.0)))
+            (dynamic edit-type (g/constantly {:type types/Vec2}))
             (dynamic read-only? (g/constantly true)))
   (property rotation g/Num (dynamic read-only? (g/constantly true)))
   (property scale types/Vec3
-            (dynamic edit-type (g/constantly (properties/vec3->vec2 1.0)))
+            (dynamic edit-type (g/constantly {:type types/Vec2}))
             (dynamic read-only? (g/constantly true)))
   (property length g/Num
             (dynamic read-only? (g/constantly true)))
@@ -509,7 +503,7 @@
         scale-y (.-scaleY spine-bone)
         length (.-length spine-bone)
         parent-graph-id (g/node-id->graph-id parent-id)
-        bone-tx-data (g/make-nodes parent-graph-id [bone [SpineBone :name name :position [x y 0] :rotation rotation :scale [scale-x scale-y 1.0] :length length]]
+        bone-tx-data (g/make-nodes parent-graph-id [bone [SpineBone :name name :position [x y protobuf/float-zero] :rotation rotation :scale [scale-x scale-y protobuf/float-one] :length length]]
                                    ; Hook this node into the parent's lists
                                    (g/connect bone :_node-id parent-id :nodes)
                                    (g/connect bone :node-outline parent-id :child-outlines)
@@ -636,20 +630,19 @@
       (handle-read-error error _node-id spine-json-resource))))
 
 (defn- sanitize-spine-scene [spine-scene-desc]
-  {:pre (map? spine-scene-desc)} ; Spine$SpineSceneDesc in map format.
+  {:pre [(map? spine-scene-desc)]} ; Spine$SpineSceneDesc in map format.
   (dissoc spine-scene-desc :sample-rate)) ; Deprecated field.
 
-(defn- load-spine-scene [project self resource spine]
-  (let [spine-resource (workspace/resolve-resource resource (:spine-json spine))
-        atlas          (workspace/resolve-resource resource (:atlas spine))
-        ; used for previewing a .spinescene as it doesn't have a material specified
-        material       (workspace/resolve-resource resource spine-material-path)]
+(defn- load-spine-scene [project self resource spine-scene-desc]
+  {:pre [(map? spine-scene-desc)]} ; Spine$SpineSceneDesc in map format.
+  (let [resolve-resource #(workspace/resolve-resource resource %)
+        default-material-resource (resolve-resource spine-material-path)]
     (concat
-     (g/connect project :default-tex-params self :default-tex-params)
-     (g/set-property self
-                     :spine-json spine-resource
-                     :atlas atlas
-                     :material material))))
+      (g/connect project :default-tex-params self :default-tex-params)
+      (g/set-property self :material default-material-resource)
+      (gu/set-properties-from-pb-map self spine-plugin-spinescene-cls spine-scene-desc
+        spine-json (resolve-resource :spine-json)
+        atlas (resolve-resource :atlas)))))
 
 ;; (defn- make-spine-skeleton-scene [_node-id aabb gpu-texture scene-structure]
 ;;   (let [scene {:node-id _node-id :aabb aabb}]
@@ -786,18 +779,15 @@
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
 (g/defnk produce-model-pb [spine-scene-resource blend-mode default-animation skin material-resource create-go-bones playback-rate offset]
-  (cond-> {:spine-scene (resource/resource->proj-path spine-scene-resource)
-           :default-animation default-animation
-           :skin skin
-           :material (resource/resource->proj-path material-resource)
-           :blend-mode blend-mode
-           :create-go-bones create-go-bones}
-
-           (not= 1.0 playback-rate)
-           (assoc :playback-rate playback-rate)
-
-           (not= 0.0 offset)
-           (assoc :offset offset)))
+  (protobuf/make-map-without-defaults spine-plugin-spinemodel-cls
+    :spine-scene (resource/resource->proj-path spine-scene-resource)
+    :default-animation default-animation
+    :skin skin
+    :material (resource/resource->proj-path material-resource)
+    :blend-mode blend-mode
+    :create-go-bones create-go-bones
+    :playback-rate playback-rate
+    :offset offset))
 
 (defn ->skin-choicebox [spine-skins]
   (properties/->choicebox (cons "" (remove (partial = "default") spine-skins))))
@@ -840,7 +830,7 @@
 (defn- build-spine-model [resource dep-resources user-data]
   (let [pb (:proto-msg user-data)
         pb (reduce #(assoc %1 (first %2) (second %2)) pb (map (fn [[label res]] [label (resource/proj-path (get dep-resources res))]) (:dep-resources user-data)))]
-    {:resource resource :content (protobuf/map->bytes (workspace/load-class! "com.dynamo.spine.proto.Spine$SpineModelDesc") pb)}))
+    {:resource resource :content (protobuf/map->bytes spine-plugin-spinemodel-cls pb)}))
 
 (g/defnk produce-model-build-targets [_node-id own-build-errors resource model-pb spine-scene-resource material-resource dep-build-targets]
   (g/precluding-errors own-build-errors
@@ -856,15 +846,20 @@
                                          :dep-resources dep-resources}
                              :deps dep-build-targets})])))
 
-(defn load-spine-model [project self resource spine]
-  (let [resolve-fn (partial workspace/resolve-resource resource)
-        spine (-> spine
-                  (update :spine-scene resolve-fn)
-                  (update :material resolve-fn))]
+(defn load-spine-model [project self resource spine-model-desc]
+  {:pre [(map? spine-model-desc)]} ; Spine$SpineModelDesc in map format.
+  (let [resolve-resource #(workspace/resolve-resource resource %)]
     (concat
-     (g/connect project :default-tex-params self :default-tex-params)
-     (for [[k v] spine]
-       (g/set-property self k v)))))
+      (g/connect project :default-tex-params self :default-tex-params)
+      (gu/set-properties-from-pb-map self spine-plugin-spinemodel-cls spine-model-desc
+        spine-scene (resolve-resource :spine-scene)
+        default-animation :default-animation
+        skin :skin
+        blend-mode :blend-mode
+        material (resolve-resource (:material :or spine-material-path))
+        create-go-bones :create-go-bones
+        playback-rate :playback-rate
+        offset :offset))))
 
 (defn- step-animation
   [state dt spine-data-handle animation skin]
@@ -925,8 +920,8 @@
                                   (validate-model-skin _node-id spine-scene skins skin)))
             (dynamic edit-type (g/fnk [skins] (->skin-choicebox skins))))
   (property create-go-bones g/Bool (default false))
-  (property playback-rate g/Num (default 1.0))
-  (property offset g/Num (default 0.0)
+  (property playback-rate g/Num (default (float 1.0)))
+  (property offset g/Num (default (float 0.0))
     (dynamic edit-type (g/constantly {:type :slider
                                       :min 0.0
                                       :max 1.0
@@ -1000,38 +995,36 @@
 
 (defn register-resource-types [workspace]
   (concat
-   (resource-node/register-ddf-resource-type workspace
-                                             :ext spine-scene-ext
-                                             :label "Spine Scene"
-                                             :node-type SpineSceneNode
-                                             :ddf-type spine-plugin-spinescene-cls
-                                             :sanitize-fn sanitize-spine-scene
-                                             :load-fn load-spine-scene
-                                             :icon spine-scene-icon
-                                             :view-types [:scene :text]
-                                             :view-opts {:scene {:grid true}}
-                                             :template "/defold-spine/editor/resources/templates/template.spinescene")
-   (resource-node/register-ddf-resource-type workspace
-                                             :ext spine-model-ext
-                                             :label "Spine Model"
-                                             :node-type SpineModelNode
-                                             :ddf-type spine-plugin-spinemodel-cls
-                                             :load-fn load-spine-model
-                                             :icon spine-model-icon
-                                             :view-types [:scene :text]
-                                             :view-opts {:scene {:grid true}}
-                                             :tags #{:component}
-                                             :tag-opts {:component {:transform-properties #{:position :rotation :scale}}}
-                                             :template "/defold-spine/editor/resources/templates/template.spinemodel")
-   (workspace/register-resource-type workspace
-                                     :ext spine-json-ext
-                                     :node-type SpineSceneJson
-                                     :textual? true
-                                     :load-fn load-spine-json
-                                     :icon spine-json-icon
-                                     :view-types [:default]
-                                     :tags #{:embeddable})))
-
+    (resource-node/register-ddf-resource-type workspace
+      :ext spine-scene-ext
+      :label "Spine Scene"
+      :node-type SpineSceneNode
+      :ddf-type spine-plugin-spinescene-cls
+      :sanitize-fn sanitize-spine-scene
+      :load-fn load-spine-scene
+      :icon spine-scene-icon
+      :view-types [:scene :text]
+      :view-opts {:scene {:grid true}}
+      :template "/defold-spine/editor/resources/templates/template.spinescene")
+    (resource-node/register-ddf-resource-type workspace
+      :ext spine-model-ext
+      :label "Spine Model"
+      :node-type SpineModelNode
+      :ddf-type spine-plugin-spinemodel-cls
+      :load-fn load-spine-model
+      :icon spine-model-icon
+      :view-types [:scene :text]
+      :view-opts {:scene {:grid true}}
+      :tags #{:component}
+      :tag-opts {:component {:transform-properties #{:position :rotation :scale}}}
+      :template "/defold-spine/editor/resources/templates/template.spinemodel")
+    (workspace/register-resource-type workspace
+      :ext spine-json-ext
+      :node-type SpineSceneJson
+      :textual? true
+      :load-fn load-spine-json
+      :icon spine-json-icon
+      :view-types [:default])))
 
 ; The plugin
 (defn load-plugin-spine [workspace]

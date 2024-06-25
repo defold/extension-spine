@@ -11,25 +11,24 @@
 ;; specific language governing permissions and limitations under the License.
 
 (ns editor.spineguiext
-  (:require [schema.core :as s]
+  (:require [editor.protobuf :as protobuf]
             [clojure.string :as str]
             [dynamo.graph :as g]
-            [util.murmur :as murmur]
-            [editor.graph-util :as gu]
-            [editor.geom :as geom]
             [editor.defold-project :as project]
-            [editor.resource :as resource]
-            [editor.scene-cache :as scene-cache] ; debug only
-            [editor.workspace :as workspace]
-            [editor.types :as types]
+            [editor.geom :as geom]
+            [editor.gl.texture]
+            [editor.graph-util :as gu]
+            [editor.gui :as gui]
             [editor.outline :as outline]
             [editor.properties :as properties]
-            [editor.gui :as gui]
-            [editor.spineext :as spineext])
-  (:import [com.dynamo.gamesys.proto Gui$NodeDesc$ClippingMode]
+            [editor.resource :as resource]
+            [editor.spineext :as spineext]
+            [editor.workspace :as workspace]
+            [schema.core :as s]
+            [util.murmur :as murmur])
+  (:import [com.dynamo.gamesys.proto Gui$NodeDesc Gui$NodeDesc$ClippingMode]
            [editor.gl.texture TextureLifecycle]
            [javax.vecmath Matrix4d Point3d]))
-
 
 (set! *warn-on-reflection* true)
 
@@ -98,21 +97,21 @@
     vb-out))
 
 (g/defnk produce-spine-node-msg [visual-base-node-msg spine-scene spine-default-animation spine-skin clipping-mode clipping-visible clipping-inverted]
-  (assoc visual-base-node-msg
-    :size [1.0 1.0 0.0 1.0]
-    :size-mode :size-mode-auto
-    :spine-scene spine-scene
-    :spine-default-animation spine-default-animation
-    :spine-skin spine-skin
-    :clipping-mode clipping-mode
-    :clipping-visible clipping-visible
-    :clipping-inverted clipping-inverted))
+  (merge visual-base-node-msg
+         (protobuf/make-map-without-defaults Gui$NodeDesc
+           :size-mode :size-mode-auto
+           :spine-scene spine-scene
+           :spine-default-animation spine-default-animation
+           :spine-skin spine-skin
+           :clipping-mode clipping-mode
+           :clipping-visible clipping-visible
+           :clipping-inverted clipping-inverted)))
 
 (g/defnode SpineNode
   (inherits gui/VisualNode)
 
   (property spine-scene g/Str
-            (default "")
+            (default (protobuf/default Gui$NodeDesc :spine-scene))
             (dynamic edit-type (g/fnk [spine-scene-names] (gui/required-gui-resource-choicebox spine-scene-names)))
             (dynamic error (g/fnk [_node-id spine-scene spine-scene-names]
                                   (validate-spine-scene _node-id spine-scene-names spine-scene))))
@@ -127,10 +126,10 @@
                                   (validate-spine-skin _node-id spine-scene-names spine-skin-ids spine-skin spine-scene)))
             (dynamic edit-type (g/fnk [spine-skin-ids] (spineext/->skin-choicebox spine-skin-ids))))
 
-  (property clipping-mode g/Keyword (default :clipping-mode-none)
+  (property clipping-mode g/Keyword (default (protobuf/default Gui$NodeDesc :clipping-mode))
             (dynamic edit-type (g/constantly (properties/->pb-choicebox Gui$NodeDesc$ClippingMode))))
-  (property clipping-visible g/Bool (default true))
-  (property clipping-inverted g/Bool (default false))
+  (property clipping-visible g/Bool (default (protobuf/default Gui$NodeDesc :clipping-visible)))
+  (property clipping-inverted g/Bool (default (protobuf/default Gui$NodeDesc :clipping-inverted)))
 
   (display-order (into gui/base-display-order
                        [:spine-scene :spine-default-animation :spine-skin :color :alpha :inherit-alpha :layer :blend-mode :pivot :x-anchor :y-anchor
@@ -350,7 +349,6 @@
 (defn- fixup-spine-node [node-type-info node-desc]
   (let [node-type (:type node-desc)]
     (cond-> (assoc node-desc
-              :size [1.0 1.0 0.0 1.0]
               :size-mode :size-mode-auto)
 
             (= :type-spine node-type)
@@ -365,12 +363,14 @@
               :display-name "Spine"
               :custom-type (murmur/hash32 "Spine")
               :icon spineext/spine-scene-icon
-              :convert-fn fixup-spine-node}
+              :convert-fn fixup-spine-node
+              :defaults gui/visual-base-node-defaults}
         info-depr (merge info {:node-type :type-spine
                                :custom-type 0
                                :output-node-type (:node-type info)
                                :output-custom-type (:custom-type info)
-                               :deprecated true})]
+                               :deprecated true
+                               :defaults gui/visual-base-node-defaults})]
     (gui/register-node-type-info! info)
     ; Register :type-spine with custom type 0 in order to be able to read old files
     (gui/register-node-type-info! info-depr)))
