@@ -144,8 +144,11 @@ namespace dmSpine
         return dmGameObject::CREATE_RESULT_OK;
     }
 
+    static inline dmGameSystem::MaterialResource* GetMaterialResource(const SpineModelComponent* component) {
+        return component->m_Material ? component->m_Material : component->m_Resource->m_Material;
+    }
     static inline dmRender::HMaterial GetMaterial(const SpineModelComponent* component) {
-        return component->m_Material ? component->m_Material : component->m_Resource->m_Material->m_Material;
+        return GetMaterialResource(component)->m_Material;
     }
 
     static void ReHash(SpineModelComponent* component)
@@ -1234,8 +1237,7 @@ namespace dmSpine
         }
         else if (params.m_PropertyId == PROP_MATERIAL)
         {
-            dmRender::HMaterial material = GetMaterial(component);
-            return dmGameSystem::GetResourceProperty(context->m_Factory, material, out_value);
+            return dmGameSystem::GetResourceProperty(context->m_Factory, GetMaterialResource(component), out_value);
         }
         return dmGameSystem::GetMaterialConstant(GetMaterial(component), params.m_PropertyId, params.m_Options.m_Index, out_value, false, CompSpineModelGetConstantCallback, component);
     }

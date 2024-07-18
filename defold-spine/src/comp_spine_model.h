@@ -68,7 +68,7 @@ namespace dmSpine
         spAnimationState*                       m_AnimationStateInstance;
         dmArray<dmSpine::SpineAnimationTrack>   m_AnimationTracks;
         dmGameSystem::HComponentRenderConstants m_RenderConstants;
-        dmRender::HMaterial                     m_Material;
+        dmGameSystem::MaterialResource*         m_Material;
         /// Node instances corresponding to the bones
         dmArray<dmGameObject::HInstance>        m_BoneInstances;
         dmArray<spBone*>                        m_Bones;                        // We shouldn't really have to have a duplicate array of these
