@@ -58,10 +58,10 @@ function copy_results() {
     local platform_ne=$2
     local target_dir=$3
 
-    for path in ./build/$platform_ne/*.a; do
+    for path in ./build/$platform_ne/*${LIBRARY_NAME}.a; do
         copyfile $path $target_dir
     done
-    for path in ./build/$platform_ne/*.lib; do
+    for path in ./build/$platform_ne/*${LIBRARY_NAME}.lib; do
         copyfile $path $target_dir
     done
 }
