@@ -14,7 +14,7 @@ import com.dynamo.spine.proto.Spine.SpineSceneDesc;
 public class SpineSceneBuilder extends ProtoBuilder<SpineSceneDesc.Builder> {
 
     @Override
-    protected SpineSceneDesc.Builder transform(Task<Void> task, IResource resource, SpineSceneDesc.Builder builder) throws CompileExceptionError {
+    protected SpineSceneDesc.Builder transform(Task task, IResource resource, SpineSceneDesc.Builder builder) throws CompileExceptionError {
 
         String path;
         path = builder.getSpineJson();
