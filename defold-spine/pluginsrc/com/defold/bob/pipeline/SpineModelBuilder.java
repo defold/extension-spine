@@ -26,7 +26,7 @@ import com.dynamo.spine.proto.Spine.SpineModelDesc;
 public class SpineModelBuilder extends ProtoBuilder<SpineModelDesc.Builder> {
 
     @Override
-    protected SpineModelDesc.Builder transform(Task<Void> task, IResource resource, SpineModelDesc.Builder builder) throws CompileExceptionError {
+    protected SpineModelDesc.Builder transform(Task task, IResource resource, SpineModelDesc.Builder builder) throws CompileExceptionError {
 
         String path;
 
