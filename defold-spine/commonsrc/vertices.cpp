@@ -221,6 +221,7 @@ uint32_t CalcVertexBufferSize(const spSkeleton* skeleton, spSkeletonClipping* sk
         {
             CalcAndAddVertexBufferAttachment(attachment, &vertex_count, &max_triangle_count);
         }
+        spSkeletonClipping_clipEnd(skeleton_clipper, slot);
     }
     if (out_max_triangle_count)
     {
