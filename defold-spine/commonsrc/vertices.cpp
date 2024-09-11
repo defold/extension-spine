@@ -223,6 +223,9 @@ uint32_t CalcVertexBufferSize(const spSkeleton* skeleton, spSkeletonClipping* sk
         }
         spSkeletonClipping_clipEnd(skeleton_clipper, slot);
     }
+
+    spSkeletonClipping_clipEnd2(skeleton_clipper);
+
     if (out_max_triangle_count)
     {
         *out_max_triangle_count = max_triangle_count;
@@ -337,6 +340,7 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
         }
         else
         {
+            spSkeletonClipping_clipEnd(skeleton_clipper, slot);
             continue;
         }
 
@@ -364,7 +368,7 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
 
         if (draw_descs_out)
         {
-            SpineDrawDesc desc;
+            SpineDrawDesc desc = {};
             desc.m_VertexStart = batch_vindex_start;
             desc.m_BlendMode   = (uint32_t) slot->data->blendMode;
             desc.m_VertexCount = vindex - batch_vindex_start;
