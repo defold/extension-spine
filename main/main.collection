@@ -160,6 +160,7 @@ embedded_instances {
   "  data: \"spine_scene: \\\"/assets/coins/coin.spinescene\\\"\\n"
   "default_animation: \\\"animation\\\"\\n"
   "skin: \\\"\\\"\\n"
+  "blend_mode: BLEND_MODE_INHERIT\\n"
   "material: \\\"/defold-spine/assets/spine.material\\\"\\n"
   "\"\n"
   "  position {\n"
