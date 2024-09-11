@@ -1,0 +1,22 @@
+images {
+  image: "/assets/coins/coin-front-logo.png"
+}
+images {
+  image: "/assets/coins/coin-front-shine-logo.png"
+}
+images {
+  image: "/assets/coins/coin-front-shine-spineboy.png"
+}
+images {
+  image: "/assets/coins/coin-front-spineboy.png"
+}
+images {
+  image: "/assets/coins/coin-side-round.png"
+}
+images {
+  image: "/assets/coins/coin-side-straight.png"
+}
+images {
+  image: "/assets/coins/shine.png"
+}
+extrude_borders: 2
