@@ -15,4 +15,5 @@ builtins
 /utils/runtime/build
 /utils/runtime/*.zip
 bob.jar
-/spine_tester/generated/**
+/spine_tester/generated/data.lua
+/spine_tester/generated/go.go
