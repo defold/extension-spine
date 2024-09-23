@@ -15,3 +15,4 @@ builtins
 /utils/runtime/build
 /utils/runtime/*.zip
 bob.jar
+/spine_tester/generated/**
