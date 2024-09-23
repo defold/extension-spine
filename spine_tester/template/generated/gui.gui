@@ -1,0 +1,3 @@
+script: "/spine_tester/template/generated/gui.gui_script"
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT

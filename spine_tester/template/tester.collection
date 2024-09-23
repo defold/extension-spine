@@ -1,0 +1,22 @@
+name: "tester"
+collection_instances {
+  id: "data"
+  collection: "/spine_tester/template/generated/go.collection"
+}
+scale_along_z: 0
+embedded_instances {
+  id: "test"
+  data: "components {\n"
+  "  id: \"test_tool_controller\"\n"
+  "  component: \"/spine_tester/template/test_tool_controller.gui\"\n"
+  "}\n"
+  ""
+}
+embedded_instances {
+  id: "data"
+  data: "components {\n"
+  "  id: \"gui\"\n"
+  "  component: \"/spine_tester/template/generated/gui.gui\"\n"
+  "}\n"
+  ""
+}
