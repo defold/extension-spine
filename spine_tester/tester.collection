@@ -19,9 +19,5 @@ embedded_instances {
 embedded_instances {
   id: "data"
   children: "go"
-  data: "components {\n"
-  "  id: \"gui\"\n"
-  "  component: \"/spine_tester/generated/gui.gui\"\n"
-  "}\n"
-  ""
+  data: ""
 }
