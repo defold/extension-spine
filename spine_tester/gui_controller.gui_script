@@ -1,4 +1,4 @@
-
+local data = require("spine_tester.generated.data")
 
 function init(self)
 	-- Add initialization code here

@@ -1,7 +1,11 @@
 name: "tester"
-collection_instances {
-  id: "data_go"
-  collection: "/spine_tester/generated/go.collection"
+instances {
+  id: "go"
+  prototype: "/spine_tester/generated/go.go"
+  position {
+    x: 353.0
+    y: 369.0
+  }
 }
 scale_along_z: 0
 embedded_instances {
@@ -13,7 +17,8 @@ embedded_instances {
   ""
 }
 embedded_instances {
-  id: "data_gui"
+  id: "data"
+  children: "go"
   data: "components {\n"
   "  id: \"gui\"\n"
   "  component: \"/spine_tester/generated/gui.gui\"\n"

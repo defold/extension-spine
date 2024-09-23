@@ -1,3 +1,4 @@
 spine_scene: ""
 default_animation: ""
 skin: ""
+material: "/defold-spine/assets/spine.material"
