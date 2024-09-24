@@ -1,5 +1,5 @@
 [bootstrap]
-main_collection = /spine_tester/tester.collectionc
+main_collection = /main/main.collectionc
 
 [script]
 shared_state = 1
