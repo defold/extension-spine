@@ -1,0 +1,102 @@
+local function fill_data(self, source)
+    self.data = {}
+    for k, v in pairs(source) do
+        local tbl = {}
+        tbl.url = k
+        tbl.animations = v
+        self.data[#self.data + 1] = tbl
+    end
+    table.sort(self.data, function(a, b)
+        return a.url < b.url
+    end)
+    self.combo_data = {}
+    for k, v in pairs(self.data) do
+        self.combo_data[k] = v.url
+    end
+end
+
+local function hide(self, model_index)
+    if model_index then
+        msg.post(self.data[model_index].url, "disable")
+    else
+        for _, v in pairs(self.data) do
+            msg.post(v.url, "disable")
+        end
+    end
+end
+
+local function play_anim(self, anim_index)
+    spine.play_anim(self.data[self.current_model].url, self.data[self.current_model].animations[anim_index], 
+    self.play_next and go.PLAYBACK_ONCE_FORWARD or go.PLAYBACK_LOOP_FORWARD,
+    {playback_rate = self.anim_speed}, self.play_next)
+    self.current_anim = anim_index
+end
+
+local function show(self, model_index)
+    msg.post(self.data[model_index].url, "enable")
+    self.current_model = model_index
+    self.current_anim = 1
+    play_anim(self, self.current_anim)
+end
+
+local function change_speed(self, speed)
+    self.anim_speed = speed
+    play_anim(self, self.current_anim)
+end
+
+local function switch_model(self, model_index)
+    hide(self, self.current_model)
+    show(self, model_index)
+end
+
+local function play_all(self)
+    print("play_all")
+    self.play_next = function()
+        print("play_next")
+        if self.current_model == #self.combo_data and self.current_anim == #self.data[self.current_model].animations then
+            spine.cancel(self.data[self.current_model].url)
+            self.play_next = nil
+        elseif self.current_anim < #self.data[self.current_model].animations then
+            self.current_anim = self.current_anim + 1
+            play_anim(self, self.current_anim)
+        elseif self.current_model < #self.combo_data then
+            switch_model(self,  self.current_model + 1)
+        end
+    end
+    play_anim(self, self.current_anim)
+end
+
+function init(self)
+    self.anim_speed = 1
+    fill_data(self, require("spine_tester.generated.data"))
+    hide(self)
+    show(self, 1)
+    imgui.scale_all_sizes(2)
+    imgui.set_global_font_scale(2)
+end
+
+function update(self, dt)
+    imgui.begin_window("Anims", nil, imgui.WINDOWFLAGS_MENUBAR)
+    local changed, picked_model = imgui.combo("Models", self.current_model, self.combo_data)
+    if changed then
+        switch_model(self, picked_model)
+    end
+    changed, picked_anim = imgui.combo("Anim", self.current_anim, self.data[self.current_model].animations)
+    if changed then
+        play_anim(self, picked_anim)
+    end
+    changed, speed = imgui.slider_float("speed", self.anim_speed, 0.2, 10, 0.1)
+    if changed then
+        change_speed(self, speed)
+    end
+    imgui.separator()
+    if not self.play_next then
+        changed = imgui.button("Play All")
+        if changed then
+            play_all(self)
+        end
+    else
+        imgui.text("Playing...")
+    end
+    imgui.end_window()
+end

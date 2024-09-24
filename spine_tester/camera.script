@@ -1,0 +1,37 @@
+function init(self)
+	msg.post(".", "acquire_input_focus")
+end
+
+local MIN_ZOOM, MAX_ZOOM, STEP_ZOOM = 0.05, 10, 0.03
+
+local function scroll(self, value)
+	if not self.zoom  then
+		self.zoom  = 1
+	end
+	self.zoom = self.zoom + value
+	if self.zoom < MIN_ZOOM then
+		self.zoom = MIN_ZOOM
+	elseif self.zoom > MAX_ZOOM then
+		self.zoom = MAX_ZOOM
+	end
+	go.set_scale(self.zoom)
+end
+
+function on_input(self, action_id, action)
+	if action_id == hash("mouse_wheel_up") and action.released then
+		scroll(self, -STEP_ZOOM)
+	elseif action_id == hash("mouse_wheel_down") and action.released then
+		scroll(self, STEP_ZOOM)
+	elseif action_id == hash("mouse_button_left") then
+		if action.pressed then
+			self.pin = true
+		elseif action.released then
+			self.pin = false
+		end
+	elseif self.pin then
+		local pos = go.get_position()
+		pos.x = pos.x + action.dx
+		pos.y = pos.y + action.dy
+		go.set_position(pos)
+	end
+end
