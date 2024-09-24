@@ -16,10 +16,12 @@ input_method = HiddenInputField
 
 [project]
 title = extension-spine
+dependencies#0 = https://github.com/britzl/extension-imgui/archive/refs/heads/master.zip
 
 [library]
 include_dirs = defold-spine
 
 [input]
-game_binding = /builtins/input/all.input_bindingc
+game_binding = /imgui/bindings/imgui.input_bindingc
+gamepads = /builtins/input/default.gamepadsc
 

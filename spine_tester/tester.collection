@@ -1,0 +1,27 @@
+name: "tester"
+instances {
+  id: "go"
+  prototype: "/spine_tester/generated/go.go"
+  position {
+    x: 648.0
+    y: 369.0
+  }
+}
+scale_along_z: 0
+embedded_instances {
+  id: "data"
+  children: "go"
+  data: "components {\n"
+  "  id: \"gui\"\n"
+  "  component: \"/spine_tester/gui.script\"\n"
+  "}\n"
+  "components {\n"
+  "  id: \"imgui\"\n"
+  "  component: \"/imgui/imgui.script\"\n"
+  "}\n"
+  "components {\n"
+  "  id: \"camera\"\n"
+  "  component: \"/spine_tester/camera.script\"\n"
+  "}\n"
+  ""
+}
