@@ -67,6 +67,7 @@ local function play_all(self)
 end
 
 function init(self)
+    msg.post("@render:", "use_fixed_fit_projection", { near = -1, far = 1 })
     self.anim_speed = 1
     fill_data(self, require("spine_tester.generated.data"))
     hide(self)
