@@ -53,6 +53,8 @@ def find_spinescene_files():
 
     # Dictionary to store component URLs and their animations
     component_animations = {}
+    # Dictionary to track file name counts
+    file_name_count = {}
 
     # Write the generated embedded_component text to the go.go file
     with open(go_output_file_path, "w") as go_file:
@@ -60,6 +62,14 @@ def find_spinescene_files():
         if spinescene_files:
             for spinescene_file in spinescene_files:
                 file_name = os.path.basename(spinescene_file).replace(".spinescene", "")
+
+                # If the file name already exists, append an index to the file name
+                if file_name in file_name_count:
+                    file_name_count[file_name] += 1
+                    file_name = f"{file_name}_{file_name_count[file_name]}"
+                else:
+                    file_name_count[file_name] = 0
+
                 component_url = f"/go#{file_name}"
 
                 # Read the spinescene file to find the spine_json path
