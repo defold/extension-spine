@@ -87,7 +87,7 @@ for platform in $PLATFORMS; do
     EXT_SETTINGS=./build/ext.settings
     echo "[native_extension]" > ${EXT_SETTINGS}
     echo "app_manifest =" >> ${EXT_SETTINGS}
-    java -jar $BOB --platform=$platform --architectures=$platform --settings=${EXT_SETTINGS} build --build-artifacts=library --variant $VARIANT --build-server=$SERVER --defoldsdk=$DEFOLDSDK --debug-ne-upload true --ne-output-name=${LIBRARY_NAME} --ne-build-dir ${PROJECT_DIR}/src --ne-build-dir ${PROJECT_DIR}/commonsrc --ne-build-dir ${PROJECT_DIR}/include
+    java -jar $BOB --platform=$platform --architectures=$platform --settings=${EXT_SETTINGS} build --build-artifacts=library --variant $VARIANT --build-server=$SERVER --defoldsdk=$DEFOLDSDK --debug-ne-upload true --ne-output-name=${LIBRARY_NAME} --ne-build-dir ${PROJECT_DIR}/commonsrc --ne-build-dir ${PROJECT_DIR}/include
     rm ${EXT_SETTINGS}
 
     copy_results $platform $platform_ne ${TARGET_LIB_DIR}

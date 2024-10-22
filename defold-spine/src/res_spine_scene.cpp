@@ -129,7 +129,8 @@ namespace dmSpine
             spAnimationStateData_dispose(resource->m_AnimationStateData);
         if (resource->m_Skeleton)
             spSkeletonData_dispose(resource->m_Skeleton);
-        dmSpine::Dispose(resource->m_AttachmentLoader);
+        if (resource->m_AttachmentLoader)
+            dmSpine::Dispose(resource->m_AttachmentLoader);
         delete[] resource->m_Regions;
     }
 
