@@ -8,6 +8,10 @@ import com.dynamo.bob.Task;
 import com.dynamo.bob.fs.IResource;
 import com.dynamo.bob.pipeline.BuilderUtil;
 import com.dynamo.spine.proto.Spine.SpineSceneDesc;
+import com.dynamo.bob.pipeline.Spine;
+
+import java.io.IOException;
+import java.nio.Buffer;
 
 @ProtoParams(srcClass = SpineSceneDesc.class, messageClass = SpineSceneDesc.class)
 @BuilderParams(name="SpineScene", inExts=".spinescene", outExt=".spinescenec")
@@ -31,5 +35,28 @@ public class SpineSceneBuilder extends ProtoBuilder<SpineSceneDesc.Builder> {
         builder.setAtlas(BuilderUtil.replaceExt(path, ".atlas", ".a.texturesetc"));
 
         return builder;
+    }
+
+    @Override
+    public void build(Task task) throws CompileExceptionError, IOException {
+        super.build(task);
+
+        IResource testurec = null;
+        IResource spinejsonc = null;
+        for (IResource input: task.getInputs()) {
+            String path = input.getPath();
+            if (path.endsWith("texturesetc")) {
+                testurec = input;
+            }
+            else if (path.endsWith("spinejsonc")) {
+                spinejsonc = input;
+            }
+        }
+        try {
+            Spine.SPINE_LoadFileFromBuffer(spinejsonc.getContent(), spinejsonc.getPath(), testurec.getContent(), testurec.getPath());
+        }
+        catch (Spine.SpineException e) {
+            throw new CompileExceptionError(task.getInputs().get(0), -1, e.getMessage());
+        }
     }
 }
