@@ -1,0 +1,18 @@
+{
+"class": "export-json",
+"extension": ".spinejson",
+"format": "JSON",
+"prettyPrint": false,
+"nonessential": false,
+"cleanUp": false,
+"packAtlas": null,
+"packSource": "attachments",
+"packTarget": "single",
+"warnings": true,
+"version": null,
+"all": false,
+"output": "/Users/my_name/my_projects/anim",
+"id": -1,
+"input": "/Users/my_name/my_projects/anim/anim.spine",
+"open": false
+}
