@@ -64,11 +64,13 @@ def find_spinescene_files():
                 file_name = os.path.basename(spinescene_file).replace(".spinescene", "")
 
                 # If the file name already exists, append an index to the file name
-                if file_name in file_name_count:
-                    file_name_count[file_name] += 1
-                    file_name = f"{file_name}_{file_name_count[file_name]}"
-                else:
-                    file_name_count[file_name] = 0
+                original_file_name = file_name
+                index = file_name_count.get(original_file_name, 0)
+                while file_name in file_name_count:
+                    index += 1
+                    file_name = f"{original_file_name}_{index}"
+                file_name_count[original_file_name] = index
+                file_name_count[file_name] = 0  # Ensure the new unique name is tracked
 
                 component_url = f"/go#{file_name}"
 
