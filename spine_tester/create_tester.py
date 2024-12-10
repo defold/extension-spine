@@ -1,6 +1,17 @@
 import os
 import json
 
+import os
+import subprocess
+import sys
+
+# Ensure configparser is installed
+try:
+    import configparser
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "configparser"])
+    import configparser  # Retry import after installation
+
 def extract_animations_from_spine_json(spine_json_path):
     """
     Reads the given spine json file and extracts the animation names from it.
@@ -127,6 +138,47 @@ def find_spinescene_files():
 
     print(f"Lua table with animations has been written to {lua_output_file_path}")
 
+def modify_game_project(file_path):
+    if not os.path.isfile(file_path):
+        print(f"Error: The file '{file_path}' does not exist.")
+        return
+
+    # Load the existing game.project file
+    config = configparser.ConfigParser(allow_no_value=True, delimiters=('='))
+    config.optionxform = str  # Preserve case sensitivity
+    config.read(file_path)
+
+    # Ensure [project] section exists and add IMGUI dependency if not present
+    if "project" not in config:
+        config["project"] = {}
+    dependencies = [key for key in config["project"] if key.startswith("dependencies#")]
+    imgui_dependency = "https://github.com/britzl/extension-imgui/archive/refs/heads/master.zip"
+    if imgui_dependency not in (config["project"].get(dep, "") for dep in dependencies):
+        new_dep_key = f"dependencies#{len(dependencies)}"
+        config["project"][new_dep_key] = imgui_dependency
+
+    # Replace Bootstrap->Main Collection
+    if "bootstrap" not in config:
+        config["bootstrap"] = {}
+    config["bootstrap"]["main_collection"] = "/spine_tester/tester.collection"
+
+    # Replace Input->Game Binding
+    if "input" not in config:
+        config["input"] = {}
+    config["input"]["game_binding"] = "/imgui/bindings/imgui.input_binding"
+
+    # Ensure spine->max_count exists and is set to 8192
+    if "spine" not in config:
+        config["spine"] = {}
+    config["spine"]["max_count"] = "8192"
+
+    # Save the updated file
+    with open(file_path, "w") as configfile:
+        config.write(configfile, space_around_delimiters=False)
+
 # Run the function
 if __name__ == "__main__":
+    # Path to the game.project file in the parent folder
+    game_project_path = os.path.join("..", "game.project")
+    modify_game_project(game_project_path)
     find_spinescene_files()
