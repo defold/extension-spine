@@ -374,7 +374,7 @@ namespace dmSpine
         {
             loader->error1 = strdup(skeleton_json->error ? skeleton_json->error : "unknown error");
             spSkeletonJson_dispose(skeleton_json);
-            dmLogError("Failed to read spine skeleton for %s: %s", path, skeleton_json->error);
+            dmLogError("Failed to read spine skeleton for %s: %s", path, loader->error1);
             return 0;
         }
         spSkeletonJson_dispose(skeleton_json);
