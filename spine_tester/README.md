@@ -8,6 +8,12 @@
 
 >python ./spine_tester/create_tester.py
 
+It's also possible to remove all the `*.go`, `*.gui`, `*.collection` and `hooks.editor_script` files if it runs with `cleanup` argument:
+
+>python ./spine_tester/create_tester.py cleanup
+
+It maybe useful in cases you want to run the editor faster on a big project.
+
 3. If project is already opened click: `Project`->`Fetch Libraries` or open project
 
 4. Run the project and use the interface to play any animations you want, or all of them one by one.
