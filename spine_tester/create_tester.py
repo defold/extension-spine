@@ -1,5 +1,16 @@
 import os
 import json
+import glob
+import os
+import subprocess
+import sys
+
+# Ensure configparser is installed
+try:
+    import configparser
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "configparser"])
+    import configparser  # Retry import after installation
 
 def extract_animations_from_spine_json(spine_json_path):
     """
@@ -64,11 +75,13 @@ def find_spinescene_files():
                 file_name = os.path.basename(spinescene_file).replace(".spinescene", "")
 
                 # If the file name already exists, append an index to the file name
-                if file_name in file_name_count:
-                    file_name_count[file_name] += 1
-                    file_name = f"{file_name}_{file_name_count[file_name]}"
-                else:
-                    file_name_count[file_name] = 0
+                original_file_name = file_name
+                index = file_name_count.get(original_file_name, 0)
+                while file_name in file_name_count:
+                    index += 1
+                    file_name = f"{original_file_name}_{index}"
+                file_name_count[original_file_name] = index
+                file_name_count[file_name] = 0  # Ensure the new unique name is tracked
 
                 component_url = f"/go#{file_name}"
 
@@ -125,6 +138,91 @@ def find_spinescene_files():
 
     print(f"Lua table with animations has been written to {lua_output_file_path}")
 
+import configparser
+import os
+
+class CustomConfigParser(configparser.ConfigParser):
+    """Custom ConfigParser to add spaces around '=' when writing."""
+    def write(self, fp, space_around_delimiters=True):
+        """Write an .ini-format representation of the configuration state."""
+        if space_around_delimiters:
+            delimiter = " = "
+        else:
+            delimiter = "="
+
+        for section in self._sections:
+            fp.write(f"[{section}]\n")
+            for key, value in self._sections[section].items():
+                if value is not None:
+                    value = str(value).replace("\n", "\n\t")
+                fp.write(f"{key}{delimiter}{value}\n")
+            fp.write("\n")
+
+def modify_game_project(file_path):
+    if not os.path.isfile(file_path):
+        print(f"Error: The file '{file_path}' does not exist.")
+        return
+
+    # Load the existing game.project file
+    config = CustomConfigParser(allow_no_value=True, delimiters=('='))
+    config.optionxform = str  # Preserve case sensitivity
+    config.read(file_path)
+
+    # Ensure [project] section exists and add IMGUI dependency if not present
+    if "project" not in config:
+        config["project"] = {}
+    dependencies = [key for key in config["project"] if key.startswith("dependencies#")]
+    imgui_dependency = "https://github.com/britzl/extension-imgui/archive/refs/heads/master.zip"
+    if imgui_dependency not in (config["project"].get(dep, "") for dep in dependencies):
+        new_dep_key = f"dependencies#{len(dependencies)}"
+        config["project"][new_dep_key] = imgui_dependency
+
+    # Replace Bootstrap->Main Collection
+    if "bootstrap" not in config:
+        config["bootstrap"] = {}
+    config["bootstrap"]["main_collection"] = "/spine_tester/tester.collection"
+
+    # Replace Input->Game Binding
+    if "input" not in config:
+        config["input"] = {}
+    config["input"]["game_binding"] = "/imgui/bindings/imgui.input_binding"
+
+    # Ensure spine->max_count exists and is set to 8192
+    if "spine" not in config:
+        config["spine"] = {}
+    config["spine"]["max_count"] = "8192"
+
+    # Save the updated file with spaces around the '='
+    with open(file_path, "w") as configfile:
+        config.write(configfile, space_around_delimiters=True)
+
+def delete_project_files():
+    # Define file patterns to delete and track deleted file counts
+    file_patterns = ["*.collection", "*.go", "*.gui", "hooks.editor_script"]
+    deleted_counts = {pattern: 0 for pattern in file_patterns}
+
+    # Loop through patterns and delete matching files outside 'spine_tester' folder
+    for pattern in file_patterns:
+        for file_path in glob.glob(os.path.join(".", "**", pattern), recursive=True):
+            # Skip files inside the 'spine_tester' folder
+            if "spine_tester" in os.path.relpath(file_path):
+                continue
+            try:
+                os.remove(file_path)
+                deleted_counts[pattern] += 1
+            except Exception as e:
+                print(f"Error deleting {file_path}: {e}")
+
+    # Log the counts of deleted files
+    for pattern, count in deleted_counts.items():
+        print(f"{pattern}: {count} files deleted")
+
 # Run the function
 if __name__ == "__main__":
+    # Check if the first argument is "cleanup"
+    if len(sys.argv) > 1 and sys.argv[1].lower() == "cleanup":
+        delete_project_files()
+    # Path to the game.project file in the parent folder
+    game_project_path = os.path.join("game.project")
+    modify_game_project(game_project_path)
     find_spinescene_files()
