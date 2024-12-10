@@ -176,18 +176,14 @@ def modify_game_project(file_path):
     with open(file_path, "w") as configfile:
         config.write(configfile, space_around_delimiters=False)
 
-def delete_project_files(parent_folder):
-    if not os.path.isdir(parent_folder):
-        print(f"Error: The folder '{parent_folder}' does not exist.")
-        return
-
+def delete_project_files():
     # Define file patterns to delete and track deleted file counts
     file_patterns = ["*.collection", "*.go", "*.gui", "hooks.editor_script"]
     deleted_counts = {pattern: 0 for pattern in file_patterns}
 
     # Loop through patterns and delete matching files
     for pattern in file_patterns:
-        for file_path in glob.glob(os.path.join(parent_folder, "**", pattern), recursive=True):
+        for file_path in glob.glob(os.path.join(".", "**", pattern), recursive=True):
             try:
                 os.remove(file_path)
                 deleted_counts[pattern] += 1
@@ -202,10 +198,8 @@ def delete_project_files(parent_folder):
 if __name__ == "__main__":
     # Check if the first argument is "cleanup"
     if len(sys.argv) > 1 and sys.argv[1].lower() == "cleanup":
-        # Determine parent folder where game.project resides
-        parent_folder = os.path.abspath(os.path.join(".."))
-        delete_project_files(parent_folder)
+        delete_project_files()
     # Path to the game.project file in the parent folder
-    game_project_path = os.path.join("..", "game.project")
+    game_project_path = os.path.join("game.project")
     modify_game_project(game_project_path)
     find_spinescene_files()
