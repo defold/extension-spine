@@ -201,9 +201,12 @@ def delete_project_files():
     file_patterns = ["*.collection", "*.go", "*.gui", "hooks.editor_script"]
     deleted_counts = {pattern: 0 for pattern in file_patterns}
 
-    # Loop through patterns and delete matching files
+    # Loop through patterns and delete matching files outside 'spine_tester' folder
     for pattern in file_patterns:
         for file_path in glob.glob(os.path.join(".", "**", pattern), recursive=True):
+            # Skip files inside the 'spine_tester' folder
+            if "spine_tester" in os.path.relpath(file_path):
+                continue
             try:
                 os.remove(file_path)
                 deleted_counts[pattern] += 1
