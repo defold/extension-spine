@@ -138,13 +138,33 @@ def find_spinescene_files():
 
     print(f"Lua table with animations has been written to {lua_output_file_path}")
 
+import configparser
+import os
+
+class CustomConfigParser(configparser.ConfigParser):
+    """Custom ConfigParser to add spaces around '=' when writing."""
+    def write(self, fp, space_around_delimiters=True):
+        """Write an .ini-format representation of the configuration state."""
+        if space_around_delimiters:
+            delimiter = " = "
+        else:
+            delimiter = "="
+
+        for section in self._sections:
+            fp.write(f"[{section}]\n")
+            for key, value in self._sections[section].items():
+                if value is not None:
+                    value = str(value).replace("\n", "\n\t")
+                fp.write(f"{key}{delimiter}{value}\n")
+            fp.write("\n")
+
 def modify_game_project(file_path):
     if not os.path.isfile(file_path):
         print(f"Error: The file '{file_path}' does not exist.")
         return
 
     # Load the existing game.project file
-    config = configparser.ConfigParser(allow_no_value=True, delimiters=('='))
+    config = CustomConfigParser(allow_no_value=True, delimiters=('='))
     config.optionxform = str  # Preserve case sensitivity
     config.read(file_path)
 
@@ -172,9 +192,9 @@ def modify_game_project(file_path):
         config["spine"] = {}
     config["spine"]["max_count"] = "8192"
 
-    # Save the updated file
+    # Save the updated file with spaces around the '='
     with open(file_path, "w") as configfile:
-        config.write(configfile, space_around_delimiters=False)
+        config.write(configfile, space_around_delimiters=True)
 
 def delete_project_files():
     # Define file patterns to delete and track deleted file counts
