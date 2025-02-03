@@ -334,7 +334,11 @@
   (output name-counts gui/NameCounts :cached (g/fnk [names] (frequencies names)))
   (input build-errors g/Any :array)
   (output build-errors g/Any (gu/passthrough build-errors))
-  (output node-outline outline/OutlineData :cached (gui/gen-outline-fnk "Spine Scenes" "Spine Scenes" 6 false []))
+  (output node-outline outline/OutlineData :cached
+          (gui/gen-outline-fnk
+            "Spine Scenes" "Spine Scenes" 6 false
+            [{:node-type SpineSceneNode
+              :tx-attach-fn (gui/gen-outline-node-tx-attach-fn attach-spine-scene)}]))
   (output add-handler-info g/Any
           (g/fnk [_node-id]
                  [_node-id "Spine Scenes..." spineext/spine-scene-icon add-spine-scenes-handler {}])))

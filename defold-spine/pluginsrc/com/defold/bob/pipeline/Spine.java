@@ -300,7 +300,7 @@ public class Spine {
     {
         if (first == null)
         {
-            System.out.printf("String buffer is empty!");
+            // System.out.printf("String buffer is empty!\n");
             return new String[0];
         }
         int count = pcount.getValue();
