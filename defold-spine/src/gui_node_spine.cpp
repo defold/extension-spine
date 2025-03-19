@@ -25,7 +25,7 @@
 
 DM_PROPERTY_EXTERN(rmtp_Spine);
 DM_PROPERTY_EXTERN(rmtp_SpineBones);
-DM_PROPERTY_U32(rmtp_SpineGuiNodes, 0, FrameReset, "", &rmtp_Spine);
+DM_PROPERTY_U32(rmtp_SpineGuiNodes, 0, PROFILE_PROPERTY_FRAME_RESET, "", &rmtp_Spine);
 
 namespace dmSpine
 {

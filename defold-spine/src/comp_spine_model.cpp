@@ -50,9 +50,9 @@ extern "C" {
 #define _USE_MATH_DEFINES
 #include <math.h> // M_PI
 
-DM_PROPERTY_GROUP(rmtp_Spine, "Spine");
-DM_PROPERTY_U32(rmtp_SpineBones, 0, FrameReset, "# spine bones", &rmtp_Spine);
-DM_PROPERTY_U32(rmtp_SpineComponents, 0, FrameReset, "# spine components", &rmtp_Spine);
+DM_PROPERTY_GROUP(rmtp_Spine, "Spine", 0);
+DM_PROPERTY_U32(rmtp_SpineBones, 0, PROFILE_PROPERTY_FRAME_RESET, "# spine bones", &rmtp_Spine);
+DM_PROPERTY_U32(rmtp_SpineComponents, 0, PROFILE_PROPERTY_FRAME_RESET, "# spine components", &rmtp_Spine);
 
 namespace dmSpine
 {
