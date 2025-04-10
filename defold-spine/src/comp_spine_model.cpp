@@ -207,7 +207,7 @@ namespace dmSpine
             return false;
         }
 
-        dmhash_t id = dmGameObject::ConstructInstanceId(index);
+        dmhash_t id = dmGameObject::CreateInstanceId();
         dmGameObject::AssignInstanceIndex(index, bone_instance);
 
         dmGameObject::Result result = dmGameObject::SetIdentifier(collection, bone_instance, id);

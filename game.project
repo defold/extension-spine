@@ -25,3 +25,6 @@ include_dirs = defold-spine
 game_binding = /imgui/bindings/imgui.input_bindingc
 gamepads = /builtins/input/default.gamepadsc
 
+[native_extension]
+app_manifest = /imgui.appmanifest
+
