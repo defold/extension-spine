@@ -184,7 +184,7 @@ static void CalcAndAddVertexBufferAttachmentByClipper(dmArray<float>& scratch, s
     indices_count = skeleton_clipper->clippedTriangles->size;
 
     *out_count             += indices_count;
-    *out_max_triangle_count = dmMath::Max(*out_max_triangle_count, indices_count) * 2;
+    *out_max_triangle_count = dmMath::Max(*out_max_triangle_count, indices_count * 2);
 }
 
 uint32_t CalcVertexBufferSize(const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, uint32_t* out_max_triangle_count)
@@ -203,6 +203,7 @@ uint32_t CalcVertexBufferSize(const spSkeleton* skeleton, spSkeletonClipping* sk
 
         if (!attachment)
         {
+            spSkeletonClipping_clipEnd(skeleton_clipper, slot);
             continue;
         }
 
@@ -271,6 +272,7 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
         spAttachment* attachment = slot->attachment;
         if (!attachment)
         {
+            spSkeletonClipping_clipEnd(skeleton_clipper, slot);
             continue;
         }
 
@@ -340,7 +342,6 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
         }
         else
         {
-            spSkeletonClipping_clipEnd(skeleton_clipper, slot);
             continue;
         }
 
