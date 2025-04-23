@@ -78,9 +78,10 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
         }
 
         int num_world_vertices = 0;
+        spAttachmentType type = attachment->type;
 
         // Fill the vertices array depending on the type of attachment
-        if (attachment->type == SP_ATTACHMENT_REGION)
+        if (type == SP_ATTACHMENT_REGION)
         {
             // Cast to an spRegionAttachment so we can get the rendererObject
             // and compute the world vertices
@@ -93,7 +94,7 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
             spRegionAttachment_computeWorldVertices(regionAttachment, slot, scratch.Begin(), 0, 2);
             num_world_vertices = 4;
         }
-        else if (attachment->type == SP_ATTACHMENT_MESH)
+        else if (type == SP_ATTACHMENT_MESH)
         {
             // Cast to an spMeshAttachment so we can get the rendererObject
             // and compute the world vertices
@@ -111,7 +112,7 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
             spVertexAttachment_computeWorldVertices(SUPER(mesh), slot, 0, num_world_vertices*2, scratch.Begin(), 0, 2);
         }
 
-        if (attachment->type == SP_ATTACHMENT_REGION || attachment->type == SP_ATTACHMENT_MESH) {
+        if (type == SP_ATTACHMENT_REGION || attachment->type == SP_ATTACHMENT_MESH) {
             // go through vertex coords and update max/min for X and Y
             float* coords = scratch.Begin();
             for (int i=0; i<num_world_vertices; i++) {
@@ -126,38 +127,36 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
     }
 }
 
-static void CalcAndAddVertexBufferAttachment(spAttachment* attachment, uint32_t* out_count, uint32_t* out_max_triangle_count)
+static void CalcAndAddVertexBufferAttachment(spAttachment* attachment, uint32_t* out_indices, uint32_t* out_vertices)
 {
-    spColor *attachmentColor;
-    if (attachment->type == SP_ATTACHMENT_REGION)
+    spAttachmentType type = attachment->type;
+    if (type == SP_ATTACHMENT_REGION)
     {
         spRegionAttachment* regionAttachment = (spRegionAttachment*)attachment;
-        attachmentColor = &regionAttachment->color;
-        if (attachmentColor->a == 0)
+        if (regionAttachment->color.a == 0)
         {
             return;
         }
-        *out_count += 6;
+        *out_indices += 6;
     }
-    else if (attachment->type == SP_ATTACHMENT_MESH)
+    else if (type == SP_ATTACHMENT_MESH)
     {
         spMeshAttachment* mesh     = (spMeshAttachment*)attachment;
-        attachmentColor = &mesh->color;
-        if (attachmentColor->a == 0)
+        if (mesh->color.a == 0)
         {
             return;
         }
         uint32_t num_tri_vertices  = SUPER(mesh)->worldVerticesLength;
-        *out_count                += (uint32_t)mesh->trianglesCount; // It's a list of indices, where each 3-tuple define a triangle
+        *out_indices                += (uint32_t)mesh->trianglesCount; // It's a list of indices, where each 3-tuple define a triangle
 
-        if (num_tri_vertices > *out_max_triangle_count)
+        if (num_tri_vertices > *out_vertices)
         {
-            *out_max_triangle_count = num_tri_vertices;
+            *out_vertices = num_tri_vertices;
         }
     }
 }
 
-static void CalcAndAddVertexBufferAttachmentByClipper(dmArray<float>& scratch, spSlot* slot, spAttachment* attachment, spSkeletonClipping* skeleton_clipper, uint32_t* out_count, uint32_t* out_max_triangle_count)
+static void CalcAndAddVertexBufferAttachmentByClipper(dmArray<float>& scratch, spSlot* slot, spAttachment* attachment, spSkeletonClipping* skeleton_clipper, uint32_t* out_indices, uint32_t* out_vertices)
 {
     float page_index        = 0;
     uint16_t* indices       = 0;
@@ -165,14 +164,12 @@ static void CalcAndAddVertexBufferAttachmentByClipper(dmArray<float>& scratch, s
     uint32_t indices_count  = 0;
     float* uvs              = 0;
     float* vertices         = 0;
-    spColor *attachmentColor;
-
-    if (attachment->type == SP_ATTACHMENT_REGION)
+    spAttachmentType type = attachment->type;
+    if (type == SP_ATTACHMENT_REGION)
     {
         EnsureArraySize(scratch, ATTACHMENT_REGION_NUM_FLOATS);
         spRegionAttachment* regionAttachment = (spRegionAttachment*)attachment;
-        attachmentColor = &regionAttachment->color;
-        if (attachmentColor->a == 0)
+        if (regionAttachment->color.a == 0)
         {
             spSkeletonClipping_clipEnd(skeleton_clipper, slot);
             return;
@@ -185,11 +182,10 @@ static void CalcAndAddVertexBufferAttachmentByClipper(dmArray<float>& scratch, s
         indices_count = 6;
         vertices      = scratch.Begin();
     }
-    else if (attachment->type == SP_ATTACHMENT_MESH)
+    else if (type == SP_ATTACHMENT_MESH)
     {
         spMeshAttachment *mesh = (spMeshAttachment *) attachment;
-        attachmentColor = &mesh->color;
-        if (attachmentColor->a == 0)
+        if (mesh->color.a == 0)
         {
             spSkeletonClipping_clipEnd(skeleton_clipper, slot);
             return;
@@ -207,11 +203,11 @@ static void CalcAndAddVertexBufferAttachmentByClipper(dmArray<float>& scratch, s
     spSkeletonClipping_clipTriangles(skeleton_clipper, vertices, vertex_count, indices, indices_count, uvs, 2);
     indices_count = skeleton_clipper->clippedTriangles->size;
 
-    *out_count             += indices_count;
-    *out_max_triangle_count = dmMath::Max(*out_max_triangle_count, vertex_count);
+    *out_indices             += indices_count;
+    *out_vertices = dmMath::Max(*out_vertices, vertex_count);
 }
 
-uint32_t CalcVertexBufferSize(const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, uint32_t* out_max_triangle_count)
+uint32_t CalcVertexBufferSize(const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, uint32_t* out_vertices)
 {
     // This scratch buffer is used to calculate number of verties if the skeleton has a clipper attachment
     // We don't know the number of vertices and indices unless we do the actual clipping, so we need somewhere
@@ -235,14 +231,15 @@ uint32_t CalcVertexBufferSize(const spSkeleton* skeleton, spSkeletonClipping* sk
             spSkeletonClipping_clipEnd(skeleton_clipper, slot);
             continue;
         }
+        spAttachmentType type = attachment->type;
 
-        if (attachment->type == SP_ATTACHMENT_CLIPPING)
+        if (type == SP_ATTACHMENT_CLIPPING)
         {
             spClippingAttachment* clip = (spClippingAttachment*) attachment;
             spSkeletonClipping_clipStart(skeleton_clipper, slot, clip);
             continue;
         }
-        if (attachment->type == SP_ATTACHMENT_REGION || attachment->type == SP_ATTACHMENT_MESH)
+        if (type == SP_ATTACHMENT_REGION || type == SP_ATTACHMENT_MESH)
         {
             if (spSkeletonClipping_isClipping(skeleton_clipper))
             {
@@ -260,9 +257,9 @@ uint32_t CalcVertexBufferSize(const spSkeleton* skeleton, spSkeletonClipping* sk
         spSkeletonClipping_clipEnd(skeleton_clipper, slot);
     }
     spSkeletonClipping_clipEnd2(skeleton_clipper);
-    if (out_max_triangle_count)
+    if (out_vertices)
     {
-        *out_max_triangle_count = max_triangle_count;
+        *out_vertices = max_triangle_count;
     }
     return vertex_count;
 }
@@ -274,8 +271,8 @@ uint32_t CalcDrawDescCount(const spSkeleton* skeleton)
     {
         spSlot* slot = skeleton->drawOrder[s];
         spAttachment* attachment = slot->attachment;
-
-        if (attachment && (attachment->type == SP_ATTACHMENT_REGION || attachment->type == SP_ATTACHMENT_MESH))
+        spAttachmentType type = attachment->type;
+        if (attachment && (type == SP_ATTACHMENT_REGION || type == SP_ATTACHMENT_MESH))
         {
             count++;
         }
@@ -309,22 +306,23 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
             continue;
         }
 
-        if (slot->color.a == 0 || !slot->bone->active)
+        spColor* slot_color = &slot->color;
+        if (slot_color->a == 0 || !slot->bone->active)
         {
             spSkeletonClipping_clipEnd(skeleton_clipper, slot);
             continue;
         }
 
         uint32_t batch_vindex_start = vindex;
-
+        const spColor* skeleton_color = &skeleton->color;
         // Calculate the tinting color based on the skeleton's color
         // and the slot's color. Each color channel is given in the
         // range [0-1], you may have to multiply by 255 and cast to
         // and int if your engine uses integer ranges for color channels.
-        float tintR = skeleton->color.r * slot->color.r;
-        float tintG = skeleton->color.g * slot->color.g;
-        float tintB = skeleton->color.b * slot->color.b;
-        float tintA = skeleton->color.a * slot->color.a;
+        float tintR = skeleton_color->r * slot_color->r;
+        float tintG = skeleton_color->g * slot_color->g;
+        float tintB = skeleton_color->b * slot_color->b;
+        float tintA = skeleton_color->a * slot_color->a;
 
         float page_index       = 0;
         spColor* color         = 0x0;
@@ -333,17 +331,16 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
         uint32_t indices_count = 0;
         float* uvs             = 0;
         float* vertices        = 0;
-        spColor *attachmentColor;
-
+        spAttachmentType type = attachment->type;
         // Fill the vertices array depending on the type of attachment
         //Texture* texture = 0;
-        if (attachment->type == SP_ATTACHMENT_REGION)
+        if (type == SP_ATTACHMENT_REGION)
         {
             // Cast to an spRegionAttachment so we can get the rendererObject
             // and compute the world vertices
             spRegionAttachment* regionAttachment = (spRegionAttachment*)attachment;
-            attachmentColor = &regionAttachment->color;
-            if (attachmentColor->a == 0) {
+            spColor* attachment_color = &regionAttachment->color;
+            if (attachment_color->a == 0) {
                 spSkeletonClipping_clipEnd(skeleton_clipper, slot);
                 continue;
             }
@@ -358,17 +355,17 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
             uvs           = regionAttachment->uvs;
             indices       = (uint16_t*) QUAD_INDICES;
             indices_count = 6;
-            color         = &regionAttachment->color;
+            color         = attachment_color;
             vertices      = scratch_vertex_floats.Begin();
         }
-        else if (attachment->type == SP_ATTACHMENT_MESH)
+        else if (type == SP_ATTACHMENT_MESH)
         {
             // Cast to an spMeshAttachment so we can get the rendererObject
             // and compute the world vertices
             spMeshAttachment* mesh = (spMeshAttachment*) attachment;
-            attachmentColor = &mesh->color;
+            spColor* attachment_color = &mesh->color;
 
-            if (attachmentColor->a == 0) {
+            if (attachment_color->a == 0) {
                 spSkeletonClipping_clipEnd(skeleton_clipper, slot);
                 continue;
             }
@@ -379,10 +376,10 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
             uvs           = mesh->uvs;
             indices       = mesh->triangles;
             indices_count = mesh->trianglesCount;
-            color         = &mesh->color;
+            color         = attachment_color;
             vertices      = scratch_vertex_floats.Begin();
         }
-        else if (attachment->type == SP_ATTACHMENT_CLIPPING)
+        else if (type == SP_ATTACHMENT_CLIPPING)
         {
             // Clipper setup is very similar to this:
             // https://github.com/EsotericSoftware/spine-runtimes/blob/4.2/spine-sfml/c/src/spine/spine-sfml.cpp#L293
