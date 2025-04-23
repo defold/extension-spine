@@ -112,7 +112,7 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
             spVertexAttachment_computeWorldVertices(SUPER(mesh), slot, 0, num_world_vertices*2, scratch.Begin(), 0, 2);
         }
 
-        if (type == SP_ATTACHMENT_REGION || attachment->type == SP_ATTACHMENT_MESH) {
+        if (type == SP_ATTACHMENT_REGION || type == SP_ATTACHMENT_MESH) {
             // go through vertex coords and update max/min for X and Y
             float* coords = scratch.Begin();
             for (int i=0; i<num_world_vertices; i++) {
