@@ -552,10 +552,10 @@
   (let [^Throwable error (if (instance? java.lang.reflect.InvocationTargetException error) (.getCause error) error)
         msg (.getMessage error)
         path (resource/resource->proj-path resource)
-        msg-missing-image "Region not found"]
+        msg-missing-image "Region not found: "]
     (cond
       (and (instance? spine-plugin-exception-cls error) (.contains msg msg-missing-image))
-      (g/->error node-id :atlas :fatal resource (format "Atlas is missing image: %s" (subs msg (+ (count msg-missing-image) (str/index-of msg msg-missing-image) ))))
+      (g/->error node-id :atlas :fatal resource (format "Atlas is missing image: %s" (subs msg (+ (count msg-missing-image) (str/index-of msg msg-missing-image)))))
 
       (instance? spine-plugin-exception-cls error)
       (g/->error node-id :resource :fatal resource (format "Failed reading %s: %s" path msg))
@@ -668,10 +668,18 @@
    :atlas (resource/resource->proj-path atlas-resource)})
 
 
-(g/defnk produce-spine-scene-own-build-errors [_node-id atlas spine-json]
+(g/defnk produce-spine-scene-own-build-errors [_node-id atlas spine-json texture-set-pb spine-json-content]
   (g/package-errors _node-id
                     (validate-scene-atlas _node-id atlas)
-                    (validate-scene-spine-json _node-id spine-json)))
+                    (validate-scene-spine-json _node-id spine-json)
+                    (when (and texture-set-pb spine-json-content)
+                      (try
+                        (plugin-load-file-from-buffer
+                          spine-json-content (resource/resource->proj-path spine-json)
+                          texture-set-pb (resource/resource->proj-path atlas))
+                        nil
+                        (catch Exception error
+                          (handle-read-error error _node-id spine-json))))))
 
 (defn- build-spine-scene [resource dep-resources user-data]
   (let [pb (:proto-msg user-data)
