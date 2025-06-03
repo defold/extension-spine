@@ -470,6 +470,28 @@ namespace dmSpine
         return 1;
     }
 
+    static int SpineComp_AddSkin(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+        int top = lua_gettop(L);
+
+        SpineModelComponent* component = 0;
+        dmMessage::URL receiver; // needed for error output
+        dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
+
+        dmhash_t skin_id = 0;
+         if (!lua_isnil(L, 2))
+            skin_id = dmScript::CheckHashOrString(L, 2);
+
+        if (!CompSpineModelAddSkin(component, skin_id))
+        {
+            char buffer[128];
+            return DM_LUA_ERROR("failed to add spine skin '%s' in component %s", dmHashReverseSafe64(skin_id), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
+        }
+        // Return 1 item
+        return 0;
+    }
+
     /*# sets the spine skin
      * Sets the spine skin on a spine model.
      *
@@ -798,6 +820,7 @@ namespace dmSpine
 
     static const luaL_reg SPINE_COMP_FUNCTIONS[] =
     {
+            {"add_skin",                SpineComp_AddSkin},
             {"play_anim",               SpineComp_PlayAnim},
             {"cancel",                  SpineComp_Cancel},
             {"get_go",                  SpineComp_GetGO},

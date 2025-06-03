@@ -170,3 +170,29 @@ embedded_instances {
   "}\n"
   ""
 }
+embedded_instances {
+  id: "mix_skins"
+  data: "components {\n"
+  "  id: \"skin_mixer\"\n"
+  "  component: \"/assets/mix_skins/skin_mixer.script\"\n"
+  "}\n"
+  "embedded_components {\n"
+  "  id: \"spinemodel\"\n"
+  "  type: \"spinemodel\"\n"
+  "  data: \"spine_scene: \\\"/assets/mix_skins/spineboy/spineboy_mix.spinescene\\\"\\n"
+  "default_animation: \\\"run\\\"\\n"
+  "skin: \\\"blue_head\\\"\\n"
+  "material: \\\"/defold-spine/assets/spine.material\\\"\\n"
+  "create_go_bones: true\\n"
+  "\"\n"
+  "  scale {\n"
+  "    x: 0.5\n"
+  "    y: 0.5\n"
+  "  }\n"
+  "}\n"
+  ""
+  position {
+    x: 842.0
+    y: 158.0
+  }
+}
