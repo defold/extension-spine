@@ -31,11 +31,13 @@
             [editor.render :as render]
             [editor.resource :as resource]
             [editor.resource-node :as resource-node]
+            [editor.scene-picking :as scene-picking]
             [editor.types :as types]
             [editor.validation :as validation]
             [editor.workspace :as workspace]
             [util.murmur :as murmur])
   (:import [com.dynamo.bob.textureset TextureSetGenerator$UVTransform]
+           [com.dynamo.bob.pipeline ShaderUtil$Common ShaderUtil$VariantTextureArrayFallback]
            [com.jogamp.opengl GL GL2]
            [editor.gl.shader ShaderLifecycle]
            [editor.types AABB]
@@ -218,7 +220,9 @@
       (setq gl_FragColor id)
       (discard))))
 
-(def spine-id-shader (shader/make-shader ::id-shader spine-id-vertex-shader spine-id-fragment-shader {"id" :id}))
+(def spine-id-shader
+  (let [augmented-fragment-shader-source (.source (ShaderUtil$VariantTextureArrayFallback/transform spine-id-fragment-shader ShaderUtil$Common/MAX_ARRAY_SAMPLERS))]
+       (shader/make-shader ::id-shader spine-id-vertex-shader augmented-fragment-shader-source {"view_proj" :view-proj "id" :id})))
 
 ; See SpineVertex
 (vtx/defvertex vtx-pos-tex-col-index
@@ -349,38 +353,40 @@
     :blend-mode-alpha))
 
 (defn- do-render-object! [^GL2 gl render-args shader renderable ro]
-  (let [start (.m_VertexStart ro) ; the name is from the engine, but in this case refers to the index
-        count (.m_VertexCount ro)
-        renderable-user-data (:user-data renderable)
-        renderable-blend-mode (:blend-mode renderable-user-data)
-        blend-mode (if (= renderable-blend-mode :blend-mode-inherit)
-                     (blend-factor-value-to-blend-mode (.m_BlendFactor ro))
-                     renderable-blend-mode)
-        face-winding (if (not= (.m_FaceWindingCCW ro) 0) GL/GL_CCW GL/GL_CW)
-        _ (set-constants! gl shader ro)
-        ro-transform (double-array (.m (.m_WorldTransform ro)))
-        renderable-transform (Matrix4d. (:world-transform renderable)) ; make a copy so we don't alter the original
+       (let [start (.m_VertexStart ro)                      ; the name is from the engine, but in this case refers to the index
+             count (.m_VertexCount ro)
+             is-selection-pass? (= (:selection (:pass render-args)) true)
+             renderable-user-data (:user-data renderable)
+             renderable-blend-mode (:blend-mode renderable-user-data)
+             blend-mode (if (= renderable-blend-mode :blend-mode-inherit)
+                          (blend-factor-value-to-blend-mode (.m_BlendFactor ro))
+                          renderable-blend-mode)
+             face-winding (if (not= (.m_FaceWindingCCW ro) 0) GL/GL_CCW GL/GL_CW)
+             _ (set-constants! gl shader ro)
+             ro-transform (double-array (.m (.m_WorldTransform ro)))
+             renderable-transform (Matrix4d. (:world-transform renderable)) ; make a copy so we don't alter the original
 
-        ro-matrix (doto (Matrix4d. ro-transform) (.transpose))
-        shader-world-transform (doto renderable-transform (.mul ro-matrix))
-        use-index-buffer (not= (.m_UseIndexBuffer ro) 0)
-        triangle-mode (if (not= (.m_IsTriangleStrip ro) 0) GL/GL_TRIANGLE_STRIP GL/GL_TRIANGLES)
-        render-args (merge render-args
-                           (math/derive-render-transforms shader-world-transform
-                                                          (:view render-args)
-                                                          (:projection render-args)
-                                                          (:texture render-args)))]
-    (gl/set-blend-mode gl blend-mode)
-    (shader/set-uniform shader gl "world_view_proj" (:world-view-proj render-args))
-    (when (not= (.m_SetFaceWinding ro) 0)
-      (gl/gl-front-face gl face-winding))
-    (when (not= (.m_SetStencilTest ro) 0)
-      (set-stencil-test-params! gl (.m_StencilTestParams ro)))
-    (when (not use-index-buffer)
-      (gl/gl-draw-arrays gl triangle-mode start count))
-    (when use-index-buffer
-      (gl/gl-draw-elements gl triangle-mode start count))
-    (gl/set-blend-mode gl :blend-mode-alpha)))
+             ro-matrix (doto (Matrix4d. ro-transform) (.transpose))
+             shader-world-transform (doto renderable-transform (.mul ro-matrix))
+             use-index-buffer (not= (.m_UseIndexBuffer ro) 0)
+             triangle-mode (if (not= (.m_IsTriangleStrip ro) 0) GL/GL_TRIANGLE_STRIP GL/GL_TRIANGLES)
+             render-args (merge render-args
+                                (math/derive-render-transforms shader-world-transform
+                                                               (:view render-args)
+                                                               (:projection render-args)
+                                                               (:texture render-args)))]
+            (when-not is-selection-pass?
+                      (gl/set-blend-mode gl blend-mode))
+            (shader/set-uniform shader gl "view_proj" (:world-view-proj render-args))
+            (when (not= (.m_SetFaceWinding ro) 0)
+                  (gl/gl-front-face gl face-winding))
+            (when (not= (.m_SetStencilTest ro) 0)
+                  (set-stencil-test-params! gl (.m_StencilTestParams ro)))
+            (when (not use-index-buffer)
+                  (gl/gl-draw-arrays gl triangle-mode start count))
+            (when use-index-buffer
+                  (gl/gl-draw-elements gl triangle-mode start count))
+            (gl/set-blend-mode gl :blend-mode-alpha)))
 
 (set! *warn-on-reflection* true)
 
@@ -411,17 +417,19 @@
   (assert (= (:pass render-args) pass/outline))
   (render/render-aabb-outline gl render-args ::spine-outline renderables rcount))
 
+;; When debugging render using REPL, don't forget to run (g/clear-system-cache!)
+;; Also, it's possible to switch render modes in the Debug Editor using Cmd+T
 (defn- render-spine-scenes [^GL2 gl render-args renderables rcount]
-  (let [pass (:pass render-args)]
-    (condp = pass
-      pass/transparent
-      (when-let [groups (collect-render-groups renderables)]
-        (doall (map (fn [renderable] (render-group-transparent gl render-args nil renderable)) groups)))
+       (let [pass (:pass render-args)]
+            (condp = pass
+                   pass/transparent
+                   (when-let [groups (collect-render-groups renderables)]
+                             (doall (map (fn [renderable] (render-group-transparent gl render-args nil renderable)) groups)))
 
-      pass/selection
-      (when-let [groups (collect-render-groups renderables)]
-        (doall (map (fn [renderable] (render-group-transparent gl render-args spine-id-shader renderable)) groups))))))
-
+                   pass/selection
+                   (when-let [groups (collect-render-groups renderables)]
+                             (let [new-args (assoc render-args :id (scene-picking/renderable-picking-id-uniform (first renderables)))]
+                                  (doall (map (fn [renderable](render-group-transparent gl new-args spine-id-shader renderable)) groups)))))))
 
 ;; (defn- render-spine-skeletons [^GL2 gl render-args renderables rcount]
 ;;   (assert (= (:pass render-args) pass/transparent))
