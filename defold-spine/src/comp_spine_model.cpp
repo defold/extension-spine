@@ -1491,21 +1491,12 @@ namespace dmSpine
         return true;
     }
 
-    bool CompSpineModelAddSkin(SpineModelComponent* component, dmhash_t skin_id)
+    bool CompSpineModelClearSkin(SpineModelComponent* component, dmhash_t skin_id)
     {
+
         SpineModelResource* spine_model = component->m_Resource;
         SpineSceneResource* spine_scene = spine_model->m_SpineScene;
-        spSkin* current_skin = component->m_SkeletonInstance->skin;
-        spSkin* current_skin_from_data = spSkeletonData_findSkin(component->m_SkeletonInstance->data, current_skin->name);
-
-        if (!current_skin_from_data)
-        {
-
-           	component->m_SkeletonInstance->data->skins[component->m_SkeletonInstance->data->skinsCount++] = current_skin;
-            return false;
-
-        }
-        spSkin* skin_to_add = spine_scene->m_Skeleton->defaultSkin;
+        spSkin* skin_a;
 
         if (skin_id)
         {
@@ -1516,14 +1507,78 @@ namespace dmSpine
                 return false;
             }
 
-            skin_to_add = spine_scene->m_Skeleton->skins[*index];
+            skin_a = spine_scene->m_Skeleton->skins[*index];
         }
-        const char *skin_name = "mix_skin";
-        spSkin* mix_skin = spSkin_create(skin_name);
-        spSkin_addSkin(mix_skin,current_skin);
-        spSkin_addSkin(mix_skin,skin_to_add);
-        spSkeleton_setSkin(component->m_SkeletonInstance, mix_skin);
-        spSkeleton_setSlotsToSetupPose(component->m_SkeletonInstance);
+
+        spSkin_clear(skin_a);
+        return true;
+    }
+
+
+    bool CompSpineModelAddSkin(SpineModelComponent* component, dmhash_t skin_id_a, dmhash_t skin_id_b)
+    {
+        SpineModelResource* spine_model = component->m_Resource;
+        SpineSceneResource* spine_scene = spine_model->m_SpineScene;
+        spSkin* skin_a = spine_scene->m_Skeleton->defaultSkin;
+        spSkin* skin_b = spine_scene->m_Skeleton->defaultSkin;
+
+        if (skin_id_a)
+        {
+            uint32_t* index = spine_scene->m_SkinNameToIndex.Get(skin_id_a);
+            if (!index)
+            {
+                dmLogError("No skin named '%s'", dmHashReverseSafe64(skin_id_a));
+                return false;
+            }
+
+            skin_a = spine_scene->m_Skeleton->skins[*index];
+        }
+         if (skin_id_b)
+        {
+            uint32_t* index = spine_scene->m_SkinNameToIndex.Get(skin_id_b);
+            if (!index)
+            {
+                dmLogError("No skin named '%s'", dmHashReverseSafe64(skin_id_b));
+                return false;
+            }
+
+            skin_b = spine_scene->m_Skeleton->skins[*index];
+        }
+        spSkin_addSkin(skin_a,skin_b);
+        return true;
+    }
+
+
+    bool CompSpineModelCopySkin(SpineModelComponent* component, dmhash_t skin_id_a, dmhash_t skin_id_b)
+    {
+        SpineModelResource* spine_model = component->m_Resource;
+        SpineSceneResource* spine_scene = spine_model->m_SpineScene;
+        spSkin* skin_a = spine_scene->m_Skeleton->defaultSkin;
+        spSkin* skin_b = spine_scene->m_Skeleton->defaultSkin;
+
+        if (skin_id_a)
+        {
+            uint32_t* index = spine_scene->m_SkinNameToIndex.Get(skin_id_a);
+            if (!index)
+            {
+                dmLogError("No skin named '%s'", dmHashReverseSafe64(skin_id_a));
+                return false;
+            }
+
+            skin_a = spine_scene->m_Skeleton->skins[*index];
+        }
+         if (skin_id_b)
+        {
+            uint32_t* index = spine_scene->m_SkinNameToIndex.Get(skin_id_b);
+            if (!index)
+            {
+                dmLogError("No skin named '%s'", dmHashReverseSafe64(skin_id_b));
+                return false;
+            }
+
+            skin_b = spine_scene->m_Skeleton->skins[*index];
+        }
+        spSkin_copySkin(skin_a,skin_b);
         return true;
     }
 

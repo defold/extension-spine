@@ -181,7 +181,7 @@ embedded_instances {
   "  type: \"spinemodel\"\n"
   "  data: \"spine_scene: \\\"/assets/mix_skins/spineboy/spineboy_mix.spinescene\\\"\\n"
   "default_animation: \\\"run\\\"\\n"
-  "skin: \\\"blue_head\\\"\\n"
+  "skin: \\\"base_empty\\\"\\n"
   "material: \\\"/defold-spine/assets/spine.material\\\"\\n"
   "create_go_bones: true\\n"
   "\"\n"

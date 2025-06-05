@@ -470,7 +470,7 @@ namespace dmSpine
         return 1;
     }
 
-    static int SpineComp_AddSkin(lua_State* L)
+      static int SpineComp_ClearSkin(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 0);
         int top = lua_gettop(L);
@@ -483,12 +483,61 @@ namespace dmSpine
          if (!lua_isnil(L, 2))
             skin_id = dmScript::CheckHashOrString(L, 2);
 
-        if (!CompSpineModelAddSkin(component, skin_id))
+        if (!CompSpineModelClearSkin(component, skin_id))
         {
             char buffer[128];
             return DM_LUA_ERROR("failed to add spine skin '%s' in component %s", dmHashReverseSafe64(skin_id), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
         }
-        // Return 1 item
+        return 0;
+    }
+
+    static int SpineComp_CopySkin(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+        int top = lua_gettop(L);
+
+        SpineModelComponent* component = 0;
+        dmMessage::URL receiver; // needed for error output
+        dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
+
+        dmhash_t skin_id_a = 0;
+         if (!lua_isnil(L, 2))
+            skin_id_a = dmScript::CheckHashOrString(L, 2);
+
+        dmhash_t skin_id_b = 0;
+         if (!lua_isnil(L, 3))
+            skin_id_b = dmScript::CheckHashOrString(L, 3);
+
+        if (!CompSpineModelCopySkin(component, skin_id_a, skin_id_b))
+        {
+            char buffer[128];
+            return DM_LUA_ERROR("failed to add spine skin '%s' in component %s", dmHashReverseSafe64(skin_id_a), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
+        }
+        return 0;
+    }
+
+    static int SpineComp_AddSkin(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+        int top = lua_gettop(L);
+
+        SpineModelComponent* component = 0;
+        dmMessage::URL receiver; // needed for error output
+        dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
+
+        dmhash_t skin_id_a = 0;
+         if (!lua_isnil(L, 2))
+            skin_id_a = dmScript::CheckHashOrString(L, 2);
+
+        dmhash_t skin_id_b = 0;
+         if (!lua_isnil(L, 3))
+            skin_id_b = dmScript::CheckHashOrString(L, 3);
+
+        if (!CompSpineModelAddSkin(component, skin_id_a, skin_id_b))
+        {
+            char buffer[128];
+            return DM_LUA_ERROR("failed to add spine skin '%s' in component %s", dmHashReverseSafe64(skin_id_a), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
+        }
         return 0;
     }
 
@@ -820,6 +869,8 @@ namespace dmSpine
 
     static const luaL_reg SPINE_COMP_FUNCTIONS[] =
     {
+            {"copy_skin",               SpineComp_CopySkin},
+            {"clear_skin",              SpineComp_ClearSkin},
             {"add_skin",                SpineComp_AddSkin},
             {"play_anim",               SpineComp_PlayAnim},
             {"cancel",                  SpineComp_Cancel},
