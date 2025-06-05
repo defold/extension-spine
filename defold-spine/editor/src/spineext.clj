@@ -222,7 +222,7 @@
 
 (def spine-id-shader
   (let [augmented-fragment-shader-source (.source (ShaderUtil$VariantTextureArrayFallback/transform spine-id-fragment-shader ShaderUtil$Common/MAX_ARRAY_SAMPLERS))]
-       (shader/make-shader ::id-shader spine-id-vertex-shader augmented-fragment-shader-source {"view_proj" :view-proj "id" :id})))
+    (shader/make-shader ::id-shader spine-id-vertex-shader augmented-fragment-shader-source {"view_proj" :view-proj "id" :id})))
 
 ; See SpineVertex
 (vtx/defvertex vtx-pos-tex-col-index
@@ -353,40 +353,40 @@
     :blend-mode-alpha))
 
 (defn- do-render-object! [^GL2 gl render-args shader renderable ro]
-       (let [start (.m_VertexStart ro)                      ; the name is from the engine, but in this case refers to the index
-             count (.m_VertexCount ro)
-             is-selection-pass? (= (:selection (:pass render-args)) true)
-             renderable-user-data (:user-data renderable)
-             renderable-blend-mode (:blend-mode renderable-user-data)
-             blend-mode (if (= renderable-blend-mode :blend-mode-inherit)
-                          (blend-factor-value-to-blend-mode (.m_BlendFactor ro))
-                          renderable-blend-mode)
-             face-winding (if (not= (.m_FaceWindingCCW ro) 0) GL/GL_CCW GL/GL_CW)
-             _ (set-constants! gl shader ro)
-             ro-transform (double-array (.m (.m_WorldTransform ro)))
-             renderable-transform (Matrix4d. (:world-transform renderable)) ; make a copy so we don't alter the original
+  (let [start (.m_VertexStart ro)                           ; the name is from the engine, but in this case refers to the index
+        count (.m_VertexCount ro)
+        is-selection-pass? (= (:selection (:pass render-args)) true)
+        renderable-user-data (:user-data renderable)
+        renderable-blend-mode (:blend-mode renderable-user-data)
+        blend-mode (if (= renderable-blend-mode :blend-mode-inherit)
+                     (blend-factor-value-to-blend-mode (.m_BlendFactor ro))
+                     renderable-blend-mode)
+        face-winding (if (not= (.m_FaceWindingCCW ro) 0) GL/GL_CCW GL/GL_CW)
+        _ (set-constants! gl shader ro)
+        ro-transform (double-array (.m (.m_WorldTransform ro)))
+        renderable-transform (Matrix4d. (:world-transform renderable)) ; make a copy so we don't alter the original
 
-             ro-matrix (doto (Matrix4d. ro-transform) (.transpose))
-             shader-world-transform (doto renderable-transform (.mul ro-matrix))
-             use-index-buffer (not= (.m_UseIndexBuffer ro) 0)
-             triangle-mode (if (not= (.m_IsTriangleStrip ro) 0) GL/GL_TRIANGLE_STRIP GL/GL_TRIANGLES)
-             render-args (merge render-args
-                                (math/derive-render-transforms shader-world-transform
-                                                               (:view render-args)
-                                                               (:projection render-args)
-                                                               (:texture render-args)))]
-            (when-not is-selection-pass?
-                      (gl/set-blend-mode gl blend-mode))
-            (shader/set-uniform shader gl "view_proj" (:world-view-proj render-args))
-            (when (not= (.m_SetFaceWinding ro) 0)
-                  (gl/gl-front-face gl face-winding))
-            (when (not= (.m_SetStencilTest ro) 0)
-                  (set-stencil-test-params! gl (.m_StencilTestParams ro)))
-            (when (not use-index-buffer)
-                  (gl/gl-draw-arrays gl triangle-mode start count))
-            (when use-index-buffer
-                  (gl/gl-draw-elements gl triangle-mode start count))
-            (gl/set-blend-mode gl :blend-mode-alpha)))
+        ro-matrix (doto (Matrix4d. ro-transform) (.transpose))
+        shader-world-transform (doto renderable-transform (.mul ro-matrix))
+        use-index-buffer (not= (.m_UseIndexBuffer ro) 0)
+        triangle-mode (if (not= (.m_IsTriangleStrip ro) 0) GL/GL_TRIANGLE_STRIP GL/GL_TRIANGLES)
+        render-args (merge render-args
+                           (math/derive-render-transforms shader-world-transform
+                                                          (:view render-args)
+                                                          (:projection render-args)
+                                                          (:texture render-args)))]
+    (when-not is-selection-pass?
+      (gl/set-blend-mode gl blend-mode))
+    (shader/set-uniform shader gl "view_proj" (:world-view-proj render-args))
+    (when (not= (.m_SetFaceWinding ro) 0)
+      (gl/gl-front-face gl face-winding))
+    (when (not= (.m_SetStencilTest ro) 0)
+      (set-stencil-test-params! gl (.m_StencilTestParams ro)))
+    (when (not use-index-buffer)
+      (gl/gl-draw-arrays gl triangle-mode start count))
+    (when use-index-buffer
+      (gl/gl-draw-elements gl triangle-mode start count))
+    (gl/set-blend-mode gl :blend-mode-alpha)))
 
 (set! *warn-on-reflection* true)
 
@@ -420,16 +420,16 @@
 ;; When debugging render using REPL, don't forget to run (g/clear-system-cache!)
 ;; Also, it's possible to switch render modes in the Debug Editor using Cmd+T
 (defn- render-spine-scenes [^GL2 gl render-args renderables rcount]
-       (let [pass (:pass render-args)]
-            (condp = pass
-                   pass/transparent
-                   (when-let [groups (collect-render-groups renderables)]
-                             (doall (map (fn [renderable] (render-group-transparent gl render-args nil renderable)) groups)))
+  (let [pass (:pass render-args)]
+    (condp = pass
+      pass/transparent
+      (when-let [groups (collect-render-groups renderables)]
+        (doall (map (fn [renderable] (render-group-transparent gl render-args nil renderable)) groups)))
 
-                   pass/selection
-                   (when-let [groups (collect-render-groups renderables)]
-                             (let [new-args (assoc render-args :id (scene-picking/renderable-picking-id-uniform (first renderables)))]
-                                  (doall (map (fn [renderable](render-group-transparent gl new-args spine-id-shader renderable)) groups)))))))
+      pass/selection
+      (when-let [groups (collect-render-groups renderables)]
+        (let [new-args (assoc render-args :id (scene-picking/renderable-picking-id-uniform (first renderables)))]
+          (doall (map (fn [renderable] (render-group-transparent gl new-args spine-id-shader renderable)) groups)))))))
 
 ;; (defn- render-spine-skeletons [^GL2 gl render-args renderables rcount]
 ;;   (assert (= (:pass render-args) pass/transparent))
@@ -441,18 +441,18 @@
 (g/defnk produce-main-scene [_node-id aabb material-shader gpu-texture default-tex-params aabb spine-scene-pb spine-data-handle]
   (when (and gpu-texture)
     (assoc {:node-id _node-id :aabb aabb}
-           :renderable {:render-fn render-spine-scenes
-                        :tags #{:spine}
-                        :batch-key [gpu-texture material-shader]
-                        :select-batch-key _node-id
-                        :user-data {:aabb aabb
-                                    :spine-scene-pb spine-scene-pb
-                                    :spine-data-handle spine-data-handle
-                                    :shader material-shader
-                                    :gpu-texture gpu-texture
-                                    :tex-params default-tex-params
-                                    :blend-mode :blend-mode-alpha}
-                        :passes [pass/transparent pass/selection]})))
+      :renderable {:render-fn render-spine-scenes
+                   :tags #{:spine}
+                   :batch-key [gpu-texture material-shader]
+                   :select-batch-key _node-id
+                   :user-data {:aabb aabb
+                               :spine-scene-pb spine-scene-pb
+                               :spine-data-handle spine-data-handle
+                               :shader material-shader
+                               :gpu-texture gpu-texture
+                               :tex-params default-tex-params
+                               :blend-mode :blend-mode-alpha}
+                   :passes [pass/transparent pass/selection]})))
 
 (defn- make-spine-outline-scene [_node-id aabb]
   {:aabb aabb
@@ -483,16 +483,16 @@
 
   (output transform Matrix4d :cached produce-transform)
   (output bone g/Any (g/fnk [name transform child-bones]
-                            {:name name
-                             :local-transform transform
-                             :children child-bones}))
+                       {:name name
+                        :local-transform transform
+                        :children child-bones}))
   (output node-outline outline/OutlineData (g/fnk [_node-id name child-outlines]
-                                                  {:node-id _node-id
-                                                   :node-outline-key name
-                                                   :label name
-                                                   :icon spine-bone-icon
-                                                   :children child-outlines
-                                                   :read-only true})))
+                                             {:node-id _node-id
+                                              :node-outline-key name
+                                              :label name
+                                              :icon spine-bone-icon
+                                              :children child-outlines
+                                              :read-only true})))
 
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -512,10 +512,10 @@
         length (.-length spine-bone)
         parent-graph-id (g/node-id->graph-id parent-id)
         bone-tx-data (g/make-nodes parent-graph-id [bone [SpineBone :name name :position [x y protobuf/float-zero] :rotation rotation :scale [scale-x scale-y protobuf/float-one] :length length]]
-                                   ; Hook this node into the parent's lists
-                                   (g/connect bone :_node-id parent-id :nodes)
-                                   (g/connect bone :node-outline parent-id :child-outlines)
-                                   (g/connect bone :bone parent-id :child-bones))]
+                       ; Hook this node into the parent's lists
+                       (g/connect bone :_node-id parent-id :nodes)
+                       (g/connect bone :node-outline parent-id :child-outlines)
+                       (g/connect bone :bone parent-id :child-bones))]
     bone-tx-data))
 
 (defn- tx-first-created [tx-data]
@@ -585,10 +585,10 @@
            skins (sort (vec (plugin-get-skins spine-data-handle)))
 
            tx-data (concat
-                    (g/set-property node-id :content content)
-                    (g/set-property node-id :animations animations)
-                    (g/set-property node-id :skins skins)
-                    (g/set-property node-id :bones bones))
+                     (g/set-property node-id :content content)
+                     (g/set-property node-id :animations animations)
+                     (g/set-property node-id :skins skins)
+                     (g/set-property node-id :bones bones))
 
            all-tx-data (concat tx-data (create-bones node-id bones))]
        all-tx-data)
@@ -638,11 +638,11 @@
       (handle-read-error error _node-id spine-json-resource))))
 
 (defn- sanitize-spine-scene [spine-scene-desc]
-  {:pre [(map? spine-scene-desc)]} ; Spine$SpineSceneDesc in map format.
-  (dissoc spine-scene-desc :sample-rate)) ; Deprecated field.
+  {:pre [(map? spine-scene-desc)]}                          ; Spine$SpineSceneDesc in map format.
+  (dissoc spine-scene-desc :sample-rate))                   ; Deprecated field.
 
 (defn- load-spine-scene [project self resource spine-scene-desc]
-  {:pre [(map? spine-scene-desc)]} ; Spine$SpineSceneDesc in map format.
+  {:pre [(map? spine-scene-desc)]}                          ; Spine$SpineSceneDesc in map format.
   (let [resolve-resource #(workspace/resolve-resource resource %)
         default-material-resource (resolve-resource spine-material-path)]
     (concat
@@ -698,18 +698,18 @@
 (g/defnk produce-spine-scene-build-targets
   [_node-id own-build-errors resource spine-json-resource atlas-resource spine-scene-pb dep-build-targets]
   (g/precluding-errors own-build-errors
-                       (let [dep-build-targets (flatten dep-build-targets)
-                             deps-by-source (into {} (map #(let [res (:resource %)] [(:resource res) res]) dep-build-targets))
-                             dep-resources (map (fn [[label resource]] [label (get deps-by-source resource)]) [[:spine-json spine-json-resource] [:atlas atlas-resource]])]
+    (let [dep-build-targets (flatten dep-build-targets)
+          deps-by-source (into {} (map #(let [res (:resource %)] [(:resource res) res]) dep-build-targets))
+          dep-resources (map (fn [[label resource]] [label (get deps-by-source resource)]) [[:spine-json spine-json-resource] [:atlas atlas-resource]])]
 
-                         [(bt/with-content-hash
-                            {:node-id _node-id
-                             :resource (workspace/make-build-resource resource)
-                             :build-fn build-spine-scene
-                             :user-data {:proto-msg spine-scene-pb
-                                         :dep-resources dep-resources}
+      [(bt/with-content-hash
+         {:node-id _node-id
+          :resource (workspace/make-build-resource resource)
+          :build-fn build-spine-scene
+          :user-data {:proto-msg spine-scene-pb
+                      :dep-resources dep-resources}
 
-                             :deps dep-build-targets})])))
+          :deps dep-build-targets})])))
 
 (g/defnode SpineSceneNode
   (inherits resource-node/ResourceNode)
@@ -727,19 +727,19 @@
                                             [:build-targets :dep-build-targets])))
             (dynamic edit-type (g/constantly {:type resource/Resource :ext spine-json-ext}))
             (dynamic error (g/fnk [_node-id spine-json]
-                                  (validate-scene-spine-json _node-id spine-json))))
+                             (validate-scene-spine-json _node-id spine-json))))
 
   (property atlas resource/Resource
             (value (gu/passthrough atlas-resource))
             (set (fn [evaluation-context self old-value new-value]
                    (project/resource-setter evaluation-context self old-value new-value
-                                            [:resource :atlas-resource]  ; Is this redundant?
+                                            [:resource :atlas-resource] ; Is this redundant?
                                             [:texture-set-pb :texture-set-pb]
                                             [:gpu-texture :gpu-texture]
                                             [:build-targets :dep-build-targets])))
             (dynamic edit-type (g/constantly {:type resource/Resource :ext "atlas"}))
             (dynamic error (g/fnk [_node-id atlas]
-                                  (validate-scene-atlas _node-id atlas))))
+                             (validate-scene-atlas _node-id atlas))))
 
   ; This property isn't visible, but here to allow us to preview the .spinescene
   (property material resource/Resource
@@ -756,7 +756,7 @@
 
   (input material-shader ShaderLifecycle)
   (input material-samplers g/Any)
-  (input material-resource resource/Resource) ; Just for being able to preview the asset
+  (input material-resource resource/Resource)               ; Just for being able to preview the asset
 
   (input default-tex-params g/Any)
   (input gpu-texture g/Any)
@@ -850,20 +850,20 @@
 
 (g/defnk produce-model-build-targets [_node-id own-build-errors resource model-pb spine-scene-resource material-resource dep-build-targets]
   (g/precluding-errors own-build-errors
-                       (let [dep-build-targets (flatten dep-build-targets)
-                             deps-by-source (into {} (map #(let [res (:resource %)] [(:resource res) res]) dep-build-targets))
-                             dep-resources (map (fn [[label resource]] [label (get deps-by-source resource)]) [[:spine-scene spine-scene-resource] [:material material-resource]])
-                             model-pb (update model-pb :skin (fn [skin] (or skin "")))]
-                         [(bt/with-content-hash
-                            {:node-id _node-id
-                             :resource (workspace/make-build-resource resource)
-                             :build-fn build-spine-model
-                             :user-data {:proto-msg model-pb
-                                         :dep-resources dep-resources}
-                             :deps dep-build-targets})])))
+    (let [dep-build-targets (flatten dep-build-targets)
+          deps-by-source (into {} (map #(let [res (:resource %)] [(:resource res) res]) dep-build-targets))
+          dep-resources (map (fn [[label resource]] [label (get deps-by-source resource)]) [[:spine-scene spine-scene-resource] [:material material-resource]])
+          model-pb (update model-pb :skin (fn [skin] (or skin "")))]
+      [(bt/with-content-hash
+         {:node-id _node-id
+          :resource (workspace/make-build-resource resource)
+          :build-fn build-spine-model
+          :user-data {:proto-msg model-pb
+                      :dep-resources dep-resources}
+          :deps dep-build-targets})])))
 
 (defn load-spine-model [project self resource spine-model-desc]
-  {:pre [(map? spine-model-desc)]} ; Spine$SpineModelDesc in map format.
+  {:pre [(map? spine-model-desc)]}                          ; Spine$SpineModelDesc in map format.
   (let [resolve-resource #(workspace/resolve-resource resource %)]
     (concat
       (g/connect project :default-tex-params self :default-tex-params)
@@ -887,9 +887,9 @@
 
 (g/defnk produce-spine-data-handle-updatable [_node-id spine-data-handle default-animation skin]
   (when (and (not (nil? spine-data-handle)) default-animation skin)
-    {:node-id       _node-id
-     :name          "Spine Scene Updater"
-     :update-fn     (fn [state {:keys [dt]}] (step-animation state dt spine-data-handle default-animation skin))
+    {:node-id _node-id
+     :name "Spine Scene Updater"
+     :update-fn (fn [state {:keys [dt]}] (step-animation state dt spine-data-handle default-animation skin))
      :initial-state {}}))
 
 (g/defnode SpineModelNode
@@ -912,7 +912,7 @@
 
             (dynamic edit-type (g/constantly {:type resource/Resource :ext spine-scene-ext}))
             (dynamic error (g/fnk [_node-id spine-scene]
-                                  (validate-model-spine-scene _node-id spine-scene))))
+                             (validate-model-spine-scene _node-id spine-scene))))
   (property blend-mode g/Any (default :blend-mode-alpha)
             (dynamic tip (validation/blend-mode-tip blend-mode spine-plugin-blendmode-cls))
             (dynamic edit-type (g/constantly (properties/->pb-choicebox spine-plugin-blendmode-cls))))
@@ -926,22 +926,22 @@
                                             [:build-targets :dep-build-targets])))
             (dynamic edit-type (g/constantly {:type resource/Resource :ext "material"}))
             (dynamic error (g/fnk [_node-id material]
-                                  (validate-model-material _node-id material))))
+                             (validate-model-material _node-id material))))
   (property default-animation g/Str
             (dynamic error (g/fnk [_node-id animations default-animation spine-scene]
-                                  (validate-model-default-animation _node-id spine-scene animations default-animation)))
+                             (validate-model-default-animation _node-id spine-scene animations default-animation)))
             (dynamic edit-type (g/fnk [animations] (properties/->choicebox animations))))
   (property skin g/Str
             (dynamic error (g/fnk [_node-id skin skins spine-scene]
-                                  (validate-model-skin _node-id spine-scene skins skin)))
+                             (validate-model-skin _node-id spine-scene skins skin)))
             (dynamic edit-type (g/fnk [skins] (->skin-choicebox skins))))
   (property create-go-bones g/Bool (default false))
   (property playback-rate g/Num (default (float 1.0)))
   (property offset g/Num (default (float 0.0))
-    (dynamic edit-type (g/constantly {:type :slider
-                                      :min 0.0
-                                      :max 1.0
-                                      :precision 0.01})))
+            (dynamic edit-type (g/constantly {:type :slider
+                                              :min 0.0
+                                              :max 1.0
+                                              :precision 0.01})))
 
   (input spine-json-resource resource/Resource)
   (input atlas-resource resource/Resource)
@@ -965,8 +965,8 @@
                                                          geom/empty-bounding-box)))
 
   (output tex-params g/Any (g/fnk [material-samplers default-tex-params]
-                                  (or (some-> material-samplers first material/sampler->tex-params)
-                                      default-tex-params)))
+                             (or (some-> material-samplers first material/sampler->tex-params)
+                                 default-tex-params)))
 
   (input material-shader ShaderLifecycle)
   (output material-shader ShaderLifecycle (gu/passthrough material-shader))
@@ -974,33 +974,33 @@
   (output updatable g/Any :cached produce-spine-data-handle-updatable)
 
   (output scene g/Any :cached (g/fnk [_node-id spine-main-scene aabb blend-mode material-shader tex-params spine-data-handle default-animation skin updatable]
-                                     (if (and (some? material-shader) (some? (:renderable spine-main-scene)))
-                                       (let [aabb aabb
-                                             spine-scene-node-id (:node-id spine-main-scene)]
-                                         (-> spine-main-scene
-                                             (assoc-in [:renderable :user-data :shader] material-shader)
-                                             (update-in [:renderable :user-data :gpu-texture] texture/set-params tex-params)
-                                             (assoc-in [:renderable :user-data :blend-mode] blend-mode)
-                                             (assoc-in [:renderable :user-data :skin] skin)
-                                             (assoc-in [:renderable :user-data :animation] default-animation)
-                                             (assoc-in [:renderable :user-data :spine-data-handle] spine-data-handle)
+                                (if (and (some? material-shader) (some? (:renderable spine-main-scene)))
+                                  (let [aabb aabb
+                                        spine-scene-node-id (:node-id spine-main-scene)]
+                                    (-> spine-main-scene
+                                        (assoc-in [:renderable :user-data :shader] material-shader)
+                                        (update-in [:renderable :user-data :gpu-texture] texture/set-params tex-params)
+                                        (assoc-in [:renderable :user-data :blend-mode] blend-mode)
+                                        (assoc-in [:renderable :user-data :skin] skin)
+                                        (assoc-in [:renderable :user-data :animation] default-animation)
+                                        (assoc-in [:renderable :user-data :spine-data-handle] spine-data-handle)
 
-                                             (assoc :updatable updatable)
-                                             (assoc :aabb aabb)
-                                             (assoc :children [(make-spine-outline-scene spine-scene-node-id aabb)])))
-                                       (merge {:node-id _node-id
-                                               :renderable {:passes [pass/selection]}
-                                               :aabb geom/empty-bounding-box}
-                                              spine-main-scene))))
+                                        (assoc :updatable updatable)
+                                        (assoc :aabb aabb)
+                                        (assoc :children [(make-spine-outline-scene spine-scene-node-id aabb)])))
+                                  (merge {:node-id _node-id
+                                          :renderable {:passes [pass/selection]}
+                                          :aabb geom/empty-bounding-box}
+                                         spine-main-scene))))
   (output node-outline outline/OutlineData :cached (g/fnk [_node-id own-build-errors spine-scene]
-                                                          (cond-> {:node-id _node-id
-                                                                   :node-outline-key "Spine Model"
-                                                                   :label "Spine Model"
-                                                                   :icon spine-model-icon
-                                                                   :outline-error? (g/error-fatal? own-build-errors)}
+                                                     (cond-> {:node-id _node-id
+                                                              :node-outline-key "Spine Model"
+                                                              :label "Spine Model"
+                                                              :icon spine-model-icon
+                                                              :outline-error? (g/error-fatal? own-build-errors)}
 
-                                                            (resource/openable-resource? spine-scene)
-                                                            (assoc :link spine-scene :outline-reference? false))))
+                                                             (resource/openable-resource? spine-scene)
+                                                             (assoc :link spine-scene :outline-reference? false))))
   (output model-pb g/Any produce-model-pb)
   (output save-value g/Any (gu/passthrough model-pb))
   (output own-build-errors g/Any produce-model-own-build-errors)
