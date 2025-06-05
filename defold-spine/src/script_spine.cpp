@@ -470,6 +470,26 @@ namespace dmSpine
         return 1;
     }
 
+    /*# clears a spine skin
+     * Clears the current attachments and constraints on a spine skin.
+     *
+     * @name spine.clear_skin
+     * @param url [type:string|hash|url] the spine model for which to clear a skin
+     * @param spine_skin [type:string|hash] spine skin id to be cleared
+     * @examples
+     *
+     * The following examples assumes that the spine model has id "spinemodel"
+     * which has a skin "monster".
+     *
+     * Clear skin of a Spine model
+     *
+     * ```lua
+     * function init(self)
+     *   spine.clear_skin("#spinemodel", "monster")
+     * end
+     * ```
+     */
+
       static int SpineComp_ClearSkin(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 0);
@@ -486,10 +506,42 @@ namespace dmSpine
         if (!CompSpineModelClearSkin(component, skin_id))
         {
             char buffer[128];
-            return DM_LUA_ERROR("failed to add spine skin '%s' in component %s", dmHashReverseSafe64(skin_id), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
+            return DM_LUA_ERROR("failed to clear spine skin '%s' in component %s", dmHashReverseSafe64(skin_id), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
         }
         return 0;
     }
+
+    /*# copies one spine skine to another
+     * Copies the attachments and constraints of one spine skin on a spine model to another
+     * on the same spine model.
+     *
+     * @name spine.copy_skin
+     * @param url [type:string|hash|url] the spine model for which to set skin
+     * @param spine_skin [type:string|hash] spine skin id that will recieve the copied skin
+     * @param spine_skin [type:string|hash] spine skin id that will be copied
+     * @examples
+     *
+     * The following examples assumes that the spine model has id "spinemodel",
+     * a skin "custom", and two extra skins "monster_head" and "monster_body"
+     *
+     * Copy the skin monster_body and then monster_head to the skin "custom",
+     * then set the spinemodel to the custom skin. The attachments on custom are
+     * fully copied and can be altered without affecting the attachments of monster_head
+     * and monster_body.
+     *
+     * ```lua
+     * function init(self)
+     *  spine.copy_skin("#spinemodel", "custom", "monster_body")
+     *  spine.copy_skin("#spinemodel", "custom", "monster_head")
+     *  spine.set_skin("#spinemodel", "custom")
+     * end
+     * ```
+     *
+     * This function call does alter the recieving skin in runtime. A skin
+     * that has had another skin copied to it will have both sets of attachments.
+     * Setting the model to another skin and then back to the altered skin will
+     * not reset the skin to its original composition.
+     */
 
     static int SpineComp_CopySkin(lua_State* L)
     {
@@ -511,11 +563,38 @@ namespace dmSpine
         if (!CompSpineModelCopySkin(component, skin_id_a, skin_id_b))
         {
             char buffer[128];
-            return DM_LUA_ERROR("failed to add spine skin '%s' in component %s", dmHashReverseSafe64(skin_id_a), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
+            return DM_LUA_ERROR("failed to copy spine skin '%s' to spine skin '%s' in component %s", dmHashReverseSafe64(skin_id_b), dmHashReverseSafe64(skin_id_a), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
         }
         return 0;
     }
-
+    /*# adds one spine skin to another
+     * Adds a spine skins attachments and constraints to another spine skin on the same model
+     *
+     * @name spine.add_skin
+     * @param url [type:string|hash|url] the spine model for which to set skin
+     * @param spine_skin [type:string|hash] spine skin id that will recieve the added skin
+     * @param spine_skin [type:string|hash] spine skin id that will be added
+     * @examples
+     *
+     * The following examples assumes that the spine model has id "spinemodel",
+     * a skin "custom", and two extra skins "monster_head" and "monster_body"
+     *
+     * Add both the head and body skins to the custom skin and set the spinemodel to the
+     * custom skin
+     *
+     * ```lua
+     * function init(self)
+     *   spine.add_skin("#spinemodel", "custom", "monster_body")
+     *   spine.add_skin("#spinemodel", "custom", "monster_head")
+     *   spine.set_skin("#spinemodel", "custom")
+     * end
+     * ```
+     *
+     * This function call does alter the recieving skin in runtime. A skin
+     * that has had another skin added will have both sets of attachments.
+     * Setting the model to another skin and then back to the altered skin will
+     * not reset the skin to its original composition.
+     */
     static int SpineComp_AddSkin(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 0);
@@ -536,7 +615,7 @@ namespace dmSpine
         if (!CompSpineModelAddSkin(component, skin_id_a, skin_id_b))
         {
             char buffer[128];
-            return DM_LUA_ERROR("failed to add spine skin '%s' in component %s", dmHashReverseSafe64(skin_id_a), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
+            return DM_LUA_ERROR("failed to add spine skin '%s' to spine skin '%s' in component %s", dmHashReverseSafe64(skin_id_b), dmHashReverseSafe64(skin_id_a), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
         }
         return 0;
     }
