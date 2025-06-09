@@ -359,7 +359,7 @@
 
 (attachment/register!
   gui/GuiSceneNode :spine-scenes
-  :add {SpineSceneNode (g/expand-ec attach-spine-scene-to-gui-scene)}
+  :add {SpineSceneNode (partial g/expand-ec attach-spine-scene-to-gui-scene)}
   :get (fn get-spine-scenes [gui-scene-node {:keys [basis] :as evaluation-context}]
          (attachment/nodes-getter (gui-scene-node->spine-scenes-node basis gui-scene-node) evaluation-context)))
 
