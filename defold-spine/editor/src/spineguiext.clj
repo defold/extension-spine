@@ -29,6 +29,7 @@
             [editor.spineext :as spineext]
             [editor.util :as util]
             [editor.workspace :as workspace]
+            [internal.graph.types :as gt]
             [util.coll :as coll :refer [pair]]
             [util.murmur :as murmur])
   (:import [com.dynamo.gamesys.proto Gui$NodeDesc Gui$NodeDesc$ClippingMode]
