@@ -13,7 +13,11 @@
 (ns editor.spineguiext
   (:require [clojure.string :as str]
             [dynamo.graph :as g]
+            [editor.attachment :as attachment]
+            [editor.core :as core]
             [editor.defold-project :as project]
+            [editor.editor-extensions.graph :as ext-graph]
+            [editor.editor-extensions.runtime :as rt]
             [editor.geom :as geom]
             [editor.gl.texture]
             [editor.graph-util :as gu]
@@ -23,6 +27,7 @@
             [editor.protobuf :as protobuf]
             [editor.resource :as resource]
             [editor.spineext :as spineext]
+            [editor.util :as util]
             [editor.workspace :as workspace]
             [util.coll :refer [pair]]
             [util.murmur :as murmur])
@@ -302,22 +307,18 @@
 
 (defn- attach-spine-scene
   ;; self is the GuiSceneNode
-  ([self spine-scenes-node spine-scene]
-   (attach-spine-scene self spine-scenes-node spine-scene false))
-  ([self spine-scenes-node spine-scene internal?]
-   (concat
-    (g/connect spine-scene :_node-id self :nodes)
-    (g/connect spine-scene :spine-scene-element-ids self :spine-scene-element-ids)
-    (g/connect spine-scene :spine-scene-infos self :spine-scene-infos)
-    (when (not internal?)
-      (concat
-       (g/connect spine-scene :name self :spine-scene-names)
-       (g/connect spine-scene :dep-build-targets self :dep-build-targets)
-       (g/connect spine-scene :pb-msg self :resource-msgs)
-       (g/connect spine-scene :build-errors spine-scenes-node :build-errors)
-       (g/connect spine-scene :node-outline spine-scenes-node :child-outlines)
-       (g/connect spine-scene :name spine-scenes-node :names)
-       (g/connect spine-scenes-node :name-counts spine-scene :name-counts))))))
+  [self spine-scenes-node spine-scene]
+  (concat
+   (g/connect spine-scene :_node-id spine-scenes-node :nodes)
+   (g/connect spine-scene :spine-scene-element-ids self :spine-scene-element-ids)
+   (g/connect spine-scene :spine-scene-infos self :spine-scene-infos)
+   (g/connect spine-scene :name self :spine-scene-names)
+   (g/connect spine-scene :dep-build-targets self :dep-build-targets)
+   (g/connect spine-scene :pb-msg self :resource-msgs)
+   (g/connect spine-scene :build-errors spine-scenes-node :build-errors)
+   (g/connect spine-scene :node-outline spine-scenes-node :child-outlines)
+   (g/connect spine-scene :name spine-scenes-node :names)
+   (g/connect spine-scenes-node :name-counts spine-scene :name-counts)))
 
 (defn- add-spine-scene [scene spine-scenes-node resource name]
   (g/make-nodes (g/node-id->graph-id scene) [node [SpineSceneNode :name name :spine-scene resource]]
@@ -329,6 +330,7 @@
    (partial add-spine-scene scene parent)))
 
 (g/defnode SpineScenesNode
+  (inherits core/Scope)
   (inherits outline/OutlineNode)
   (input names g/Str :array)
   (output name-counts gui/NameCounts :cached (g/fnk [names] (frequencies names)))
@@ -343,6 +345,28 @@
           (g/fnk [_node-id]
                  [_node-id "Spine Scenes..." spineext/spine-scene-icon add-spine-scenes-handler {}])))
 
+(defn- gui-scene-node->spine-scenes-node [basis gui-scene-node]
+  (coll/some
+    (fn [arc]
+      (let [id (gt/source-id arc)]
+        (when (= SpineScenesNode (g/node-type* basis id))
+          id)))
+    (g/explicit-arcs-by-target basis gui-scene-node :nodes)))
+
+(defn- attach-spine-scene-to-gui-scene [{:keys [basis]} gui-scene-node spine-scene-node]
+  (attach-spine-scene gui-scene-node (gui-scene-node->spine-scenes-node basis gui-scene-node) spine-scene-node))
+
+(attachment/register!
+  gui/GuiSceneNode :spine-scenes
+  :add {SpineSceneNode (g/expand-ec attach-spine-scene-to-gui-scene)}
+  :get (fn get-spine-scenes [gui-scene-node {:keys [basis] :as evaluation-context}]
+         (attachment/nodes-getter (gui-scene-node->spine-scenes-node basis gui-scene-node) evaluation-context)))
+
+(defmethod ext-graph/init-attachment ::SpineSceneNode [evaluation-context rt project parent-node-id _ child-node-id attachment]
+  (-> attachment
+      (util/provide-defaults
+        "name" (ext-graph/gen-gui-component-name attachment "spine_scene" gui-scene-node->spine-scenes-node rt parent-node-id evaluation-context))
+      (ext-graph/attachment->set-tx-steps child-node-id rt project evaluation-context)))
 
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -350,14 +374,11 @@
 ;; Loading a gui scene
 
 (defn- load-gui-scene-spine [_project self scene graph-id resource]
-  (g/make-nodes graph-id [spine-scenes-node SpineScenesNode
-                          no-spine-scene [SpineSceneNode
-                                          :name ""]]
+  (g/make-nodes graph-id [spine-scenes-node SpineScenesNode]
     (g/connect spine-scenes-node :_node-id self :nodes)
     (g/connect spine-scenes-node :build-errors self :build-errors)
     (g/connect spine-scenes-node :node-outline self :child-outlines)
-    (g/connect spine-scenes-node :add-handler-info self :handler-infos)
-    (attach-spine-scene self spine-scenes-node no-spine-scene true)
+    (g/connect spine-scenes-node :add-handler-info self :handler-infos) 
     (let [spine-scene-name+paths
           (concat
             (->> (:spine-scenes scene)
