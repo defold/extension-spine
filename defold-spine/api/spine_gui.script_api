@@ -123,6 +123,7 @@
             end
             ```
 
+
     - name: add_spine_skin
       type: function
       desc: Add a spine skin on a spine node to another skin on the same node.
@@ -146,6 +147,7 @@
             end
             ```
 
+
     - name: copy_spine_skin
       type: function
       desc: Copy a spine skin on a spine node to another skin on the same node.
@@ -168,6 +170,7 @@
               gui.copy_spine_skin(gui.get_node("spine_node"), "monster_head", "monster_body")
             end
             ```
+
 
     - name: clear_spine_skin
       type: function
@@ -280,5 +283,4 @@
           type: string|hash
           desc: attachment name. May be nil.
      
-
 

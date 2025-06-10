@@ -1532,7 +1532,7 @@ namespace dmSpine
 
             skin_a = spine_scene->m_Skeleton->skins[*index];
         }
-         if (skin_id_b)
+        if (skin_id_b)
         {
             uint32_t* index = spine_scene->m_SkinNameToIndex.Get(skin_id_b);
             if (!index)
@@ -1567,7 +1567,7 @@ namespace dmSpine
 
             skin_a = spine_scene->m_Skeleton->skins[*index];
         }
-         if (skin_id_b)
+        if (skin_id_b)
         {
             uint32_t* index = spine_scene->m_SkinNameToIndex.Get(skin_id_b);
             if (!index)

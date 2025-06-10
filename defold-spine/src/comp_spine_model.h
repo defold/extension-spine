@@ -95,8 +95,8 @@ namespace dmSpine
     bool CompSpineModelSetIKTargetPosition(SpineModelComponent* component, dmhash_t constraint_id, float mix, Vectormath::Aos::Point3 position);
     bool CompSpineModelResetIKTarget(SpineModelComponent* component, dmhash_t constraint_id);
 
-    bool CompSpineModelClear(SpineModelComponent* component, dmhash_t skin_id);
     bool CompSpineModelAddSkin(SpineModelComponent* component, dmhash_t skin_id_a, dmhash_t skin_id_b);
+    bool CompSpineModelClear(SpineModelComponent* component, dmhash_t skin_id);
     bool CompSpineModelCopySkin(SpineModelComponent* component, dmhash_t skin_id_a, dmhash_t skin_id_b);
     bool CompSpineModelSetSkin(SpineModelComponent* component, dmhash_t skin_id);
     bool CompSpineModelSetAttachment(SpineModelComponent* component, dmhash_t slot_id, dmhash_t attachment_id);
