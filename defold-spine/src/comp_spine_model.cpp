@@ -1493,7 +1493,6 @@ namespace dmSpine
 
     bool CompSpineModelClear(SpineModelComponent* component, dmhash_t skin_id)
     {
-
         SpineModelResource* spine_model = component->m_Resource;
         SpineSceneResource* spine_scene = spine_model->m_SpineScene;
         spSkin* skin_a;
@@ -1511,9 +1510,9 @@ namespace dmSpine
         }
 
         spSkin_clear(skin_a);
+
         return true;
     }
-
 
     bool CompSpineModelAddSkin(SpineModelComponent* component, dmhash_t skin_id_a, dmhash_t skin_id_b)
     {
@@ -1544,10 +1543,11 @@ namespace dmSpine
 
             skin_b = spine_scene->m_Skeleton->skins[*index];
         }
+
         spSkin_addSkin(skin_a,skin_b);
+
         return true;
     }
-
 
     bool CompSpineModelCopySkin(SpineModelComponent* component, dmhash_t skin_id_a, dmhash_t skin_id_b)
     {
@@ -1578,7 +1578,9 @@ namespace dmSpine
 
             skin_b = spine_scene->m_Skeleton->skins[*index];
         }
+
         spSkin_copySkin(skin_a,skin_b);
+
         return true;
     }
 

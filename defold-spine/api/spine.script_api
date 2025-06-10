@@ -177,7 +177,6 @@
         type: string|hash
         desc: Id of the corresponding skin to add
 
-
 #*****************************************************************************************************
 
   - name: copy_skin
@@ -197,7 +196,6 @@
         type: string|hash
         desc: Id of the corresponding skin to copy.
 
-
 #*****************************************************************************************************
 
   - name: clear
@@ -213,8 +211,8 @@
         type: string|hash
         desc: Id of the corresponding skin
 
-
 #*****************************************************************************************************
+
   - name: set_attachment
     type: function
     desc: Set the attachment of a lot on a spine model.

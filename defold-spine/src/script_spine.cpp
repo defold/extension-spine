@@ -489,7 +489,6 @@ namespace dmSpine
      * end
      * ```
      */
-
       static int SpineComp_Clear(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 0);
@@ -542,7 +541,6 @@ namespace dmSpine
      * Setting the model to another skin and then back to the altered skin will
      * not reset the skin to its original composition.
      */
-
     static int SpineComp_CopySkin(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 0);
@@ -567,6 +565,7 @@ namespace dmSpine
         }
         return 0;
     }
+
     /*# adds one spine skin to another
      * Adds a spine skins attachments and constraints to another spine skin on the same model
      *
