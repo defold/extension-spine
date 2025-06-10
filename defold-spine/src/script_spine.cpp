@@ -473,7 +473,7 @@ namespace dmSpine
     /*# clears a spine skin
      * Clears the current attachments and constraints on a spine skin.
      *
-     * @name spine.clear_skin
+     * @name spine.clear
      * @param url [type:string|hash|url] the spine model for which to clear a skin
      * @param spine_skin [type:string|hash] spine skin id to be cleared
      * @examples
@@ -485,12 +485,12 @@ namespace dmSpine
      *
      * ```lua
      * function init(self)
-     *   spine.clear_skin("#spinemodel", "monster")
+     *   spine.clear("#spinemodel", "monster")
      * end
      * ```
      */
 
-      static int SpineComp_ClearSkin(lua_State* L)
+      static int SpineComp_Clear(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 0);
         int top = lua_gettop(L);
@@ -503,7 +503,7 @@ namespace dmSpine
          if (!lua_isnil(L, 2))
             skin_id = dmScript::CheckHashOrString(L, 2);
 
-        if (!CompSpineModelClearSkin(component, skin_id))
+        if (!CompSpineModelClear(component, skin_id))
         {
             char buffer[128];
             return DM_LUA_ERROR("failed to clear spine skin '%s' in component %s", dmHashReverseSafe64(skin_id), dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
@@ -949,7 +949,7 @@ namespace dmSpine
     static const luaL_reg SPINE_COMP_FUNCTIONS[] =
     {
             {"copy_skin",               SpineComp_CopySkin},
-            {"clear_skin",              SpineComp_ClearSkin},
+            {"clear",                   SpineComp_Clear},
             {"add_skin",                SpineComp_AddSkin},
             {"play_anim",               SpineComp_PlayAnim},
             {"cancel",                  SpineComp_Cancel},

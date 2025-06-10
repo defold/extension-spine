@@ -3,22 +3,22 @@ local tick_count = 0
 local function customise_body_repeating(self)
 	timer.delay(2, true, function()
 		if tick_count == 0 then
-			spine.clear_skin(self.spine_model_id, "base_empty")
+			spine.clear(self.spine_model_id, "base_empty")
 			spine.add_skin(self.spine_model_id, "base_empty","original_head")
 			spine.add_skin(self.spine_model_id, "base_empty","original_body")
 			spine.set_skin(self.spine_model_id, "base_empty")
 		elseif tick_count == 1 then
-			spine.clear_skin(self.spine_model_id, "base_empty")
+			spine.clear(self.spine_model_id, "base_empty")
 			spine.add_skin(self.spine_model_id, "base_empty", "blue_head")
 			spine.add_skin(self.spine_model_id, "base_empty", "original_body")
 			spine.set_skin(self.spine_model_id, "base_empty")
 		elseif tick_count == 2 then
-			spine.clear_skin(self.spine_model_id, "base_empty")
+			spine.clear(self.spine_model_id, "base_empty")
 			spine.add_skin(self.spine_model_id, "base_empty", "original_head")
 			spine.add_skin(self.spine_model_id, "base_empty", "blue_body")
 			spine.set_skin(self.spine_model_id, "base_empty")
 		elseif tick_count == 3 then
-			spine.clear_skin(self.spine_model_id, "base_empty")
+			spine.clear(self.spine_model_id, "base_empty")
 			spine.add_skin(self.spine_model_id, "base_empty", "blue_head")
 			spine.add_skin(self.spine_model_id, "base_empty", "blue_body")
 			spine.set_skin(self.spine_model_id, "base_empty")
