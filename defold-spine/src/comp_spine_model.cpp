@@ -1495,7 +1495,7 @@ namespace dmSpine
     {
         SpineModelResource* spine_model = component->m_Resource;
         SpineSceneResource* spine_scene = spine_model->m_SpineScene;
-        spSkin* skin_a;
+        spSkin* skin = spine_scene->m_Skeleton->defaultSkin;;
 
         if (skin_id)
         {
@@ -1506,10 +1506,10 @@ namespace dmSpine
                 return false;
             }
 
-            skin_a = spine_scene->m_Skeleton->skins[*index];
+            skin = spine_scene->m_Skeleton->skins[*index];
         }
 
-        spSkin_clear(skin_a);
+        spSkin_clear(skin);
 
         return true;
     }
@@ -1518,8 +1518,8 @@ namespace dmSpine
     {
         SpineModelResource* spine_model = component->m_Resource;
         SpineSceneResource* spine_scene = spine_model->m_SpineScene;
-        spSkin* skin_a;
-        spSkin* skin_b;
+        spSkin* skin_a = spine_scene->m_Skeleton->defaultSkin;
+        spSkin* skin_b = spine_scene->m_Skeleton->defaultSkin;
 
         if (skin_id_a)
         {
@@ -1553,8 +1553,8 @@ namespace dmSpine
     {
         SpineModelResource* spine_model = component->m_Resource;
         SpineSceneResource* spine_scene = spine_model->m_SpineScene;
-        spSkin* skin_a;
-        spSkin* skin_b;
+        spSkin* skin_a = spine_scene->m_Skeleton->defaultSkin;;
+        spSkin* skin_b = spine_scene->m_Skeleton->defaultSkin;;
 
         if (skin_id_a)
         {
