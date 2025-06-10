@@ -264,6 +264,101 @@ namespace dmSpine
         return 1;
     }
 
+    /*# adds a skin to a skin
+     * Adds one spine skin on a spine node to another spine skin on the same node.
+     * This adds attachments and constraints from one skin to another.
+     *
+     * This function call does alter the recieving skin in runtime. A skin
+     * that has had another skin added will have both sets of attachments.
+     * Setting the model to another skin and then back to the altered skin will
+     * not reset the skin to its original composition.
+     *
+     * @name gui.add_spine_skin
+     * @param node [type:node] node to get texture from
+     * @param spine_skin [type:string|hash] spine skin id to recieve the added skin
+     * @param spine_skin [type:string|hash] spine skin id to add
+     */
+    static int AddSpineSkin(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
+
+        VERIFY_SPINE_NODE(scene, node);
+
+        dmhash_t skin_id_a = dmScript::CheckHashOrString(L, 2);
+        dmhash_t skin_id_b = dmScript::CheckHashOrString(L, 3);
+
+        bool result = dmSpine::AddSkin(scene, node, skin_id_a, skin_id_b);
+        if (!result) {
+            return DM_LUA_ERROR("Failed to add skin '%s' to skin '%s' for spine node", dmHashReverseSafe64(skin_id_b),dmHashReverseSafe64(skin_id_a));
+        }
+        return 1;
+    }
+
+    /*# copies a skin to another skin
+     * Copies one spine skin on a spine node to another spine skin on the same node.
+     * This copies attachments and constraints from one skin to another.
+     * This function call does alter the recieving skin in runtime.
+     * Copying a skin to another, setting the model to another skin
+     * and then back to the skin that recieved the copied skin
+     * will not reset the skin to its original composition.
+     *
+     * @name gui.copy_spine_skin
+     * @param node [type:node] node to get texture from
+     * @param spine_skin  [type:hash] spine scene id to receive copied skin
+     * @param spine_skin  [type:hash] spine scene id to copy
+     */
+    static int CopySpineSkin(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
+
+        VERIFY_SPINE_NODE(scene, node);
+
+        dmhash_t skin_id_a = dmScript::CheckHashOrString(L, 2);
+        dmhash_t skin_id_b = dmScript::CheckHashOrString(L, 3);
+
+        bool result = dmSpine::CopySkin(scene, node, skin_id_a, skin_id_b);
+        if (!result) {
+            return DM_LUA_ERROR("Failed to copy skin '%s' to skin '%s' for spine node", dmHashReverseSafe64(skin_id_b),dmHashReverseSafe64(skin_id_a));
+        }
+        return 1;
+    }
+
+    /*# clears a skin
+     * Clears all attachments and constraints from a skin on a gui spine node
+     *
+     * This function call does alter the recieving skin in runtime.
+     * Clearing a skin, setting the model to another skin
+     * and then back to the cleared skin will
+     * not reset the cleared skin to its original composition.
+     *
+     * @name gui.clear_spine_skin
+     * @param node [type:node] node to get texture from
+     * @param spine_skin [type:string|hash] spine skin id
+     */
+    static int ClearSpineSkin(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
+
+        VERIFY_SPINE_NODE(scene, node);
+
+        dmhash_t skin_id = dmScript::CheckHashOrString(L, 2);
+
+        bool result = dmSpine::Clear(scene, node, skin_id);
+        if (!result) {
+            return DM_LUA_ERROR("Failed to clear skin '%s' for spine node", dmHashReverseSafe64(skin_id));
+        }
+        return 1;
+    }
+
     /*# sets the spine skin
      * Sets the spine skin on a spine node.
      *
@@ -485,6 +580,9 @@ namespace dmSpine
         {"get_spine_bone",      GetSpineBone},
         {"set_spine_scene",     SetSpineScene},
         {"get_spine_scene",     GetSpineScene},
+        {"clear_spine_skin",    ClearSpineSkin},
+        {"add_spine_skin",      AddSpineSkin},
+        {"copy_spine_skin",     CopySpineSkin},
         {"set_spine_skin",      SetSpineSkin},
         {"get_spine_skin",      GetSpineSkin},
         {"get_spine_animation", GetSpineAnimation},

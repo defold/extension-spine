@@ -123,6 +123,72 @@
             end
             ```
 
+    - name: add_spine_skin
+      type: function
+      desc: Add a spine skin on a spine node to another skin on the same node.
+      parameters:
+        - name: node
+          type: node
+          desc: node having both skins
+        - name: spine_skin_a
+          type: string|hash
+          desc: spine skin id that recieves other skin
+        - name: spine_skin_b
+          type: string|hash
+          desc: spine skin id that will be added
+      examples:
+       - desc: |-
+            Add skin of a Spine node to another skin
+
+            ```lua
+            function init(self)
+              gui.add_spine_skin(gui.get_node("spine_node"), "monster_head", "monster_body")
+            end
+            ```
+
+    - name: copy_spine_skin
+      type: function
+      desc: Copy a spine skin on a spine node to another skin on the same node.
+      parameters:
+        - name: node
+          type: node
+          desc: node having both skins
+        - name: spine_skin_a
+          type: string|hash
+          desc: spine skin id that copies other skin
+        - name: spine_skin_b
+          type: string|hash
+          desc: spine skin id that will be copied
+      examples:
+       - desc: |-
+            Copy skin of a Spine node to another skin
+
+            ```lua
+            function init(self)
+              gui.copy_spine_skin(gui.get_node("spine_node"), "monster_head", "monster_body")
+            end
+            ```
+
+    - name: clear_spine_skin
+      type: function
+      desc: Clear a spine skin on a spine node of all attachments and constraints
+      parameters:
+        - name: node
+          type: node
+          desc: node having both skins
+        - name: spine_skin
+          type: string|hash
+          desc: spine skin id
+      examples:
+       - desc: |-
+            Clear skin of a Spine node
+
+            ```lua
+            function init(self)
+              gui.clear_spine_skin(gui.get_node("spine_node"), "monster")
+            end
+            ```
+
 
     - name: get_spine_skin
       type: function
@@ -214,4 +280,5 @@
           type: string|hash
           desc: attachment name. May be nil.
      
+
 

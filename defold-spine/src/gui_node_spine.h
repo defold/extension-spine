@@ -17,6 +17,9 @@ bool        PlayAnimation(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t anim
                             float blend_duration, float offset, float playback_rate, dmScript::LuaCallbackInfo* callback);
 void        CancelAnimation(dmGui::HScene scene, dmGui::HNode hnode);
 
+bool        AddSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_skin_id_a, dmhash_t spine_skine_id_b);
+bool        CopySkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_skin_id_a, dmhash_t spine_skine_id_b);
+bool        Clear(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_skin_id);
 bool        SetSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_skin_id);
 dmhash_t    GetSkin(dmGui::HScene scene, dmGui::HNode hnode);
 dmhash_t    GetAnimation(dmGui::HScene scene, dmGui::HNode hnode);

@@ -369,6 +369,87 @@ void CancelAnimation(dmGui::HScene scene, dmGui::HNode hnode)
     node->m_Playing = 0;
 }
 
+bool AddSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id_a, dmhash_t skin_id_b){
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    spSkin* skin_a = node->m_SpineScene->m_Skeleton->defaultSkin;
+    spSkin* skin_b = node->m_SpineScene->m_Skeleton->defaultSkin;
+
+    if (skin_id_a)
+    {
+        uint32_t* index = node->m_SpineScene->m_SkinNameToIndex.Get(skin_id_a);
+        if (!index)
+        {
+            dmLogError("No skin '%s' found", dmHashReverseSafe64(skin_id_a));
+            return false;
+        } else {
+            skin_a = node->m_SpineScene->m_Skeleton->skins[*index];
+        }
+    }
+    if (skin_id_b)
+    {
+        uint32_t* index = node->m_SpineScene->m_SkinNameToIndex.Get(skin_id_b);
+        if (!index)
+        {
+            dmLogError("No skin '%s' found", dmHashReverseSafe64(skin_id_b));
+            return false;
+        } else {
+            skin_b = node->m_SpineScene->m_Skeleton->skins[*index];
+        }
+    }
+
+    spSkin_addSkin(skin_a,skin_b);
+    return true;
+}
+
+bool CopySkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id_a, dmhash_t skin_id_b){
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    spSkin* skin_a = node->m_SpineScene->m_Skeleton->defaultSkin;
+    spSkin* skin_b = node->m_SpineScene->m_Skeleton->defaultSkin;
+
+    if (skin_id_a)
+    {
+        uint32_t* index = node->m_SpineScene->m_SkinNameToIndex.Get(skin_id_a);
+        if (!index)
+        {
+            return false;
+        } else {
+            skin_a = node->m_SpineScene->m_Skeleton->skins[*index];
+        }
+    }
+    if (skin_id_b)
+    {
+        uint32_t* index = node->m_SpineScene->m_SkinNameToIndex.Get(skin_id_b);
+        if (!index)
+        {
+            return false;
+        } else {
+            skin_b = node->m_SpineScene->m_Skeleton->skins[*index];
+        }
+    }
+
+    spSkin_copySkin(skin_a,skin_b);
+    return true;
+}
+
+bool Clear(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id){
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    spSkin* skin = node->m_SpineScene->m_Skeleton->defaultSkin;
+
+    if (skin_id)
+    {
+        uint32_t* index = node->m_SpineScene->m_SkinNameToIndex.Get(skin_id);
+        if (!index)
+        {
+            return false;
+        } else {
+            skin = node->m_SpineScene->m_Skeleton->skins[*index];
+        }
+    }
+
+    spSkin_clear(skin);
+    return true;
+}
+
 bool SetSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
