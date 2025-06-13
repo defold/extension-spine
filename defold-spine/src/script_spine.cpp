@@ -796,6 +796,39 @@ namespace dmSpine
         return 0;
     }
 
+    /*# apply a physics-based translation to a Spine model
+    *
+    * Applies a translation vector to the Spine model through the physics system.
+    * This function influences the physical simulation.
+    *
+    * @name spine.physics_translate
+    * @param url [type:string|hash|url] the Spine model component to translate
+    * @param position [type:vector3] the translation vector to apply
+    * @examples
+    *
+    * The following example applies a translation vector to a Spine model with the id "spinemodel":
+    *
+    * ```lua
+    * function init(self)
+    *     local offset = vmath.vector3(10, 0, 0)
+    *     spine.physics_translate("player#spinemodel", offset)
+    * end
+    * ```
+    */
+    static int SpineComp_PhysicsTranslate(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+
+        SpineModelComponent* component = 0;
+
+        dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, 0);
+        Vectormath::Aos::Vector3* position = dmScript::CheckVector3(L, 2);
+
+        CompSpineModelPhysicsTranslate(component, (Point3)*position);
+
+        return 0;
+    }
+
     static const luaL_reg SPINE_COMP_FUNCTIONS[] =
     {
             {"play_anim",               SpineComp_PlayAnim},
@@ -808,6 +841,7 @@ namespace dmSpine
             {"reset_ik_target",         SpineComp_ResetIK},
             {"set_constant",            SpineComp_SetConstant},
             {"reset_constant",          SpineComp_ResetConstant},
+            {"physics_translate",       SpineComp_PhysicsTranslate},
             {0, 0}
     };
 

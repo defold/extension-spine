@@ -251,6 +251,21 @@
 
 #*****************************************************************************************************
 
+  - name: physics_translate
+    type: function
+    desc: Apply a physics-based translation to the Spine model.
+
+    parameters:
+      - name: url
+        type: string|hash|url
+        desc: The Spine model component to translate.
+
+      - name: position
+        type: vector3
+        desc: The translation vector to apply to the Spine model.
+
+#*****************************************************************************************************
+
 - name: spine_animation_done
   type: message
   desc: The animation has been finished. Only received if there is no callback set!
