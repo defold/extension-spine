@@ -399,7 +399,7 @@
               :type (:output-node-type node-type-info)
               :custom-type (:output-custom-type node-type-info)))))
 
-(node-types/register-node-type-name! SpineNode "gui-node-type-box-spine")
+(node-types/register-node-type-name! SpineNode "gui-node-type-spine")
 
 (defn- register-gui-resource-types! [workspace]
   (gui/register-gui-scene-loader! load-gui-scene-spine)
