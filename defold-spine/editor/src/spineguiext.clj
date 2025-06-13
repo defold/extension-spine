@@ -17,7 +17,7 @@
             [editor.core :as core]
             [editor.defold-project :as project]
             [editor.editor-extensions.graph :as ext-graph]
-            [editor.editor-extensions.runtime :as rt]
+            [editor.editor-extensions.node-types :as node-types]
             [editor.geom :as geom]
             [editor.gl.texture]
             [editor.graph-util :as gu]
@@ -399,6 +399,8 @@
               :type (:output-node-type node-type-info)
               :custom-type (:output-custom-type node-type-info)))))
 
+(node-types/register-node-type-name! SpineNode "gui-node-type-box-spine")
+
 (defn- register-gui-resource-types! [workspace]
   (gui/register-gui-scene-loader! load-gui-scene-spine)
   (let [info {:node-type :type-custom
@@ -417,11 +419,13 @@
     ; Register :type-spine with custom type 0 in order to be able to read old files
     (gui/register-node-type-info! info-depr))
   (g/transact
-    (attachment/register
-      workspace gui/GuiSceneNode :spine-scenes
-      :add {SpineSceneNode (partial g/expand-ec attach-spine-scene-to-gui-scene)}
-      :get (fn get-spine-scenes [gui-scene-node {:keys [basis] :as evaluation-context}]
-             (attachment/nodes-getter (gui-scene-node->spine-scenes-node basis gui-scene-node) evaluation-context)))))
+    (concat
+      (gui/register-node-tree-attachment-node-type workspace SpineNode)
+      (attachment/register
+        workspace gui/GuiSceneNode :spine-scenes
+        :add {SpineSceneNode (partial g/expand-ec attach-spine-scene-to-gui-scene)}
+        :get (fn get-spine-scenes [gui-scene-node {:keys [basis] :as evaluation-context}]
+               (attachment/nodes-getter (gui-scene-node->spine-scenes-node basis gui-scene-node) evaluation-context))))))
 
 ; The plugin
 (defn load-plugin-spine-gui [workspace]
