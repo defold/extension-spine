@@ -431,7 +431,7 @@ bool CopySkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id_a, dmhas
     return true;
 }
 
-bool Clear(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id){
+bool ClearSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id){
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
     spSkin* skin = node->m_SpineScene->m_Skeleton->defaultSkin;
 

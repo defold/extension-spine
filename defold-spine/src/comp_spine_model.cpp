@@ -1491,7 +1491,7 @@ namespace dmSpine
         return true;
     }
 
-    bool CompSpineModelClear(SpineModelComponent* component, dmhash_t skin_id)
+    bool CompSpineModelClearSkin(SpineModelComponent* component, dmhash_t skin_id)
     {
         SpineModelResource* spine_model = component->m_Resource;
         SpineSceneResource* spine_scene = spine_model->m_SpineScene;

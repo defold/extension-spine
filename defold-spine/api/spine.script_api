@@ -198,7 +198,7 @@
 
 #*****************************************************************************************************
 
-  - name: clear
+  - name: clear_skin
     type: function
     desc: Clear all attachments and constraints from a skin on a spine model
 
