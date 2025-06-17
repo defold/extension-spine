@@ -1491,6 +1491,43 @@ namespace dmSpine
         return true;
     }
 
+    bool CompSpineModelSetMergedSkin(SpineModelComponent* component, dmhash_t skin_ids[], int skin_ids_count)
+    {
+        SpineModelResource* spine_model = component->m_Resource;
+        SpineSceneResource* spine_scene = spine_model->m_SpineScene;
+
+        spSkin* skin = spine_scene->m_Skeleton->defaultSkin;
+        if (skin_ids_count > 0)
+        {
+            for (int i = 0; i < skin_ids_count; i++) {
+                dmhash_t skin_id = skin_ids[i];
+                uint32_t* index = spine_scene->m_SkinNameToIndex.Get(skin_id);
+                if (!index)
+                {
+                    dmLogError("No skin named '%s'", dmHashReverseSafe64(skin_id));
+                    return false;
+                }
+            }
+            spSkin* skin = spSkin_create("merged_defold_skin");
+            for (int i = 0; i < skin_ids_count; i++) {
+                dmhash_t skin_id = skin_ids[i];
+                uint32_t* index = spine_scene->m_SkinNameToIndex.Get(skin_id);
+                spSkin* existing_skin = spine_scene->m_Skeleton->skins[*index];
+                if(i == 0){
+                    spSkin_copySkin(skin, existing_skin);
+                }
+                else{  
+                    spSkin_addSkin(skin, existing_skin);
+                }
+            }
+        }
+
+        spSkeleton_setSkin(component->m_SkeletonInstance, skin);
+        spSkeleton_setSlotsToSetupPose(component->m_SkeletonInstance);
+
+        return true;
+    }
+
     bool CompSpineModelSetAttachment(SpineModelComponent* component, dmhash_t slot_id, dmhash_t attachment_id)
     {
         SpineModelResource* spine_model = component->m_Resource;

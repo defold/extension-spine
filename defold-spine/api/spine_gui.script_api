@@ -124,6 +124,27 @@
             ```
 
 
+    - name: set_spine_merged_skin
+      type: function
+      desc: Sets the merged spine skin on a spine node.
+      parameters:
+        - name: node
+          type: node
+          desc: node to set the spine skin on
+        - name: spine_skins
+          type: string[]|hash[]
+          desc: spine skins ids
+      examples:
+       - desc: |-
+            Change skin of a Spine node
+           
+            ```lua
+            function init(self)
+              gui.set_merged_spine_skin(gui.get_node("spine_node"), {"monster", "parts/tshirt_wild"} )
+            end
+            ```
+
+
     - name: get_spine_skin
       type: function
       desc: Gets the spine skin of a spine node

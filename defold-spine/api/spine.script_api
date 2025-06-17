@@ -160,6 +160,22 @@
 
 #*****************************************************************************************************
 
+  - name: set_merged_skin
+    type: function
+    desc: Sets the merged spine skin on a spine model.
+
+    parameters:
+      - name: url
+        type: string|hash|url
+        desc: The Spine model to query
+
+      - name: skin
+        type: string[]|hash[]
+        desc: Ids of the corresponding skins
+
+
+#*****************************************************************************************************
+
   - name: set_attachment
     type: function
     desc: Set the attachment of a lot on a spine model.

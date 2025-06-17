@@ -389,6 +389,39 @@ bool SetSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id)
     return true;
 }
 
+bool SetMergedSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_ids[], int skin_ids_count)
+{
+    
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    spSkin* skin;
+
+    for (int i = 0; i < skin_ids_count; i++) {
+        dmhash_t skin_id = skin_ids[i];
+        uint32_t* index = node->m_SpineScene->m_SkinNameToIndex.Get(skin_id);
+        if (!index) {
+            return false;
+        }
+    }
+    
+    skin = spSkin_create("merged_defold_skin");
+    
+    for (int i = 0; i < skin_ids_count; i++) {
+        dmhash_t skin_id = skin_ids[i];
+        uint32_t* index = node->m_SpineScene->m_SkinNameToIndex.Get(skin_id);
+        spSkin* existing_skin = node->m_SpineScene->m_Skeleton->skins[*index];
+        if(i == 0){
+            spSkin_copySkin(skin, existing_skin);
+        }else{
+            spSkin_addSkin(skin, existing_skin);
+        }
+    }
+
+
+    spSkeleton_setSkin(node->m_SkeletonInstance, skin);
+    spSkeleton_setSlotsToSetupPose(node->m_SkeletonInstance);
+    return true;
+}
+
 dmhash_t GetSkin(dmGui::HScene scene, dmGui::HNode hnode)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);

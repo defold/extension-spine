@@ -518,6 +518,50 @@ namespace dmSpine
         return 0;
     }
 
+    /*# sets the merged spine skin
+     * Sets the merged spine skin on a spine model.
+     *
+     * @name spine.set_merged_skin
+     * @param url [type:string|hash|url] the spine model for which to set skin
+     * @param spine_skins [type:string[]|hash[]] spine skin ids
+     * @examples
+     *
+     * Change skin of a Spine node
+     *
+     * ```lua
+     * function init(self)
+     *   spine.set_merged_skin("#spinemodel", {"monster", "parts/tshirt_wild"} )
+     * end
+     * ```
+     */
+    static int SpineComp_SetMergedSkin(lua_State* L)
+    {
+        int top = lua_gettop(L);
+        // DM_LUA_STACK_CHECK(L, 0);
+
+        SpineModelComponent* component = 0;
+        dmMessage::URL receiver; // needed for error output
+        dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
+
+        luaL_checktype(L,2, LUA_TTABLE);
+
+        int n = luaL_getn(L, 2);  // get size of table
+
+        dmhash_t skin_ids[n];
+        for (int i=1; i<=n; i++)
+        {		
+            lua_rawgeti(L, 2, i);  // push t
+            int Top = lua_gettop(L);
+            skin_ids[i-1] = dmScript::CheckHashOrString(L, Top);
+        }
+        if (!CompSpineModelSetMergedSkin(component, skin_ids, n))
+        {
+            // char buffer[128];
+            // return DM_LUA_ERROR("failed to set spine merged skin in component %s", dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
+        }
+        return 0;
+    }
+
     /*# sets an attachment to a slot
      * Sets an attachment to a slot
      *
@@ -802,6 +846,7 @@ namespace dmSpine
             {"cancel",                  SpineComp_Cancel},
             {"get_go",                  SpineComp_GetGO},
             {"set_skin",                SpineComp_SetSkin},
+            {"set_merged_skin",         SpineComp_SetMergedSkin},
             {"set_attachment",          SpineComp_SetAttachment},
             {"set_ik_target_position",  SpineComp_SetIKTargetPosition},
             {"set_ik_target",           SpineComp_SetIKTarget},

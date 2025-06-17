@@ -307,6 +307,48 @@ namespace dmSpine
         return 0;
     }
 
+    /*# sets the merged spine skin
+     * Sets the merged spine skin on a spine node.
+     *
+     * @name gui.set_merged_spine_skin
+     * @param node [type:node] node to set the spine skin on
+     * @param spine_skins [type:string[]|hash[]] spine skin ids
+     * @examples
+     *
+     * Change skin of a Spine node
+     *
+     * ```lua
+     * function init(self)
+     *   gui.set_merged_spine_skin(gui.get_node("spine_node"), {"monster", "parts/tshirt_wild"} )
+     * end
+     * ```
+     */
+    static int SetMergedSpineSkin(lua_State* L)
+    {
+        int top = lua_gettop(L);
+        // DM_LUA_STACK_CHECK(L, 0);
+
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
+
+        VERIFY_SPINE_NODE(scene, node);
+
+        luaL_checktype(L,2, LUA_TTABLE);
+
+        int n = luaL_getn(L, 2);  // get size of table
+
+        dmhash_t skin_ids[n];
+        for (int i=1; i<=n; i++)
+        {		
+            lua_rawgeti(L, 2, i);  // push t
+            int Top = lua_gettop(L);
+            skin_ids[i-1] = dmScript::CheckHashOrString(L, Top);
+        }
+
+        bool result = dmSpine::SetMergedSkin(scene, node, skin_ids, n);
+        return 0;
+    }
+
     /*# gets the skin of a spine node
      * Gets the spine skin of a spine node
      *
@@ -479,17 +521,18 @@ namespace dmSpine
 
     static const luaL_reg SPINE_FUNCTIONS[] =
     {
-        {"new_spine_node", NewSpineNode},
-        {"play_spine_anim",     PlaySpineAnim},
-        {"cancel_spine",        CancelSpine},
-        {"get_spine_bone",      GetSpineBone},
-        {"set_spine_scene",     SetSpineScene},
-        {"get_spine_scene",     GetSpineScene},
-        {"set_spine_skin",      SetSpineSkin},
-        {"get_spine_skin",      GetSpineSkin},
-        {"get_spine_animation", GetSpineAnimation},
-        {"set_spine_cursor",    SetSpineCursor},
-        {"get_spine_cursor",    GetSpineCursor},
+        {"new_spine_node",          NewSpineNode},
+        {"play_spine_anim",         PlaySpineAnim},
+        {"cancel_spine",            CancelSpine},
+        {"get_spine_bone",          GetSpineBone},
+        {"set_spine_scene",         SetSpineScene},
+        {"get_spine_scene",         GetSpineScene},
+        {"set_spine_skin",          SetSpineSkin},
+        {"set_merged_spine_skin",   SetMergedSpineSkin},
+        {"get_spine_skin",          GetSpineSkin},
+        {"get_spine_animation",     GetSpineAnimation},
+        {"set_spine_cursor",        SetSpineCursor},
+        {"get_spine_cursor",        GetSpineCursor},
         {"set_spine_playback_rate", SetSpinePlaybackRate},
         {"get_spine_playback_rate", GetSpinePlaybackRate},
         {"set_spine_attachment",    SetSpineAttachment},
