@@ -500,7 +500,9 @@ namespace dmSpine
 
         dmhash_t skin_id = 0;
         if (!lua_isnil(L, 2))
+        {
             skin_id = dmScript::CheckHashOrString(L, 2);
+        }
 
         if (!CompSpineModelClearSkin(component, skin_id))
         {
@@ -552,11 +554,15 @@ namespace dmSpine
 
         dmhash_t skin_id_a = 0;
         if (!lua_isnil(L, 2))
+        {
             skin_id_a = dmScript::CheckHashOrString(L, 2);
+        }
 
         dmhash_t skin_id_b = 0;
         if (!lua_isnil(L, 3))
+        {
             skin_id_b = dmScript::CheckHashOrString(L, 3);
+        }
 
         if (!CompSpineModelCopySkin(component, skin_id_a, skin_id_b))
         {
@@ -605,11 +611,15 @@ namespace dmSpine
 
         dmhash_t skin_id_a = 0;
         if (!lua_isnil(L, 2))
+        {
             skin_id_a = dmScript::CheckHashOrString(L, 2);
+        }
 
         dmhash_t skin_id_b = 0;
         if (!lua_isnil(L, 3))
+        {
             skin_id_b = dmScript::CheckHashOrString(L, 3);
+        }
 
         if (!CompSpineModelAddSkin(component, skin_id_a, skin_id_b))
         {

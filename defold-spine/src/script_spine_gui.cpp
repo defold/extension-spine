@@ -291,9 +291,11 @@ namespace dmSpine
         dmhash_t skin_id_b = dmScript::CheckHashOrString(L, 3);
 
         bool result = dmSpine::AddSkin(scene, node, skin_id_a, skin_id_b);
-        if (!result) {
+        if (!result)
+        {
             return DM_LUA_ERROR("Failed to add skin '%s' to skin '%s' for spine node", dmHashReverseSafe64(skin_id_b),dmHashReverseSafe64(skin_id_a));
         }
+
         return 1;
     }
 
@@ -323,9 +325,11 @@ namespace dmSpine
         dmhash_t skin_id_b = dmScript::CheckHashOrString(L, 3);
 
         bool result = dmSpine::CopySkin(scene, node, skin_id_a, skin_id_b);
-        if (!result) {
+        if (!result)
+        {
             return DM_LUA_ERROR("Failed to copy skin '%s' to skin '%s' for spine node", dmHashReverseSafe64(skin_id_b),dmHashReverseSafe64(skin_id_a));
         }
+
         return 1;
     }
 
@@ -353,9 +357,12 @@ namespace dmSpine
         dmhash_t skin_id = dmScript::CheckHashOrString(L, 2);
 
         bool result = dmSpine::ClearSkin(scene, node, skin_id);
-        if (!result) {
+
+        if (!result)
+        {
             return DM_LUA_ERROR("Failed to clear skin '%s' for spine node", dmHashReverseSafe64(skin_id));
         }
+
         return 1;
     }
 
