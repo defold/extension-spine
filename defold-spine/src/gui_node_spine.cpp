@@ -381,10 +381,11 @@ bool AddSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id_a, dmhash
         {
             dmLogError("No skin '%s' found", dmHashReverseSafe64(skin_id_a));
             return false;
-        } else {
-            skin_a = node->m_SpineScene->m_Skeleton->skins[*index];
         }
+
+        skin_a = node->m_SpineScene->m_Skeleton->skins[*index];
     }
+
     if (skin_id_b)
     {
         uint32_t* index = node->m_SpineScene->m_SkinNameToIndex.Get(skin_id_b);
@@ -392,9 +393,9 @@ bool AddSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id_a, dmhash
         {
             dmLogError("No skin '%s' found", dmHashReverseSafe64(skin_id_b));
             return false;
-        } else {
-            skin_b = node->m_SpineScene->m_Skeleton->skins[*index];
         }
+
+        skin_b = node->m_SpineScene->m_Skeleton->skins[*index];
     }
 
     spSkin_addSkin(skin_a,skin_b);
@@ -412,9 +413,9 @@ bool CopySkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id_a, dmhas
         if (!index)
         {
             return false;
-        } else {
-            skin_a = node->m_SpineScene->m_Skeleton->skins[*index];
         }
+
+        skin_a = node->m_SpineScene->m_Skeleton->skins[*index];
     }
     if (skin_id_b)
     {
@@ -422,9 +423,9 @@ bool CopySkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id_a, dmhas
         if (!index)
         {
             return false;
-        } else {
-            skin_b = node->m_SpineScene->m_Skeleton->skins[*index];
         }
+
+        skin_b = node->m_SpineScene->m_Skeleton->skins[*index];
     }
 
     spSkin_copySkin(skin_a,skin_b);
@@ -441,9 +442,9 @@ bool ClearSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id){
         if (!index)
         {
             return false;
-        } else {
-            skin = node->m_SpineScene->m_Skeleton->skins[*index];
         }
+
+        skin = node->m_SpineScene->m_Skeleton->skins[*index];
     }
 
     spSkin_clear(skin);
