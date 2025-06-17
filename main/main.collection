@@ -181,7 +181,7 @@ embedded_instances {
   "  type: \"spinemodel\"\n"
   "  data: \"spine_scene: \\\"/assets/mix_skins/spineboy/spineboy_mix.spinescene\\\"\\n"
   "default_animation: \\\"run\\\"\\n"
-  "skin: \\\"base_empty\\\"\\n"
+  "skin: \\\"blue_body\\\"\\n"
   "material: \\\"/defold-spine/assets/spine.material\\\"\\n"
   "create_go_bones: true\\n"
   "\"\n"
@@ -194,5 +194,30 @@ embedded_instances {
   position {
     x: 842.0
     y: 158.0
+  }
+}
+embedded_instances {
+  id: "physics"
+  data: "components {\n"
+  "  id: \"phisics\"\n"
+  "  component: \"/main/physics.script\"\n"
+  "}\n"
+  "embedded_components {\n"
+  "  id: \"spinemodel\"\n"
+  "  type: \"spinemodel\"\n"
+  "  data: \"spine_scene: \\\"/assets/trophy_wingame_spine/trophy_wingame_spine.spinescene\\\"\\n"
+  "default_animation: \\\"\\\"\\n"
+  "skin: \\\"\\\"\\n"
+  "material: \\\"/defold-spine/assets/spine.material\\\"\\n"
+  "\"\n"
+  "}\n"
+  ""
+  position {
+    x: 741.0
+    y: 447.0
+  }
+  scale3 {
+    x: 0.1
+    y: 0.1
   }
 }

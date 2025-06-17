@@ -1,0 +1,202 @@
+images {
+  image: "/assets/trophy_wingame_spine/images/arm-back-down.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/arm-back-up.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/arm-front-down.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/arm-front-up.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/bench.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/body-bottom.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/body-top.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/chest.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/cloud-back.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/cloud-front.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/collar.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/ear.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/eye-back-shadow.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/eye-front-shadow.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/eye-reflex-back.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/eye-reflex-front.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/eye-white-back.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/eye-white-front.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/eyelashes-down-back.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/eyelashes-down-front.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/eyelashes-top-back.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/eyelashes-top-front.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/face.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/feathers-back.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/feathers-front.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/fringe-middle-back.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/fringe-middle-front.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/fringe-side-back.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/fringe-side-front.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/glove-bottom-back.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/glove-bottom-front.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/hair-back-1.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/hair-back-2.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/hair-back-3.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/hair-back-4.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/hair-back-5.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/hair-back-6.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/hair-hat-shadow.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/hand-back.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/hand-front.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/hat-back.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/hat-front.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/head-back.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/jabot.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/leg-back.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/leg-front.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/logo-brooch.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/mouth.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/neck.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/nose-highlight.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/nose-shadow.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/nose.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/pupil-back.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/pupil-front.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/rope-back.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/rope-front-bottom.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/rope-front.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/skirt.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/sock-bow.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/spine-logo-body.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/star-big.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/star-medium.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/star-small.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/underskirt-back.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/underskirt.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/wing-back.png"
+}
+images {
+  image: "/assets/trophy_wingame_spine/images/wing-front.png"
+}
+extrude_borders: 2

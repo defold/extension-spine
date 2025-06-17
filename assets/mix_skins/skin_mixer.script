@@ -1,6 +1,7 @@
 local tick_count = 0
 
 local function customise_body_repeating(self)
+	spine.set_skin(self.spine_model_id, "base_empty")
 	timer.delay(2, true, function()
 		if tick_count == 0 then
 			spine.clear_skin(self.spine_model_id, "base_empty")

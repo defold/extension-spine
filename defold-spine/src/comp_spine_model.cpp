@@ -1625,6 +1625,11 @@ namespace dmSpine
         *instance_id = dmGameObject::GetIdentifier(bone_instance);
         return true;
     }
+
+    void CompSpineModelPhysicsTranslate(SpineModelComponent* component, Point3 position)
+    {
+        spSkeleton_physicsTranslate(component->m_SkeletonInstance, position.getX(), position.getY());
+    }
 }
 
 DM_DECLARE_COMPONENT_TYPE(ComponentTypeSpineModelExt, "spinemodelc", dmSpine::CompTypeSpineModelCreate, dmSpine::CompTypeSpineModelDestroy);
