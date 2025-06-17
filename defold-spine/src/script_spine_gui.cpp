@@ -357,7 +357,6 @@ namespace dmSpine
         dmhash_t skin_id = dmScript::CheckHashOrString(L, 2);
 
         bool result = dmSpine::ClearSkin(scene, node, skin_id);
-
         if (!result)
         {
             return DM_LUA_ERROR("Failed to clear skin '%s' for spine node", dmHashReverseSafe64(skin_id));

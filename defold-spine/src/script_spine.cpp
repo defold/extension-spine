@@ -489,7 +489,7 @@ namespace dmSpine
      * end
      * ```
      */
-      static int SpineComp_ClearSkin(lua_State* L)
+    static int SpineComp_ClearSkin(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 0);
         int top = lua_gettop(L);
