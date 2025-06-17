@@ -160,6 +160,59 @@
 
 #*****************************************************************************************************
 
+  - name: add_skin
+    type: function
+    desc: Adds one spine skin on a spine model to another on the same model.
+
+    parameters:
+      - name: url
+        type: string|hash|url
+        desc: The Spine model to query
+
+      - name: skin_a
+        type: string|hash
+        desc: Id of the corresponding skin that will recieve the added skin
+
+      - name: skin_b
+        type: string|hash
+        desc: Id of the corresponding skin to add
+
+#*****************************************************************************************************
+
+  - name: copy_skin
+    type: function
+    desc: Copies one spine skin on a spine model to another on the same model.
+
+    parameters:
+      - name: url
+        type: string|hash|url
+        desc: The Spine model to query
+
+      - name: skin_a
+        type: string|hash
+        desc: Id of the corresponding skin that will recieve the copied skin
+
+      - name: skin_b
+        type: string|hash
+        desc: Id of the corresponding skin to copy.
+
+#*****************************************************************************************************
+
+  - name: clear_skin
+    type: function
+    desc: Clear all attachments and constraints from a skin on a spine model
+
+    parameters:
+      - name: url
+        type: string|hash|url
+        desc: The Spine model to query
+
+      - name: skin
+        type: string|hash
+        desc: Id of the corresponding skin
+
+#*****************************************************************************************************
+
   - name: set_attachment
     type: function
     desc: Set the attachment of a lot on a spine model.
