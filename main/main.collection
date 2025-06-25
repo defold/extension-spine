@@ -38,7 +38,6 @@ embedded_instances {
   scale3 {
     x: 10.0
     y: 10.0
-    z: 1.0
   }
 }
 embedded_instances {
@@ -46,7 +45,7 @@ embedded_instances {
   data: "embedded_components {\n"
   "  id: \"collection_proxy\"\n"
   "  type: \"collectionproxy\"\n"
-  "  data: \"collection: \\\"/examples/basic_animation.collection\\\"\\n"
+  "  data: \"collection: \\\"/examples/basic_animation/basic_animation.collection\\\"\\n"
   "\"\n"
   "}\n"
   ""
@@ -56,7 +55,7 @@ embedded_instances {
   data: "embedded_components {\n"
   "  id: \"collection_proxy\"\n"
   "  type: \"collectionproxy\"\n"
-  "  data: \"collection: \\\"/examples/small_walk_animation.collection\\\"\\n"
+  "  data: \"collection: \\\"/examples/small_walk_animation/small_walk_animation.collection\\\"\\n"
   "\"\n"
   "}\n"
   ""
@@ -66,7 +65,7 @@ embedded_instances {
   data: "embedded_components {\n"
   "  id: \"collection_proxy\"\n"
   "  type: \"collectionproxy\"\n"
-  "  data: \"collection: \\\"/examples/constants_demo.collection\\\"\\n"
+  "  data: \"collection: \\\"/examples/constants_demo/constants_demo.collection\\\"\\n"
   "\"\n"
   "}\n"
   ""
@@ -76,7 +75,7 @@ embedded_instances {
   data: "embedded_components {\n"
   "  id: \"collection_proxy\"\n"
   "  type: \"collectionproxy\"\n"
-  "  data: \"collection: \\\"/examples/slow_jump.collection\\\"\\n"
+  "  data: \"collection: \\\"/examples/slow_jump/slow_jump.collection\\\"\\n"
   "\"\n"
   "}\n"
   ""
@@ -86,7 +85,7 @@ embedded_instances {
   data: "embedded_components {\n"
   "  id: \"collection_proxy\"\n"
   "  type: \"collectionproxy\"\n"
-  "  data: \"collection: \\\"/examples/sequence_animation.collection\\\"\\n"
+  "  data: \"collection: \\\"/examples/sequence_animation/sequence_animation.collection\\\"\\n"
   "\"\n"
   "}\n"
   ""
@@ -96,7 +95,7 @@ embedded_instances {
   data: "embedded_components {\n"
   "  id: \"collection_proxy\"\n"
   "  type: \"collectionproxy\"\n"
-  "  data: \"collection: \\\"/examples/coin_blend_and_mask.collection\\\"\\n"
+  "  data: \"collection: \\\"/examples/coin_blend_and_mask/coin_blend_and_mask.collection\\\"\\n"
   "\"\n"
   "}\n"
   ""
@@ -106,7 +105,7 @@ embedded_instances {
   data: "embedded_components {\n"
   "  id: \"collection_proxy\"\n"
   "  type: \"collectionproxy\"\n"
-  "  data: \"collection: \\\"/examples/mix_skins.collection\\\"\\n"
+  "  data: \"collection: \\\"/examples/mix_skins/mix_skins.collection\\\"\\n"
   "\"\n"
   "}\n"
   ""
@@ -116,7 +115,7 @@ embedded_instances {
   data: "embedded_components {\n"
   "  id: \"collection_proxy\"\n"
   "  type: \"collectionproxy\"\n"
-  "  data: \"collection: \\\"/examples/physics.collection\\\"\\n"
+  "  data: \"collection: \\\"/examples/physics/physics.collection\\\"\\n"
   "\"\n"
   "}\n"
   ""
@@ -126,7 +125,7 @@ embedded_instances {
   data: "embedded_components {\n"
   "  id: \"collection_proxy\"\n"
   "  type: \"collectionproxy\"\n"
-  "  data: \"collection: \\\"/examples/gui_spine_demo.collection\\\"\\n"
+  "  data: \"collection: \\\"/examples/gui_spine_demo/gui_spine_demo.collection\\\"\\n"
   "\"\n"
   "}\n"
   ""

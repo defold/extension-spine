@@ -1,28 +1,32 @@
-name: "physics"
+name: "small_walk_animation"
 scale_along_z: 0
 embedded_instances {
-  id: "physics"
+  id: "go"
   data: "components {\n"
-  "  id: \"phisics\"\n"
-  "  component: \"/main/physics.script\"\n"
+  "  id: \"small_walk_animation\"\n"
+  "  component: \"/examples/small_walk_animation/small_walk_animation.script\"\n"
   "}\n"
-  "embedded_components {\n"
+  ""
+}
+embedded_instances {
+  id: "small_walk"
+  data: "embedded_components {\n"
   "  id: \"spinemodel\"\n"
   "  type: \"spinemodel\"\n"
-  "  data: \"spine_scene: \\\"/assets/trophy_wingame_spine/trophy_wingame_spine.spinescene\\\"\\n"
-  "default_animation: \\\"\\\"\\n"
+  "  data: \"spine_scene: \\\"/assets/spineboy/spineboy.spinescene\\\"\\n"
+  "default_animation: \\\"idle\\\"\\n"
   "skin: \\\"\\\"\\n"
   "material: \\\"/defold-spine/assets/spine.material\\\"\\n"
   "\"\n"
   "}\n"
   ""
   position {
-    x: 182.0
-    y: 93.0
+    x: 203.0
+    y: 161.0
   }
   scale3 {
-    x: 0.1
-    y: 0.1
+    x: 0.2
+    y: 0.2
   }
 }
 embedded_instances {
@@ -34,14 +38,14 @@ embedded_instances {
   "  x: 200.0\\n"
   "  y: 32.0\\n"
   "}\\n"
-  "text: \\\"Physics Example\\\"\\n"
+  "text: \\\"Small Walk Animation Example\\\"\\n"
   "font: \\\"/main/default.font\\\"\\n"
   "material: \\\"/builtins/fonts/label-df.material\\\"\\n"
   "\"\n"
   "}\n"
   ""
   position {
-    x: 167.0
-    y: 313.0
+    x: 203.0
+    y: 291.0
   }
 }

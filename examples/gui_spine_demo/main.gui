@@ -1,4 +1,4 @@
-script: "/main/main.gui_script"
+script: "/examples/gui_spine_demo/main.gui_script"
 fonts {
   name: "default"
   font: "/main/default.font"

@@ -4,7 +4,7 @@ embedded_instances {
   id: "go"
   data: "components {\n"
   "  id: \"basic_animation\"\n"
-  "  component: \"/main/features/basic_animation.script\"\n"
+  "  component: \"/examples/basic_animation/basic_animation.script\"\n"
   "}\n"
   "embedded_components {\n"
   "  id: \"spinemodel\"\n"
