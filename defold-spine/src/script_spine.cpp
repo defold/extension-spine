@@ -988,6 +988,41 @@ namespace dmSpine
         return 0;
     }
 
+    /*# apply a physics-based rotation to a Spine model
+    *
+    * Applies a rotation to the Spine model through the physics system.
+    * This function influences the physical simulation by rotating around a specified point.
+    *
+    * @name spine.physics_rotate
+    * @param url [type:string|hash|url] the Spine model component to rotate
+    * @param center [type:vector3] the center point around which to rotate
+    * @param degrees [type:number] the rotation angle in degrees
+    * @examples
+    *
+    * The following example applies a rotation to a Spine model with the id "spinemodel":
+    *
+    * ```lua
+    * function init(self)
+    *     -- Rotate 45 degrees around the point (10, 5, 0)
+    *     spine.physics_rotate("player#spinemodel", vmath.vector3(10, 5, 0), 45)
+    * end
+    * ```
+    */
+    static int SpineComp_PhysicsRotate(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+
+        SpineModelComponent* component = 0;
+
+        dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, 0);
+        Vectormath::Aos::Vector3* center = dmScript::CheckVector3(L, 2);
+        float degrees = luaL_checknumber(L, 3);
+
+        CompSpineModelPhysicsRotate(component, (Point3)*center, degrees);
+
+        return 0;
+    }
+
     static const luaL_reg SPINE_COMP_FUNCTIONS[] =
     {
             {"copy_skin",               SpineComp_CopySkin},
@@ -1004,6 +1039,7 @@ namespace dmSpine
             {"set_constant",            SpineComp_SetConstant},
             {"reset_constant",          SpineComp_ResetConstant},
             {"physics_translate",       SpineComp_PhysicsTranslate},
+            {"physics_rotate",          SpineComp_PhysicsRotate},
             {0, 0}
     };
 
