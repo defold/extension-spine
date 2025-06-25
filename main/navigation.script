@@ -12,6 +12,8 @@ local examples = {
 
 local current_example = 1
 local current_proxy_id = nil
+local all_loaded = false
+local loaded_proxies = {}
 
 function init(self)
 	msg.post(".", "acquire_input_focus")
@@ -32,7 +34,16 @@ function init(self)
 end
 
 function final(self)
-	if current_proxy_id then
+	if all_loaded then
+		-- Unload all examples
+		for i, example in ipairs(examples) do
+			if loaded_proxies[example.proxy_id] then
+				msg.post(example.proxy_id, "disable")
+				msg.post(example.proxy_id, "final")
+				msg.post(example.proxy_id, "unload")
+			end
+		end
+	elseif current_proxy_id then
 		-- Proper unloading sequence according to Defold docs
 		msg.post(current_proxy_id, "disable")
 		msg.post(current_proxy_id, "final")
@@ -72,7 +83,7 @@ function update(self, dt)
 	-- Example list with descriptions
 	for i, example in ipairs(examples) do
 		local is_selected = (i == current_example)
-		local is_loaded = (current_proxy_id == example.proxy_id)
+		local is_loaded = (current_proxy_id == example.proxy_id) or (all_loaded and loaded_proxies[example.proxy_id])
 		
 		-- Create a selectable item
 		local flags = 0
@@ -101,7 +112,11 @@ function update(self, dt)
 	imgui.separator()
 	
 	-- Current example info
-	if current_proxy_id then
+	if all_loaded then
+		imgui.text_colored("Current Mode: All Examples Loaded", 1.0, 1.0, 0.0, 1.0)
+		imgui.text("All examples are currently loaded and running")
+		imgui.text_colored("Status: All Loaded", 0.0, 1.0, 0.0, 1.0)
+	elseif current_proxy_id then
 		imgui.text_colored("Current Example:", 1.0, 1.0, 0.0, 1.0)
 		imgui.text(examples[current_example].name)
 		imgui.text_colored("Description:", 1.0, 1.0, 0.0, 1.0)
@@ -125,6 +140,16 @@ function update(self, dt)
 	
 	if imgui.button("Return to Main Menu") then
 		load_main_menu()
+	end
+	
+	imgui.same_line()
+	
+	if imgui.button(all_loaded and "Unload All Examples" or "Load All Examples") then
+		if all_loaded then
+			unload_all_examples()
+		else
+			load_all_examples()
+		end
 	end
 	
 	imgui.separator()
@@ -152,15 +177,27 @@ end
 
 function on_message(self, message_id, message, sender)
 	if message_id == hash("proxy_loaded") then
-		print("Collection loaded successfully: " .. examples[current_example].name)
-		-- Initialize and enable the loaded collection
-		msg.post(sender, "init")
-		msg.post(sender, "enable")
+		if all_loaded then
+			-- Initialize and enable the loaded collection for all examples mode
+			msg.post(sender, "init")
+			msg.post(sender, "enable")
+			print("Collection loaded successfully in all examples mode")
+		else
+			-- Single example mode
+			print("Collection loaded successfully: " .. examples[current_example].name)
+			-- Initialize and enable the loaded collection
+			msg.post(sender, "init")
+			msg.post(sender, "enable")
+		end
 	elseif message_id == hash("proxy_unloaded") then
 		print("Collection unloaded successfully")
 	elseif message_id == hash("proxy_failed") then
-		print("Failed to load collection: " .. examples[current_example].name)
-		current_proxy_id = nil
+		if all_loaded then
+			print("Failed to load collection in all examples mode")
+		else
+			print("Failed to load collection: " .. examples[current_example].name)
+			current_proxy_id = nil
+		end
 	end
 end
 
@@ -171,6 +208,12 @@ function on_reload(self)
 end
 
 function load_example(proxy_id)
+	-- Check if this collection is already loaded
+	if current_proxy_id == proxy_id then
+		print("Collection already loaded: " .. examples[current_example].name)
+		return
+	end
+	
 	-- Unload current example if any
 	if current_proxy_id then
 		-- Proper unloading sequence according to Defold docs
@@ -193,4 +236,44 @@ function load_main_menu()
 		msg.post(current_proxy_id, "unload")
 		current_proxy_id = nil
 	end
+end
+
+function load_all_examples()
+	-- Unload current single example if any
+	if current_proxy_id then
+		msg.post(current_proxy_id, "disable")
+		msg.post(current_proxy_id, "final")
+		msg.post(current_proxy_id, "unload")
+		current_proxy_id = nil
+	end
+	
+	-- Load all examples that aren't already loaded
+	loaded_proxies = {}
+	local loaded_count = 0
+	for i, example in ipairs(examples) do
+		if not loaded_proxies[example.proxy_id] then
+			msg.post(example.proxy_id, "load")
+			loaded_proxies[example.proxy_id] = true
+			loaded_count = loaded_count + 1
+		end
+	end
+	
+	all_loaded = true
+	print("Loading " .. loaded_count .. " examples...")
+end
+
+function unload_all_examples()
+	-- Unload all examples
+	for i, example in ipairs(examples) do
+		if loaded_proxies[example.proxy_id] then
+			msg.post(example.proxy_id, "disable")
+			msg.post(example.proxy_id, "final")
+			msg.post(example.proxy_id, "unload")
+		end
+	end
+	
+	loaded_proxies = {}
+	all_loaded = false
+	current_proxy_id = nil
+	print("Unloading all examples...")
 end 
