@@ -1,0 +1,30 @@
+name: "gui_spine_demo"
+scale_along_z: 0
+embedded_instances {
+  id: "go_gui"
+  data: "components {\n"
+  "  id: \"main\"\n"
+  "  component: \"/main/main.gui\"\n"
+  "}\n"
+  ""
+}
+embedded_instances {
+  id: "label"
+  data: "embedded_components {\n"
+  "  id: \"label\"\n"
+  "  type: \"label\"\n"
+  "  data: \"size {\\n"
+  "  x: 200.0\\n"
+  "  y: 32.0\\n"
+  "}\\n"
+  "text: \\\"GUI Spine Demo Example\\\"\\n"
+  "font: \\\"/main/default.font\\\"\\n"
+  "material: \\\"/builtins/fonts/label-df.material\\\"\\n"
+  "\"\n"
+  "}\n"
+  ""
+  position {
+    x: 480.0
+    y: 50.0
+  }
+} 

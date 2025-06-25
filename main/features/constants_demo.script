@@ -1,0 +1,68 @@
+function init(self)
+	self.url = "#spinemodel"
+	
+	-- Constants demonstration
+	print("getting constants")
+	print("tint:", go.get(self.url, "tint"))
+	print("set tint", go.set(self.url, "tint", vmath.vector4(1,2,3,4)))
+	print("tint:", go.get(self.url, "tint"))
+	print("set tint", go.set(self.url, "tint.y", 0.5))
+	print("tint:", go.get(self.url, "tint"))
+	
+	spine.reset_constant(self.url, "tint")
+	
+	print("setting constants")
+	spine.set_constant(self.url, "tint", vmath.vector4(1,0,0,1))
+	timer.delay(1, false, function()
+		spine.reset_constant(self.url, "tint")
+	end)
+	
+	-- Properties demonstration
+	print("Properties")
+	print("current animation:", go.get(self.url, "animation"))
+	print("current skin:", go.get(self.url, "skin"))
+	go.set(self.url, "skin", hash("default"))
+	go.set(self.url, "skin", hash(""))
+	
+	--print("current playback rate:", go.get(self.url, "playback_rate"))
+	--go.set(self.url, "playback_rate", 3.0)
+	--go.animate(self.url, "playback_rate", go.PLAYBACK_LOOP_PINGPONG, 0.1, go.EASING_LINEAR, 2)
+	
+	-- cursor property
+	--go.animate(self.url, "cursor", go.PLAYBACK_LOOP_PINGPONG, 1.0, go.EASING_LINEAR, 2)
+	--go.set(self.url, "cursor", 0.5)
+	--go.set(self.url, "cursor", 0.90)
+	
+	-- attachments
+	--spine.set_attachment(self.url, "mouth", "mouth-oooo")
+	spine.set_attachment(self.url, "mouth", "mouth-smile")
+	--spine.set_attachment(self.url, "mouth", "mouth-grind")
+	
+	-- bones
+	local bone = spine.get_go(self.url, "gun-tip")
+	--local bone = spine.get_go(self.url, "front-foot-tip")
+	print("bone", bone)
+	
+	go.set_parent("blob", bone)
+	self.bone = bone
+	
+	-- errors
+	--spine.play_anim(self.url, "not_exist", go.PLAYBACK_ONCE_FORWARD, {})
+	--spine.play_anim("#not_exist", "run", go.PLAYBACK_ONCE_FORWARD, {})
+	--spine.set_skin(self.url, "not_exist")
+end
+
+function final(self)
+end
+
+function update(self, dt)
+end
+
+function on_message(self, message_id, message, sender)
+end
+
+function on_input(self, action_id, action)
+end
+
+function on_reload(self)
+end 

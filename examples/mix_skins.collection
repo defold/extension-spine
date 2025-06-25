@@ -1,0 +1,48 @@
+name: "mix_skins"
+scale_along_z: 0
+embedded_instances {
+  id: "mix_skins"
+  data: "components {\n"
+  "  id: \"skin_mixer\"\n"
+  "  component: \"/assets/mix_skins/skin_mixer.script\"\n"
+  "}\n"
+  "embedded_components {\n"
+  "  id: \"spinemodel\"\n"
+  "  type: \"spinemodel\"\n"
+  "  data: \"spine_scene: \\\"/assets/mix_skins/spineboy/spineboy_mix.spinescene\\\"\\n"
+  "default_animation: \\\"run\\\"\\n"
+  "skin: \\\"blue_body\\\"\\n"
+  "material: \\\"/defold-spine/assets/spine.material\\\"\\n"
+  "create_go_bones: true\\n"
+  "\"\n"
+  "  scale {\n"
+  "    x: 0.5\n"
+  "    y: 0.5\n"
+  "  }\n"
+  "}\n"
+  ""
+  position {
+    x: 164.0
+    y: 29.0
+  }
+}
+embedded_instances {
+  id: "label"
+  data: "embedded_components {\n"
+  "  id: \"label\"\n"
+  "  type: \"label\"\n"
+  "  data: \"size {\\n"
+  "  x: 200.0\\n"
+  "  y: 32.0\\n"
+  "}\\n"
+  "text: \\\"Mix Skins Example\\\"\\n"
+  "font: \\\"/main/default.font\\\"\\n"
+  "material: \\\"/builtins/fonts/label-df.material\\\"\\n"
+  "\"\n"
+  "}\n"
+  ""
+  position {
+    x: 194.0
+    y: 400.0
+  }
+}

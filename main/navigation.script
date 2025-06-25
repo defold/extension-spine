@@ -1,0 +1,196 @@
+local examples = {
+	{ name = "Basic Animation", proxy_id = "basic_animation_proxy", description = "Basic animation playback, multi-track animations, IK targets" },
+	{ name = "Small Walk Animation", proxy_id = "small_walk_animation_proxy", description = "Small walk animation with callback loops" },
+	{ name = "Constants Demo", proxy_id = "constants_demo_proxy", description = "Demonstrates spine constants, properties, attachments, and bones" },
+	{ name = "Slow Jump", proxy_id = "slow_jump_proxy", description = "Slow jump animation with playback rate and offset" },
+	{ name = "Sequence Animation", proxy_id = "sequence_animation_proxy", description = "Sequence-based animations" },
+	{ name = "Coin Blend and Mask", proxy_id = "coin_blend_and_mask_proxy", description = "Demonstrates blend modes" },
+	{ name = "Mix Skins", proxy_id = "mix_skins_proxy", description = "Shows skin mixing capabilities" },
+	{ name = "Physics", proxy_id = "physics_proxy", description = "Demonstrates physics integration" },
+	{ name = "GUI Spine Demo", proxy_id = "gui_spine_demo_proxy", description = "Shows GUI-based spine rendering" }
+}
+
+local current_example = 1
+local current_proxy_id = nil
+
+function init(self)
+	msg.post(".", "acquire_input_focus")
+	
+	-- Get display scale and apply it to ImGui scaling
+	local display_scale = window.get_display_scale()
+	local ui_scale = math.max(1.0, display_scale)
+	
+	imgui.scale_all_sizes(ui_scale)
+	imgui.set_global_font_scale(ui_scale)
+	
+	print("Display scale: " .. display_scale .. ", UI scale: " .. ui_scale)
+	
+	-- Load the first example by default
+	timer.delay(0.1, false, function()
+		load_example(examples[1].proxy_id)
+	end)
+end
+
+function final(self)
+	if current_proxy_id then
+		-- Proper unloading sequence according to Defold docs
+		msg.post(current_proxy_id, "disable")
+		msg.post(current_proxy_id, "final")
+		msg.post(current_proxy_id, "unload")
+	end
+end
+
+function update(self, dt)
+	imgui.begin_window("Spine Extension Examples", nil, imgui.WINDOWFLAGS_MENUBAR)
+	
+	-- Menu bar
+	if imgui.begin_menu_bar() then
+		if imgui.begin_menu("File") then
+			if imgui.menu_item("Exit") then
+				-- Could add exit functionality here
+			end
+			imgui.end_menu()
+		end
+		if imgui.begin_menu("Help") then
+			if imgui.menu_item("About") then
+				-- Could add about dialog here
+			end
+			imgui.end_menu()
+		end
+		imgui.end_menu_bar()
+	end
+	
+	-- Header
+	imgui.text_colored("Welcome to Spine Extension Examples", 0.2, 0.8, 1.0, 1.0)
+	imgui.text("Select an example from the list below to see different Spine features in action.")
+	imgui.separator()
+	
+	-- Example selection
+	imgui.text("Available Examples:")
+	imgui.spacing()
+	
+	-- Example list with descriptions
+	for i, example in ipairs(examples) do
+		local is_selected = (i == current_example)
+		local is_loaded = (current_proxy_id == example.proxy_id)
+		
+		-- Create a selectable item
+		local flags = 0
+		if is_loaded then
+			flags = 1 -- DISABLED flag
+		end
+		
+		if imgui.selectable(example.name, is_selected, flags) and not is_loaded then
+			current_example = i
+		end
+		
+		-- Show description on hover
+		if imgui.is_item_hovered() then
+			imgui.begin_tooltip()
+			imgui.text(example.description)
+			imgui.end_tooltip()
+		end
+		
+		-- Show status
+		if is_loaded then
+			imgui.same_line()
+			imgui.text_colored(" [LOADED]", 0.0, 1.0, 0.0, 1.0)
+		end
+	end
+	
+	imgui.separator()
+	
+	-- Current example info
+	if current_proxy_id then
+		imgui.text_colored("Current Example:", 1.0, 1.0, 0.0, 1.0)
+		imgui.text(examples[current_example].name)
+		imgui.text_colored("Description:", 1.0, 1.0, 0.0, 1.0)
+		imgui.text(examples[current_example].description)
+		imgui.text_colored("Status: Loaded", 0.0, 1.0, 0.0, 1.0)
+	else
+		imgui.text_colored("No example loaded", 1.0, 0.5, 0.0, 1.0)
+		imgui.text_colored("Status: Ready", 0.5, 0.5, 0.5, 1.0)
+	end
+	
+	imgui.separator()
+	
+	-- Controls
+	imgui.text("Controls:")
+	
+	if imgui.button("Load Selected Example") then
+		load_example(examples[current_example].proxy_id)
+	end
+	
+	imgui.same_line()
+	
+	if imgui.button("Return to Main Menu") then
+		load_main_menu()
+	end
+	
+	imgui.separator()
+	
+	-- Instructions
+	imgui.text_colored("Instructions:", 1.0, 1.0, 0.0, 1.0)
+	imgui.bullet()
+	imgui.same_line()
+	imgui.text("Click on an example name to select it")
+	imgui.bullet()
+	imgui.same_line()
+	imgui.text("Click 'Load Selected Example' to load it")
+	imgui.bullet()
+	imgui.same_line()
+	imgui.text("Use 'Return to Main Menu' to unload current example")
+	imgui.bullet()
+	imgui.same_line()
+	imgui.text("Hover over examples to see descriptions")
+	imgui.bullet()
+	imgui.same_line()
+	imgui.text("Each example demonstrates different Spine features")
+	
+	imgui.end_window()
+end
+
+function on_message(self, message_id, message, sender)
+	if message_id == hash("proxy_loaded") then
+		print("Collection loaded successfully: " .. examples[current_example].name)
+		-- Initialize and enable the loaded collection
+		msg.post(sender, "init")
+		msg.post(sender, "enable")
+	elseif message_id == hash("proxy_unloaded") then
+		print("Collection unloaded successfully")
+	elseif message_id == hash("proxy_failed") then
+		print("Failed to load collection: " .. examples[current_example].name)
+		current_proxy_id = nil
+	end
+end
+
+function on_input(self, action_id, action)
+end
+
+function on_reload(self)
+end
+
+function load_example(proxy_id)
+	-- Unload current example if any
+	if current_proxy_id then
+		-- Proper unloading sequence according to Defold docs
+		msg.post(current_proxy_id, "disable")
+		msg.post(current_proxy_id, "final")
+		msg.post(current_proxy_id, "unload")
+	end
+	
+	current_proxy_id = proxy_id
+	-- Load the new collection
+	msg.post(proxy_id, "load")
+	msg.post(proxy_id, "acquire_input_focus")
+end
+
+function load_main_menu()
+	if current_proxy_id then
+		-- Proper unloading sequence according to Defold docs
+		msg.post(current_proxy_id, "disable")
+		msg.post(current_proxy_id, "final")
+		msg.post(current_proxy_id, "unload")
+		current_proxy_id = nil
+	end
+end 

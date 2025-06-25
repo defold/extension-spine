@@ -1,0 +1,44 @@
+name: "coin_blend_and_mask"
+scale_along_z: 0
+embedded_instances {
+  id: "coin-blend-and-mask"
+  data: "embedded_components {\n"
+  "  id: \"spinemodel\"\n"
+  "  type: \"spinemodel\"\n"
+  "  data: \"spine_scene: \\\"/assets/coins/coin.spinescene\\\"\\n"
+  "default_animation: \\\"animation\\\"\\n"
+  "skin: \\\"\\\"\\n"
+  "blend_mode: BLEND_MODE_INHERIT\\n"
+  "material: \\\"/defold-spine/assets/spine.material\\\"\\n"
+  "\"\n"
+  "  position {\n"
+  "    x: 147.0\n"
+  "    y: 482.0\n"
+  "  }\n"
+  "}\n"
+  ""
+  position {
+    x: 109.0
+    y: -271.0
+  }
+}
+embedded_instances {
+  id: "label"
+  data: "embedded_components {\n"
+  "  id: \"label\"\n"
+  "  type: \"label\"\n"
+  "  data: \"size {\\n"
+  "  x: 200.0\\n"
+  "  y: 32.0\\n"
+  "}\\n"
+  "text: \\\"Coin Blend and Mask Example\\\"\\n"
+  "font: \\\"/main/default.font\\\"\\n"
+  "material: \\\"/builtins/fonts/label-df.material\\\"\\n"
+  "\"\n"
+  "}\n"
+  ""
+  position {
+    x: 284.0
+    y: 450.0
+  }
+}
