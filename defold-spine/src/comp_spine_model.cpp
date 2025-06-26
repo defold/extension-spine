@@ -1630,6 +1630,11 @@ namespace dmSpine
     {
         spSkeleton_physicsTranslate(component->m_SkeletonInstance, position.getX(), position.getY());
     }
+
+    void CompSpineModelPhysicsRotate(SpineModelComponent* component, Point3 center, float degrees)
+    {
+        spSkeleton_physicsRotate(component->m_SkeletonInstance, center.getX(), center.getY(), degrees);
+    }
 }
 
 DM_DECLARE_COMPONENT_TYPE(ComponentTypeSpineModelExt, "spinemodelc", dmSpine::CompTypeSpineModelCreate, dmSpine::CompTypeSpineModelDestroy);

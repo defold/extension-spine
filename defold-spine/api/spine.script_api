@@ -319,6 +319,25 @@
 
 #*****************************************************************************************************
 
+  - name: physics_rotate
+    type: function
+    desc: Apply a physics-based rotation to the Spine model.
+
+    parameters:
+      - name: url
+        type: string|hash|url
+        desc: The Spine model component to rotate.
+
+      - name: center
+        type: vector3
+        desc: The center point around which to rotate.
+
+      - name: degrees
+        type: number
+        desc: The rotation angle in degrees.
+
+#*****************************************************************************************************
+
 - name: spine_animation_done
   type: message
   desc: The animation has been finished. Only received if there is no callback set!

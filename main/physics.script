@@ -5,11 +5,14 @@ function init(self)
 	spine.physics_translate(self.model, vmath.vector3(10, 12, 0))
 	self.last_pos = vmath.vector3()
 	self.translate = vmath.vector3()
+	self.rotation_center = vmath.vector3(0, 0, 0)
+	self.rotation_angle = 0
 end
 
 local size = {x = 50, y = 25}
 local cloud_y = 160
 local phys_s = 3
+local rotation_speed = 5
 
 local function is_aa_bb(pos, action)
 	local min_x = pos.x - size.x
@@ -43,5 +46,12 @@ function on_input(self, action_id, action)
 		spine.physics_translate(self.model, self.translate)
 		self.last_pos.x = action.x
 		self.last_pos.y = action.y
+
+		-- Calculate rotation angle based on mouse movement
+		local angle_change = -dx * rotation_speed
+		self.rotation_angle = self.rotation_angle + angle_change
+
+		-- Apply rotation around the model's current position
+		spine.physics_rotate(self.model, pos, angle_change)
 	end
 end

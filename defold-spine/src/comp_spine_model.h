@@ -105,6 +105,7 @@ namespace dmSpine
 
     void RunTrackCallback(dmScript::LuaCallbackInfo* callback_data, const dmDDF::Descriptor* desc, const char* data, const dmMessage::URL* sender);
     void CompSpineModelPhysicsTranslate(SpineModelComponent* component, Vectormath::Aos::Point3 position);
+    void CompSpineModelPhysicsRotate(SpineModelComponent* component, Vectormath::Aos::Point3 center, float degrees);
 
 }
 
