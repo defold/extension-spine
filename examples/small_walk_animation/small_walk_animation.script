@@ -1,0 +1,27 @@
+local small_anim = {}
+function small_anim.small_walk_in_callback_loop()
+	spine.play_anim("/small_walk#spinemodel", "walk", go.PLAYBACK_ONCE_FORWARD, {}, function(self, message_id, message, sender)
+		if message_id == hash("spine_animation_done") then
+			small_anim.small_walk_in_callback_loop()
+		end
+	end)
+end
+
+function init(self)
+	small_anim.small_walk_in_callback_loop()
+end
+
+function final(self)
+end
+
+function update(self, dt)
+end
+
+function on_message(self, message_id, message, sender)
+end
+
+function on_input(self, action_id, action)
+end
+
+function on_reload(self)
+end 

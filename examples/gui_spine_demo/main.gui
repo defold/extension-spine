@@ -1,0 +1,137 @@
+script: "/examples/gui_spine_demo/main.gui_script"
+fonts {
+  name: "default"
+  font: "/main/default.font"
+}
+textures {
+  name: "main"
+  texture: "/main/main.atlas"
+}
+nodes {
+  position {
+    x: 225.0
+    y: 284.0
+  }
+  scale {
+    x: 0.5
+    y: 0.5
+  }
+  type: TYPE_CUSTOM
+  id: "spine"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+  spine_scene: "spineboy"
+  spine_default_animation: "walk"
+  custom_type: 405028931
+}
+nodes {
+  position {
+    x: -38.0
+    y: -39.0
+  }
+  size {
+    x: 64.0
+    y: 64.0
+  }
+  type: TYPE_BOX
+  texture: "main/bone"
+  id: "bone"
+  inherit_alpha: true
+}
+nodes {
+  position {
+    x: 99.0
+    y: 51.0
+  }
+  size {
+    x: 200.0
+    y: 100.0
+  }
+  type: TYPE_BOX
+  id: "box"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+}
+nodes {
+  position {
+    x: -3.0
+    y: 9.0
+  }
+  scale {
+    x: 0.5
+    y: 0.5
+  }
+  type: TYPE_CUSTOM
+  id: "spine1"
+  parent: "box"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+  spine_scene: "spineboy"
+  spine_default_animation: "walk"
+  custom_type: 405028931
+}
+nodes {
+  position {
+    y: -8.0
+  }
+  size {
+    x: 200.0
+    y: 100.0
+  }
+  color {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  type: TYPE_TEXT
+  text: "clone"
+  font: "default"
+  id: "text"
+  outline {
+    x: 1.0
+    y: 1.0
+    z: 1.0
+  }
+  shadow {
+    x: 1.0
+    y: 1.0
+    z: 1.0
+  }
+  parent: "box"
+  inherit_alpha: true
+}
+nodes {
+  position {
+    x: 201.0
+    y: 73.0
+  }
+  rotation {
+    y: 180.0
+    z: 42.384
+  }
+  scale {
+    x: 0.5
+    y: 0.5
+  }
+  type: TYPE_CUSTOM
+  id: "squirrel"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+  spine_scene: "squirrel"
+  spine_default_animation: "Idle"
+  custom_type: 405028931
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT
+resources {
+  name: "spineboy"
+  path: "/assets/spineboy/spineboy.spinescene"
+}
+resources {
+  name: "test"
+  path: "/assets/spineboy/spineboy.spinescene"
+}
+resources {
+  name: "squirrel"
+  path: "/assets/squirrel/squirrel.spinescene"
+}

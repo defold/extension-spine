@@ -1,0 +1,45 @@
+name: "slow_jump"
+scale_along_z: 0
+embedded_instances {
+  id: "slow_jump"
+  data: "embedded_components {\n"
+  "  id: \"spinemodel\"\n"
+  "  type: \"spinemodel\"\n"
+  "  data: \"spine_scene: \\\"/assets/spineboy/spineboy.spinescene\\\"\\n"
+  "default_animation: \\\"jump\\\"\\n"
+  "skin: \\\"\\\"\\n"
+  "material: \\\"/defold-spine/assets/spine.material\\\"\\n"
+  "playback_rate: 0.2\\n"
+  "offset: 0.5\\n"
+  "\"\n"
+  "}\n"
+  ""
+  position {
+    x: 179.0
+    y: 146.0
+  }
+  scale3 {
+    x: 0.2
+    y: 0.2
+  }
+}
+embedded_instances {
+  id: "label"
+  data: "embedded_components {\n"
+  "  id: \"label\"\n"
+  "  type: \"label\"\n"
+  "  data: \"size {\\n"
+  "  x: 200.0\\n"
+  "  y: 32.0\\n"
+  "}\\n"
+  "text: \\\"Slow Jump Example\\\"\\n"
+  "font: \\\"/main/default.font\\\"\\n"
+  "material: \\\"/builtins/fonts/label-df.material\\\"\\n"
+  "\"\n"
+  "}\n"
+  ""
+  position {
+    x: 179.0
+    y: 276.0
+  }
+}

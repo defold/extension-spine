@@ -1,0 +1,54 @@
+name: "sequence_animation"
+scale_along_z: 0
+embedded_instances {
+  id: "sequence"
+  data: "embedded_components {\n"
+  "  id: \"spinemodel\"\n"
+  "  type: \"spinemodel\"\n"
+  "  data: \"spine_scene: \\\"/assets/sequence_animation/sequence.spinescene\\\"\\n"
+  "default_animation: \\\"animation\\\"\\n"
+  "skin: \\\"\\\"\\n"
+  "material: \\\"/defold-spine/assets/spine.material\\\"\\n"
+  "\"\n"
+  "}\n"
+  "embedded_components {\n"
+  "  id: \"label\"\n"
+  "  type: \"label\"\n"
+  "  data: \"size {\\n"
+  "  x: 128.0\\n"
+  "  y: 32.0\\n"
+  "}\\n"
+  "text: \\\"sequence\\\"\\n"
+  "font: \\\"/main/default.font\\\"\\n"
+  "material: \\\"/builtins/fonts/label-df.material\\\"\\n"
+  "\"\n"
+  "  position {\n"
+  "    y: 93.0\n"
+  "  }\n"
+  "}\n"
+  ""
+  position {
+    x: 168.0
+    y: 140.0
+  }
+}
+embedded_instances {
+  id: "title_label"
+  data: "embedded_components {\n"
+  "  id: \"label\"\n"
+  "  type: \"label\"\n"
+  "  data: \"size {\\n"
+  "  x: 200.0\\n"
+  "  y: 32.0\\n"
+  "}\\n"
+  "text: \\\"Sequence Animation Example\\\"\\n"
+  "font: \\\"/main/default.font\\\"\\n"
+  "material: \\\"/builtins/fonts/label-df.material\\\"\\n"
+  "\"\n"
+  "}\n"
+  ""
+  position {
+    x: 168.0
+    y: 270.0
+  }
+}

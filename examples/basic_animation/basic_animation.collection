@@ -1,0 +1,90 @@
+name: "basic_animation"
+scale_along_z: 0
+embedded_instances {
+  id: "go"
+  data: "components {\n"
+  "  id: \"basic_animation\"\n"
+  "  component: \"/examples/basic_animation/basic_animation.script\"\n"
+  "}\n"
+  "embedded_components {\n"
+  "  id: \"spinemodel\"\n"
+  "  type: \"spinemodel\"\n"
+  "  data: \"spine_scene: \\\"/assets/spineboy/spineboy.spinescene\\\"\\n"
+  "default_animation: \\\"idle\\\"\\n"
+  "skin: \\\"\\\"\\n"
+  "material: \\\"/defold-spine/assets/spine.material\\\"\\n"
+  "create_go_bones: true\\n"
+  "\"\n"
+  "  scale {\n"
+  "    x: 0.5\n"
+  "    y: 0.5\n"
+  "  }\n"
+  "}\n"
+  ""
+  position {
+    x: 200.0
+  }
+}
+embedded_instances {
+  id: "blob"
+  data: "embedded_components {\n"
+  "  id: \"sprite\"\n"
+  "  type: \"sprite\"\n"
+  "  data: \"default_animation: \\\"bone\\\"\\n"
+  "material: \\\"/builtins/materials/sprite.material\\\"\\n"
+  "textures {\\n"
+  "  sampler: \\\"texture_sampler\\\"\\n"
+  "  texture: \\\"/main/main.atlas\\\"\\n"
+  "}\\n"
+  "\"\n"
+  "}\n"
+  ""
+  position {
+    z: 0.5
+  }
+  scale3 {
+    x: 0.5
+    y: 0.5
+    z: 0.5
+  }
+}
+embedded_instances {
+  id: "ik-target"
+  data: "embedded_components {\n"
+  "  id: \"sprite\"\n"
+  "  type: \"sprite\"\n"
+  "  data: \"default_animation: \\\"bone\\\"\\n"
+  "material: \\\"/builtins/materials/sprite.material\\\"\\n"
+  "textures {\\n"
+  "  sampler: \\\"texture_sampler\\\"\\n"
+  "  texture: \\\"/main/main.atlas\\\"\\n"
+  "}\\n"
+  "\"\n"
+  "}\n"
+  ""
+  scale3 {
+    x: 0.2
+    y: 0.2
+    z: 0.2
+  }
+}
+embedded_instances {
+  id: "label"
+  data: "embedded_components {\n"
+  "  id: \"label\"\n"
+  "  type: \"label\"\n"
+  "  data: \"size {\\n"
+  "  x: 200.0\\n"
+  "  y: 32.0\\n"
+  "}\\n"
+  "text: \\\"Basic Animation Example\\\"\\n"
+  "font: \\\"/main/default.font\\\"\\n"
+  "material: \\\"/builtins/fonts/label-df.material\\\"\\n"
+  "\"\n"
+  "}\n"
+  ""
+  position {
+    x: 200.0
+    y: 300.0
+  }
+} 
