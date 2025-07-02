@@ -716,7 +716,7 @@ namespace dmSpine
 
         dmhash_t slot_id = dmScript::CheckHashOrString(L, 2);
 
-        dmVMath::Vector4* color =  dmScript::CheckVector4(L, 3);
+        Vectormath::Aos::Vector4* color =  dmScript::CheckVector4(L, 3);
 
     //TODO: Use top to check if there is an argument there?
 

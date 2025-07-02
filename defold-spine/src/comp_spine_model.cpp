@@ -1584,7 +1584,7 @@ namespace dmSpine
         return true;
     }
 
-    bool CompSpineModelSetSlotColor(SpineModelComponent* component, dmhash_t slot_id, dmVMath::Vector4* color)
+    bool CompSpineModelSetSlotColor(SpineModelComponent* component, dmhash_t slot_id,  Vectormath::Aos::Vector4* color)
     {
         SpineModelResource* spine_model = component->m_Resource;
         SpineSceneResource* spine_scene = spine_model->m_SpineScene;
