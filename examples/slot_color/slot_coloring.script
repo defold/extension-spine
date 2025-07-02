@@ -4,9 +4,15 @@ local function set_slot_color_repeating(self)
 	tick_count = 1
 	timer.delay(1, true, function()
 		if tick_count == 0 then
+			spine.set_slot_color(self.spine_model_id, "front-fist", vmath.vector4(1, 1, 1, 0.5))
 		elseif tick_count == 1 then
+			spine.play_anim(self.spine_model_id, "run", go.PLAYBACK_LOOP_FORWARD, { blend_duration = 0.15 }, nil)
+			spine.set_slot_color(self.spine_model_id, "front-fist", vmath.vector4(1, 0, 0, 1))
 		elseif tick_count == 2 then
+			spine.set_slot_color(self.spine_model_id, "front-fist", vmath.vector4(0, 1, 0, 1))
 		elseif tick_count == 3 then
+			spine.set_slot_color(self.spine_model_id, "front-fist", vmath.vector4(0, 0, 1, 1))
+			spine.play_anim(self.spine_model_id, "idle", go.PLAYBACK_LOOP_FORWARD, { blend_duration = 0.15 }, nil)
 		end
 		tick_count = (tick_count + 1) % 4
 	end)
@@ -14,4 +20,5 @@ end
 
 function init(self)
 	self.spine_model_id = msg.url(nil, go.get_id("spine_go"), "spinemodel")
+	set_slot_color_repeating(self)
 end

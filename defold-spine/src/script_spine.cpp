@@ -704,7 +704,35 @@ namespace dmSpine
      * end
      * ```
      */
-    static int SpineComp_SetAttachment(lua_State* L)
+
+    static int SpineComp_SetSlotColor(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+        int top = lua_gettop(L);
+
+        SpineModelComponent* component = 0;
+        dmMessage::URL receiver; // needed for error output
+        dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
+
+        dmhash_t slot_id = dmScript::CheckHashOrString(L, 2);
+
+        dmVMath::Vector4* color =  dmScript::CheckVector4(L, 3);
+
+    //TODO: Use top to check if there is an argument there?
+
+        if (!CompSpineModelSetSlotColor(component, slot_id, color))
+        {
+            char buffer[128];
+            dmScript::UrlToString(&receiver, buffer, sizeof(buffer));
+
+            {
+            return DM_LUA_ERROR("failed to set color in slot '%s' in component %s", dmHashReverseSafe64(slot_id), buffer);
+            }
+        }
+        return 0;
+    }
+
+     static int SpineComp_SetAttachment(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 0);
         int top = lua_gettop(L);
@@ -1025,6 +1053,7 @@ namespace dmSpine
 
     static const luaL_reg SPINE_COMP_FUNCTIONS[] =
     {
+            {"set_slot_color",          SpineComp_SetSlotColor},
             {"copy_skin",               SpineComp_CopySkin},
             {"clear_skin",              SpineComp_ClearSkin},
             {"add_skin",                SpineComp_AddSkin},

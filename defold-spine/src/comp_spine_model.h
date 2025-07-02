@@ -99,8 +99,9 @@ namespace dmSpine
     bool CompSpineModelClearSkin(SpineModelComponent* component, dmhash_t skin_id);
     bool CompSpineModelCopySkin(SpineModelComponent* component, dmhash_t skin_id_a, dmhash_t skin_id_b);
     bool CompSpineModelSetSkin(SpineModelComponent* component, dmhash_t skin_id);
-    bool CompSpineModelSetAttachment(SpineModelComponent* component, dmhash_t slot_id, dmhash_t attachment_id);
 
+    bool CompSpineModelSetSlotColor(SpineModelComponent* component, dmhash_t slot_id,  dmVMath::Vector4* color);
+    bool CompSpineModelSetAttachment(SpineModelComponent* component, dmhash_t slot_id, dmhash_t attachment_id);
     bool CompSpineModelGetBone(SpineModelComponent* component, dmhash_t bone_name, dmhash_t* instance_id);
 
     void RunTrackCallback(dmScript::LuaCallbackInfo* callback_data, const dmDDF::Descriptor* desc, const char* data, const dmMessage::URL* sender);
