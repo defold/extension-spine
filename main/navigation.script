@@ -6,6 +6,7 @@ local examples = {
 	{ name = "Sequence Animation", proxy_id = "sequence_animation_proxy", description = "Sequence-based animations" },
 	{ name = "Coin Blend and Mask", proxy_id = "coin_blend_and_mask_proxy", description = "Demonstrates blend modes" },
 	{ name = "Mix Skins", proxy_id = "mix_skins_proxy", description = "Shows skin mixing capabilities" },
+	{ name = "Color Slots", proxy_id = "slot_color_proxy", description = "Tint attachments in a slot" },
 	{ name = "Physics", proxy_id = "physics_proxy", description = "Demonstrates physics integration" },
 	{ name = "GUI Spine Demo", proxy_id = "gui_spine_demo_proxy", description = "Shows GUI-based spine rendering" }
 }
