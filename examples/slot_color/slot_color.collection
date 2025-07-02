@@ -1,7 +1,7 @@
 name: "slot_color"
 scale_along_z: 0
 embedded_instances {
-  id: "label"
+  id: "example_label"
   data: "embedded_components {\n"
   "  id: \"label\"\n"
   "  type: \"label\"\n"
@@ -16,8 +16,8 @@ embedded_instances {
   "}\n"
   ""
   position {
-    x: 211.0
-    y: 390.0
+    x: 419.0
+    y: 477.0
   }
 }
 embedded_instances {
@@ -25,6 +25,10 @@ embedded_instances {
   data: "components {\n"
   "  id: \"slot_coloring\"\n"
   "  component: \"/examples/slot_color/slot_coloring.script\"\n"
+  "}\n"
+  "components {\n"
+  "  id: \"slot_color\"\n"
+  "  component: \"/examples/slot_color/slot_color.gui\"\n"
   "}\n"
   "embedded_components {\n"
   "  id: \"spinemodel\"\n"
@@ -43,5 +47,29 @@ embedded_instances {
   ""
   position {
     x: 200.0
+  }
+}
+embedded_instances {
+  id: "go_label"
+  data: "embedded_components {\n"
+  "  id: \"label\"\n"
+  "  type: \"label\"\n"
+  "  data: \"size {\\n"
+  "  x: 200.0\\n"
+  "  y: 32.0\\n"
+  "}\\n"
+  "text: \\\"game object\\\"\\n"
+  "font: \\\"/main/default.font\\\"\\n"
+  "material: \\\"/builtins/fonts/label-df.material\\\"\\n"
+  "\"\n"
+  "  position {\n"
+  "    x: -13.0\n"
+  "    y: -44.0\n"
+  "  }\n"
+  "}\n"
+  ""
+  position {
+    x: 224.0
+    y: 409.0
   }
 }
