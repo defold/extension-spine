@@ -100,7 +100,7 @@ namespace dmSpine
     bool CompSpineModelCopySkin(SpineModelComponent* component, dmhash_t skin_id_a, dmhash_t skin_id_b);
     bool CompSpineModelSetSkin(SpineModelComponent* component, dmhash_t skin_id);
 
-    bool CompSpineModelSetSlotColor(SpineModelComponent* component, dmhash_t slot_id,   Vectormath::Aos::Vector4* color);
+    bool CompSpineModelSetSlotColor(SpineModelComponent* component, dmhash_t slot_id, Vectormath::Aos::Vector4* color);
     bool CompSpineModelSetAttachment(SpineModelComponent* component, dmhash_t slot_id, dmhash_t attachment_id);
     bool CompSpineModelGetBone(SpineModelComponent* component, dmhash_t bone_name, dmhash_t* instance_id);
 

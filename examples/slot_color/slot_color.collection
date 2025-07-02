@@ -16,19 +16,16 @@ embedded_instances {
   "}\n"
   ""
   position {
-    x: 419.0
-    y: 477.0
+    x: 325.0
+    y: 463.0
   }
 }
 embedded_instances {
   id: "spine_go"
+  children: "go_label"
   data: "components {\n"
   "  id: \"slot_coloring\"\n"
   "  component: \"/examples/slot_color/slot_coloring.script\"\n"
-  "}\n"
-  "components {\n"
-  "  id: \"slot_color\"\n"
-  "  component: \"/examples/slot_color/slot_color.gui\"\n"
   "}\n"
   "embedded_components {\n"
   "  id: \"spinemodel\"\n"
@@ -46,7 +43,19 @@ embedded_instances {
   "}\n"
   ""
   position {
-    x: 200.0
+    x: 487.0
+    y: 10.0
+  }
+}
+embedded_instances {
+  id: "gui"
+  data: "components {\n"
+  "  id: \"slot_color\"\n"
+  "  component: \"/examples/slot_color/slot_color.gui\"\n"
+  "}\n"
+  ""
+  position {
+    x: -2.0
   }
 }
 embedded_instances {
@@ -69,7 +78,7 @@ embedded_instances {
   "}\n"
   ""
   position {
-    x: 224.0
-    y: 409.0
+    x: 19.0
+    y: 407.0
   }
 }

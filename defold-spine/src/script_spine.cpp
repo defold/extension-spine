@@ -771,10 +771,7 @@ namespace dmSpine
         {
             char buffer[128];
             dmScript::UrlToString(&receiver, buffer, sizeof(buffer));
-
-            {
             return DM_LUA_ERROR("failed to set color in slot '%s' in component %s", dmHashReverseSafe64(slot_id), buffer);
-            }
         }
         return 0;
     }

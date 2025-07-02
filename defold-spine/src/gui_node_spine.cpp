@@ -564,7 +564,7 @@ bool SetAttachment(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t slot_id, dm
     return 1 == spSkeleton_setAttachment(node->m_SkeletonInstance, slot->data->name, attachment_name);
 }
 
-bool SetSlotColor(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t slot_id,Vectormath::Aos::Vector4* color)
+bool SetSlotColor(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t slot_id, Vectormath::Aos::Vector4* color)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
     SpineSceneResource* spine_scene = node->m_SpineScene;
@@ -581,6 +581,7 @@ bool SetSlotColor(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t slot_id,Vect
 
     return true;
 }
+
 
 // END SCRIPTING
 
