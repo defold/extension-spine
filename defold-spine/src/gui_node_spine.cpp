@@ -582,7 +582,6 @@ bool SetSlotColor(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t slot_id,Vect
     return true;
 }
 
-
 // END SCRIPTING
 
 static void DeleteBones(InternalGuiNode* node)
@@ -986,7 +985,7 @@ static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
     else
     {
         spSkeleton_updateWorldTransform(node->m_SkeletonInstance, SP_PHYSICS_NONE);
-    }
+    }   
     DM_PROPERTY_ADD_U32(rmtp_SpineGuiNodes, 1);
     UpdateBones(node);
 }

@@ -1597,11 +1597,10 @@ namespace dmSpine
         }
 
         spSlot* slot = component->m_SkeletonInstance->slots[*index];
-	    spColor_setFromFloats(&slot->color, color->getX(), color->getY(), color->getZ(), color->getW());
+        spColor_setFromFloats(&slot->color, color->getX(), color->getY(), color->getZ(), color->getW());
 
         return true;
     }
-
 
     bool CompSpineModelSetAttachment(SpineModelComponent* component, dmhash_t slot_id, dmhash_t attachment_id)
     {
