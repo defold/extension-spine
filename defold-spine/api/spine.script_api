@@ -234,6 +234,26 @@
 
 #*****************************************************************************************************
 
+  - name: set_slot_color
+    type: function
+    desc: Set the color a slot will tint its attachments on a spine model.
+
+    parameters:
+      - name: url
+        type: string|hash|url
+        desc: The Spine model to query
+
+      - name: slot
+        type: string|hash
+        desc: Id of the slot
+
+      - name: color
+        type: vector4
+        desc: Tint applied to attachments in a slot
+
+
+#*****************************************************************************************************
+
   - name: reset_constant
     type: function
     desc: Resets a shader constant for a spine model component. (Previously set with `go.set()`)
