@@ -30,7 +30,7 @@ embedded_instances {
   "  id: \"spinemodel\"\n"
   "  type: \"spinemodel\"\n"
   "  data: \"spine_scene: \\\"/assets/spineboy/spineboy.spinescene\\\"\\n"
-  "default_animation: \\\"run\\\"\\n"
+  "default_animation: \\\"idle\\\"\\n"
   "skin: \\\"\\\"\\n"
   "material: \\\"/defold-spine/assets/spine.material\\\"\\n"
   "create_go_bones: true\\n"
