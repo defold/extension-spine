@@ -105,7 +105,7 @@ namespace dmSpine
     bool CompSpineModelGetBone(SpineModelComponent* component, dmhash_t bone_name, dmhash_t* instance_id);
 
     void RunTrackCallback(dmScript::LuaCallbackInfo* callback_data, const dmDDF::Descriptor* desc, const char* data, const dmMessage::URL* sender);
-    void CompSpineModelPhysicsTranslate(SpineModelComponent* component, Vectormath::Aos::Point3 position);
+    void CompSpineModelPhysicsTranslate(SpineModelComponent* component, Vectormath::Aos::Point3 translation);
     void CompSpineModelPhysicsRotate(SpineModelComponent* component, Vectormath::Aos::Point3 center, float degrees);
 
 }

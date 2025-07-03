@@ -1,0 +1,48 @@
+function init(self)
+    msg.post(".", "acquire_input_focus")
+    self.spine_node = gui.get_node("spine")
+    self.click_zone = gui.get_node("click_zone")
+    
+    -- Apply initial physics translation
+    gui.spine_physics_translate(self.spine_node, vmath.vector3(10, 12, 0))
+    
+    -- Initialize variables
+    self.last_pos = vmath.vector3()
+    self.translate = vmath.vector3()
+    self.rotation_angle = 0
+end
+
+local phys_s = 3
+local rotation_speed = 5
+
+function on_input(self, action_id, action)
+    if action_id == hash("mouse_button_left") and gui.pick_node(self.click_zone, action.x, action.y) then
+        if action.pressed then
+            self.drag = true
+            self.last_pos.x = action.x
+            self.last_pos.y = action.y
+        elseif action.released then
+            self.drag = false
+        end
+    end
+    if self.drag then
+        local pos = gui.get_position(self.spine_node)
+        local dx = action.x - self.last_pos.x
+        local dy = action.y - self.last_pos.y
+        pos.x = pos.x + dx
+        pos.y = pos.y + dy
+        self.translate.x = dx * phys_s
+        self.translate.y = dy * phys_s
+        gui.set_position(self.spine_node, pos)
+        gui.spine_physics_translate(self.spine_node, self.translate)
+        self.last_pos.x = action.x
+        self.last_pos.y = action.y
+
+        -- Calculate rotation angle based on mouse movement
+        local angle_change = -dx * rotation_speed
+        self.rotation_angle = self.rotation_angle + angle_change
+
+        -- Apply rotation around the model's current position
+        gui.spine_physics_rotate(self.spine_node, pos, angle_change)
+    end
+end

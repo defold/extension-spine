@@ -10,9 +10,10 @@ embedded_instances {
   "  id: \"spinemodel\"\n"
   "  type: \"spinemodel\"\n"
   "  data: \"spine_scene: \\\"/assets/trophy_wingame_spine/trophy_wingame_spine.spinescene\\\"\\n"
-  "default_animation: \\\"\\\"\\n"
+  "default_animation: \\\"wind-idle\\\"\\n"
   "skin: \\\"\\\"\\n"
   "material: \\\"/defold-spine/assets/spine.material\\\"\\n"
+  "offset: 0.57\\n"
   "\"\n"
   "}\n"
   ""
@@ -44,4 +45,12 @@ embedded_instances {
     x: 167.0
     y: 313.0
   }
+}
+embedded_instances {
+  id: "gui_example"
+  data: "components {\n"
+  "  id: \"physics\"\n"
+  "  component: \"/examples/physics/physics.gui\"\n"
+  "}\n"
+  ""
 }

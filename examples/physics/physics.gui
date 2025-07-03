@@ -1,0 +1,62 @@
+script: "/examples/physics/physics.gui_script"
+fonts {
+  name: "default"
+  font: "/main/default.font"
+}
+nodes {
+  position {
+    x: 152.0
+    y: 404.0
+  }
+  scale {
+    x: 0.1
+    y: 0.1
+  }
+  type: TYPE_CUSTOM
+  id: "spine"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+  spine_scene: "trophy_wingame_spine"
+  spine_default_animation: "wind-idle"
+  custom_type: 405028931
+}
+nodes {
+  position {
+    y: 1570.0
+  }
+  scale {
+    x: 5.0
+    y: 4.0
+  }
+  size {
+    x: 200.0
+    y: 100.0
+  }
+  type: TYPE_BOX
+  id: "click_zone"
+  parent: "spine"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+  visible: false
+}
+nodes {
+  position {
+    x: 145.0
+    y: 599.0
+  }
+  size {
+    x: 200.0
+    y: 100.0
+  }
+  type: TYPE_TEXT
+  text: "GUI physics example"
+  font: "default"
+  id: "text"
+  inherit_alpha: true
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT
+resources {
+  name: "trophy_wingame_spine"
+  path: "/assets/trophy_wingame_spine/trophy_wingame_spine.spinescene"
+}
