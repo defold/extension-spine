@@ -582,10 +582,10 @@ bool SetSlotColor(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t slot_id, Vec
     return true;
 }
 
-void PhysicsTranslate(dmGui::HScene scene, dmGui::HNode hnode, Vectormath::Aos::Vector3* position)
+void PhysicsTranslate(dmGui::HScene scene, dmGui::HNode hnode, Vectormath::Aos::Vector3* translation)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    spSkeleton_physicsTranslate(node->m_SkeletonInstance, position->getX(), position->getY());
+    spSkeleton_physicsTranslate(node->m_SkeletonInstance, translation->getX(), translation->getY());
 }
 
 void PhysicsRotate(dmGui::HScene scene, dmGui::HNode hnode, Vectormath::Aos::Vector3* center, float degrees)
