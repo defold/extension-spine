@@ -607,6 +607,77 @@ namespace dmSpine
         return 0;
     }
 
+    /*# apply a physics-based translation to a Spine GUI node
+     *
+     * Applies a translation vector to the Spine GUI node through the physics system.
+     * This function influences the physical simulation.
+     *
+     * @name gui.spine_physics_translate
+     * @param node [type:node] the Spine GUI node to translate
+     * @param translation [type:vector3] the translation vector to apply
+     * @examples
+     *
+     * The following example applies a translation vector to a Spine GUI node with the id "spine_node":
+     *
+     * ```lua
+     * function init(self)
+     *     local translation = vmath.vector3(10, 0, 0)
+     *     gui.spine_physics_translate(gui.get_node("spine_node"), translation)
+     * end
+     * ```
+     */
+    static int SpineComp_PhysicsTranslate(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
+
+        VERIFY_SPINE_NODE(scene, node);
+
+        Vectormath::Aos::Vector3* translation = dmScript::CheckVector3(L, 2);
+        dmSpine::PhysicsTranslate(scene, node, translation);
+
+        return 0;
+    }
+
+    /*# apply a physics-based rotation to a Spine GUI node
+     *
+     * Applies a rotation to the Spine GUI node through the physics system.
+     * This function influences the physical simulation by rotating around a specified point.
+     *
+     * @name gui.spine_physics_rotate
+     * @param node [type:node] the Spine GUI node to rotate
+     * @param center [type:vector3] the center point around which to rotate
+     * @param degrees [type:number] the rotation angle in degrees
+     * @examples
+     *
+     * The following example applies a rotation to a Spine GUI node with the id "spine_node":
+     *
+     * ```lua
+     * function init(self)
+     *     -- Rotate 45 degrees around the point (10, 5, 0)
+     *     gui.spine_physics_rotate(gui.get_node("spine_node"), vmath.vector3(10, 5, 0), 45)
+     * end
+     * ```
+     */
+    static int SpineComp_PhysicsRotate(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
+
+        VERIFY_SPINE_NODE(scene, node);
+
+        Vectormath::Aos::Vector3* center = dmScript::CheckVector3(L, 2);
+        float degrees = luaL_checknumber(L, 3);
+
+        dmSpine::PhysicsRotate(scene, node, center, degrees);
+
+        return 0;
+    }
+
     static const luaL_reg SPINE_FUNCTIONS[] =
     {
         {"new_spine_node", NewSpineNode},
@@ -627,6 +698,8 @@ namespace dmSpine
         {"get_spine_playback_rate", GetSpinePlaybackRate},
         {"set_spine_slot_color",    SetSpineSlotColor},
         {"set_spine_attachment",    SetSpineAttachment},
+        {"spine_physics_translate", SpineComp_PhysicsTranslate},
+        {"spine_physics_rotate",    SpineComp_PhysicsRotate},
 
         // Also gui.set_spine_attachment to mimic the the go.set_attachment
         {0, 0}

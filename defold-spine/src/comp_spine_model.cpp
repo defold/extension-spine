@@ -1644,9 +1644,9 @@ namespace dmSpine
         return true;
     }
 
-    void CompSpineModelPhysicsTranslate(SpineModelComponent* component, Point3 position)
+    void CompSpineModelPhysicsTranslate(SpineModelComponent* component, Point3 translation)
     {
-        spSkeleton_physicsTranslate(component->m_SkeletonInstance, position.getX(), position.getY());
+        spSkeleton_physicsTranslate(component->m_SkeletonInstance, translation.getX(), translation.getY());
     }
 
     void CompSpineModelPhysicsRotate(SpineModelComponent* component, Point3 center, float degrees)

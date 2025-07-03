@@ -333,7 +333,7 @@
         type: string|hash|url
         desc: The Spine model component to translate.
 
-      - name: position
+      - name: translation
         type: vector3
         desc: The translation vector to apply to the Spine model.
 

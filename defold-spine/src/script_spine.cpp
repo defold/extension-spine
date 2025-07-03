@@ -1005,7 +1005,7 @@ namespace dmSpine
     *
     * @name spine.physics_translate
     * @param url [type:string|hash|url] the Spine model component to translate
-    * @param position [type:vector3] the translation vector to apply
+    * @param translation [type:vector3] the translation vector to apply
     * @examples
     *
     * The following example applies a translation vector to a Spine model with the id "spinemodel":
@@ -1024,9 +1024,9 @@ namespace dmSpine
         SpineModelComponent* component = 0;
 
         dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, 0);
-        Vectormath::Aos::Vector3* position = dmScript::CheckVector3(L, 2);
+        Vectormath::Aos::Vector3* translation = dmScript::CheckVector3(L, 2);
 
-        CompSpineModelPhysicsTranslate(component, (Point3)*position);
+        CompSpineModelPhysicsTranslate(component, (Point3)*translation);
 
         return 0;
     }

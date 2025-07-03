@@ -297,3 +297,28 @@
         - name: color
           type: vector4
           desc: target color.
+
+    - name: spine_physics_translate
+      type: function
+      desc: Apply a physics-based translation to the Spine GUI node.
+      parameters:
+        - name: node
+          type: node
+          desc: The Spine GUI node to translate.
+        - name: translation
+          type: vector3
+          desc: The translation vector to apply to the Spine GUI node.
+
+    - name: spine_physics_rotate
+      type: function
+      desc: Apply a physics-based rotation to the Spine GUI node.
+      parameters:
+        - name: node
+          type: node
+          desc: The Spine GUI node to rotate.
+        - name: center
+          type: vector3
+          desc: The center point around which to rotate.
+        - name: degrees
+          type: number
+          desc: The rotation angle in degrees.
