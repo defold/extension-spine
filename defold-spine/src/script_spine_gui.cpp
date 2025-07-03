@@ -551,7 +551,7 @@ namespace dmSpine
      * @name gui.set_spine_slot_color
      * @param node [type:node] spine node to set the slot for
      * @param slot [type:string|hash] slot name
-     * @param Vector4 [type:string|hash] desired color
+     * @param color [type:vector4]  desired color
      */
     static int SetSpineSlotColor(lua_State* L)
     {
