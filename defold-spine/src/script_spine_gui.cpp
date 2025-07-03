@@ -545,6 +545,35 @@ namespace dmSpine
         return 1;
     }
 
+    /*# sets a color used to tint all attachments in a slot
+     * This is only useful for spine nodes. Sets a tint to a slot on a spine node.
+     *
+     * @name gui.set_spine_slot_color
+     * @param node [type:node] spine node to set the slot for
+     * @param slot [type:string|hash] slot name
+     * @param color [type:vector4]  desired color
+     */
+    static int SetSpineSlotColor(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
+
+        VERIFY_SPINE_NODE(scene, node);
+
+        dmhash_t slot_id = dmScript::CheckHashOrString(L, 2);
+        Vectormath::Aos::Vector4* color = dmScript::CheckVector4(L, 3);
+
+        bool result = dmSpine::SetSlotColor(scene, node, slot_id, color);
+
+        if (!result)
+        {
+            return DM_LUA_ERROR("Failed to set color in slot for gui spine node");
+        }
+        return 0;
+    }
+
     /*# sets an attachment to a slot
      * This is only useful for spine nodes. Sets an attachment to a slot on a spine node.
      *
@@ -596,6 +625,7 @@ namespace dmSpine
         {"get_spine_cursor",    GetSpineCursor},
         {"set_spine_playback_rate", SetSpinePlaybackRate},
         {"get_spine_playback_rate", GetSpinePlaybackRate},
+        {"set_spine_slot_color",    SetSpineSlotColor},
         {"set_spine_attachment",    SetSpineAttachment},
 
         // Also gui.set_spine_attachment to mimic the the go.set_attachment

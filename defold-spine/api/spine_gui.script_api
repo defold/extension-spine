@@ -284,3 +284,16 @@
           desc: attachment name. May be nil.
      
 
+    - name: set_spine_slot_color
+      type: function
+      desc: This is only useful for spine nodes. Sets a tint for all attachments on a slot
+      parameters:
+        - name: node
+          type: node
+          desc: spine node to set the slot for
+        - name: slot
+          type: string|hash
+          desc: slot name
+        - name: color
+          type: vector4
+          desc: target color.

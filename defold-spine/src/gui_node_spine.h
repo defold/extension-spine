@@ -33,6 +33,7 @@ float       GetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode);
 dmGui::HNode GetBone(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t bone_id);
 
 bool        SetAttachment(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t slot_id, dmhash_t attachment_id);
+bool        SetSlotColor(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t slot_id, Vectormath::Aos::Vector4* color);
 
 
 } // namespace

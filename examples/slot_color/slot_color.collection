@@ -1,0 +1,84 @@
+name: "slot_color"
+scale_along_z: 0
+embedded_instances {
+  id: "example_label"
+  data: "embedded_components {\n"
+  "  id: \"label\"\n"
+  "  type: \"label\"\n"
+  "  data: \"size {\\n"
+  "  x: 200.0\\n"
+  "  y: 32.0\\n"
+  "}\\n"
+  "text: \\\"Slot Coloring Example\\\"\\n"
+  "font: \\\"/main/default.font\\\"\\n"
+  "material: \\\"/builtins/fonts/label-df.material\\\"\\n"
+  "\"\n"
+  "}\n"
+  ""
+  position {
+    x: 325.0
+    y: 463.0
+  }
+}
+embedded_instances {
+  id: "spine_go"
+  children: "go_label"
+  data: "components {\n"
+  "  id: \"slot_coloring\"\n"
+  "  component: \"/examples/slot_color/slot_coloring.script\"\n"
+  "}\n"
+  "embedded_components {\n"
+  "  id: \"spinemodel\"\n"
+  "  type: \"spinemodel\"\n"
+  "  data: \"spine_scene: \\\"/assets/spineboy/spineboy.spinescene\\\"\\n"
+  "default_animation: \\\"idle\\\"\\n"
+  "skin: \\\"\\\"\\n"
+  "material: \\\"/defold-spine/assets/spine.material\\\"\\n"
+  "create_go_bones: true\\n"
+  "\"\n"
+  "  scale {\n"
+  "    x: 0.5\n"
+  "    y: 0.5\n"
+  "  }\n"
+  "}\n"
+  ""
+  position {
+    x: 487.0
+    y: 10.0
+  }
+}
+embedded_instances {
+  id: "gui"
+  data: "components {\n"
+  "  id: \"slot_color\"\n"
+  "  component: \"/examples/slot_color/slot_color.gui\"\n"
+  "}\n"
+  ""
+  position {
+    x: -2.0
+  }
+}
+embedded_instances {
+  id: "go_label"
+  data: "embedded_components {\n"
+  "  id: \"label\"\n"
+  "  type: \"label\"\n"
+  "  data: \"size {\\n"
+  "  x: 200.0\\n"
+  "  y: 32.0\\n"
+  "}\\n"
+  "text: \\\"game object\\\"\\n"
+  "font: \\\"/main/default.font\\\"\\n"
+  "material: \\\"/builtins/fonts/label-df.material\\\"\\n"
+  "\"\n"
+  "  position {\n"
+  "    x: -13.0\n"
+  "    y: -44.0\n"
+  "  }\n"
+  "}\n"
+  ""
+  position {
+    x: 19.0
+    y: 407.0
+  }
+}

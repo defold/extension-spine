@@ -733,6 +733,49 @@ namespace dmSpine
         return 0;
     }
 
+    /*# set the tint applied to the attachments of a slot
+     *
+     * Sets a color applied as a tint to the attachment of a slot
+     *
+     * @name spine.set_slot_color
+     * @param url [type:string|hash|url] the spine model containing the object
+     * @param slot [type:string|hash] id of targeted slot
+     * @param color [type:vector4] target color
+     * @examples
+     *
+     * The following example assumes that the spine model has id "spinemodel".
+     *
+     * How to set the tint of attachment in a slot
+     *
+     * ```lua
+     * function init(self)
+     *   local color = vmath.vector4(0, 0, 1,1)
+     *   spine.set_slot_color("player#spinemodel", "front-fist", color)
+     * end
+     * ```
+     */
+    static int SpineComp_SetSlotColor(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+        int top = lua_gettop(L);
+
+        SpineModelComponent* component = 0;
+        dmMessage::URL receiver; // needed for error output
+        dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
+
+        dmhash_t slot_id = dmScript::CheckHashOrString(L, 2);
+
+        Vectormath::Aos::Vector4* color =  dmScript::CheckVector4(L, 3);
+
+        if (!CompSpineModelSetSlotColor(component, slot_id, color))
+        {
+            char buffer[128];
+            dmScript::UrlToString(&receiver, buffer, sizeof(buffer));
+            return DM_LUA_ERROR("failed to set color in slot '%s' in component %s", dmHashReverseSafe64(slot_id), buffer);
+        }
+        return 0;
+    }
+
     /*# set the target position of an IK constraint object
      *
      * Sets a static (vector3) target position of an inverse kinematic (IK) object.
@@ -1025,6 +1068,7 @@ namespace dmSpine
 
     static const luaL_reg SPINE_COMP_FUNCTIONS[] =
     {
+            {"set_slot_color",          SpineComp_SetSlotColor},
             {"copy_skin",               SpineComp_CopySkin},
             {"clear_skin",              SpineComp_ClearSkin},
             {"add_skin",                SpineComp_AddSkin},

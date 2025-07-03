@@ -1584,6 +1584,24 @@ namespace dmSpine
         return true;
     }
 
+    bool CompSpineModelSetSlotColor(SpineModelComponent* component, dmhash_t slot_id,  Vectormath::Aos::Vector4* color)
+    {
+        SpineModelResource* spine_model = component->m_Resource;
+        SpineSceneResource* spine_scene = spine_model->m_SpineScene;
+
+        uint32_t* index = spine_scene->m_SlotNameToIndex.Get(slot_id);
+        if (!index)
+        {
+            dmLogError("No slot named '%s'", dmHashReverseSafe64(slot_id));
+            return false;
+        }
+
+        spSlot* slot = component->m_SkeletonInstance->slots[*index];
+        spColor_setFromFloats(&slot->color, color->getX(), color->getY(), color->getZ(), color->getW());
+
+        return true;
+    }
+
     bool CompSpineModelSetAttachment(SpineModelComponent* component, dmhash_t slot_id, dmhash_t attachment_id)
     {
         SpineModelResource* spine_model = component->m_Resource;

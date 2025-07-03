@@ -130,3 +130,13 @@ embedded_instances {
   "}\n"
   ""
 }
+embedded_instances {
+  id: "slot_color_proxy"
+  data: "embedded_components {\n"
+  "  id: \"collection_proxy\"\n"
+  "  type: \"collectionproxy\"\n"
+  "  data: \"collection: \\\"/examples/slot_color/slot_color.collection\\\"\\n"
+  "\"\n"
+  "}\n"
+  ""
+}

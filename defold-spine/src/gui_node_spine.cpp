@@ -564,6 +564,24 @@ bool SetAttachment(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t slot_id, dm
     return 1 == spSkeleton_setAttachment(node->m_SkeletonInstance, slot->data->name, attachment_name);
 }
 
+bool SetSlotColor(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t slot_id, Vectormath::Aos::Vector4* color)
+{
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    SpineSceneResource* spine_scene = node->m_SpineScene;
+
+    uint32_t* index = spine_scene->m_SlotNameToIndex.Get(slot_id);
+    if (!index)
+    {
+        dmLogError("No slot named '%s'", dmHashReverseSafe64(slot_id));
+        return false;
+    }
+
+    spSlot* slot = node->m_SkeletonInstance->slots[*index];
+    spColor_setFromFloats(&slot->color, color->getX(), color->getY(), color->getZ(), color->getW());
+
+    return true;
+}
+
 
 // END SCRIPTING
 
