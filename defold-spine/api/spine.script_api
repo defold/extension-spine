@@ -215,7 +215,7 @@
 
   - name: set_attachment
     type: function
-    desc: Set the attachment of a lot on a spine model.
+    desc: Set the attachment of a slot on a spine model.
 
     parameters:
       - name: url
@@ -227,8 +227,8 @@
         desc: Id of the slot
 
       - name: attachment
-        type: string|hash
-        desc: Id of the attachment
+        type: string|hash|nil
+        desc: Id of the attachment. May be nil to reset to default attachment.
 
 
 
