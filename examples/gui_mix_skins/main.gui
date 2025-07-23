@@ -1,0 +1,57 @@
+script: "/examples/gui_mix_skins/main.gui_script"
+fonts {
+  name: "default"
+  font: "/main/default.font"
+}
+textures {
+  name: "main"
+  texture: "/main/main.atlas"
+}
+nodes {
+  position {
+    x: 266.0
+    y: 247.0
+  }
+  scale {
+    x: 0.5
+    y: 0.5
+  }
+  type: TYPE_CUSTOM
+  id: "spine"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+  spine_scene: "spineboy_mix"
+  spine_default_animation: "run"
+  custom_type: 405028931
+}
+nodes {
+  position {
+    x: 266.0
+    y: 129.0
+  }
+  size {
+    x: 200.0
+    y: 32.0
+  }
+  type: TYPE_TEXT
+  text: "GUI Mix Skins - Auto Cycling"
+  font: "default"
+  id: "title"
+  outline {
+    x: 1.0
+    y: 1.0
+    z: 1.0
+  }
+  shadow {
+    x: 1.0
+    y: 1.0
+    z: 1.0
+  }
+  inherit_alpha: true
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT
+resources {
+  name: "spineboy_mix"
+  path: "/assets/mix_skins/spineboy/spineboy_mix.spinescene"
+}

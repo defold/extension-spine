@@ -296,7 +296,7 @@ namespace dmSpine
             return DM_LUA_ERROR("Failed to add skin '%s' to skin '%s' for spine node", dmHashReverseSafe64(skin_id_b),dmHashReverseSafe64(skin_id_a));
         }
 
-        return 1;
+        return 0;
     }
 
     /*# copies a skin to another skin
@@ -330,7 +330,7 @@ namespace dmSpine
             return DM_LUA_ERROR("Failed to copy skin '%s' to skin '%s' for spine node", dmHashReverseSafe64(skin_id_b),dmHashReverseSafe64(skin_id_a));
         }
 
-        return 1;
+        return 0;
     }
 
     /*# clears a skin
@@ -362,7 +362,7 @@ namespace dmSpine
             return DM_LUA_ERROR("Failed to clear skin '%s' for spine node", dmHashReverseSafe64(skin_id));
         }
 
-        return 1;
+        return 0;
     }
 
     /*# sets the spine skin
