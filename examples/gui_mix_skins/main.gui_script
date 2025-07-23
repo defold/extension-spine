@@ -1,0 +1,60 @@
+local tick_count = 0
+
+local function customise_body_repeating(self)
+    gui.set_spine_skin(self.spine_node, "base_empty")
+    gui.clear_spine_skin(self.spine_node, "base_empty")
+    gui.add_spine_skin(self.spine_node, "base_empty", "original_head")
+    gui.add_spine_skin(self.spine_node, "base_empty", "original_body")
+    gui.set_spine_skin(self.spine_node, "base_empty")
+    tick_count = 1
+    timer.delay(1, true, function()
+        if tick_count == 0 then
+            gui.clear_spine_skin(self.spine_node, "base_empty")
+            gui.add_spine_skin(self.spine_node, "base_empty", "original_head")
+            gui.add_spine_skin(self.spine_node, "base_empty", "original_body")
+            gui.set_spine_skin(self.spine_node, "base_empty")
+        elseif tick_count == 1 then
+            gui.clear_spine_skin(self.spine_node, "base_empty")
+            gui.add_spine_skin(self.spine_node, "base_empty", "blue_head")
+            gui.add_spine_skin(self.spine_node, "base_empty", "original_body")
+            gui.set_spine_skin(self.spine_node, "base_empty")
+        elseif tick_count == 2 then
+            gui.clear_spine_skin(self.spine_node, "base_empty")
+            gui.add_spine_skin(self.spine_node, "base_empty", "original_head")
+            gui.add_spine_skin(self.spine_node, "base_empty", "blue_body")
+            gui.set_spine_skin(self.spine_node, "base_empty")
+        elseif tick_count == 3 then
+            gui.clear_spine_skin(self.spine_node, "base_empty")
+            gui.add_spine_skin(self.spine_node, "base_empty", "blue_head")
+            gui.add_spine_skin(self.spine_node, "base_empty", "blue_body")
+            gui.set_spine_skin(self.spine_node, "base_empty")
+        end
+        tick_count = (tick_count + 1) % 4
+    end)
+end
+
+function init(self)
+    print("GUI Mix Skins Example Initialized!")
+    
+    -- Get the spine node
+    self.spine_node = gui.get_node("spine")
+    
+    -- Start the run animation
+    gui.play_spine_anim(self.spine_node, "run", gui.PLAYBACK_LOOP_FORWARD)
+    
+    -- Start the automatic skin cycling
+    customise_body_repeating(self)
+    
+    print("Available skins:", gui.get_spine_skin(self.spine_node))
+    print("Current animation:", gui.get_spine_animation(self.spine_node))
+end
+
+function update(self, dt)
+    -- Update logic can go here if needed
+end
+
+function on_message(self, message_id, message, sender)
+end
+
+function on_input(self, action_id, action)
+end 

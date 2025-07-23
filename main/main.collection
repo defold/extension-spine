@@ -111,6 +111,16 @@ embedded_instances {
   ""
 }
 embedded_instances {
+  id: "gui_mix_skins_proxy"
+  data: "embedded_components {\n"
+  "  id: \"collection_proxy\"\n"
+  "  type: \"collectionproxy\"\n"
+  "  data: \"collection: \\\"/examples/gui_mix_skins/gui_mix_skins.collection\\\"\\n"
+  "\"\n"
+  "}\n"
+  ""
+}
+embedded_instances {
   id: "physics_proxy"
   data: "embedded_components {\n"
   "  id: \"collection_proxy\"\n"
