@@ -18,7 +18,7 @@ namespace dmSpine
 struct GuiIKTarget
 {
     dmhash_t                                m_ConstraintHash;
-    ::spIkConstraint*                       m_Constraint;
+    spIkConstraint*                         m_Constraint;
     dmGui::HNode                            m_TargetNode;     // for following a GUI node
     dmVMath::Point3                         m_Position;       // for fixed position
 };

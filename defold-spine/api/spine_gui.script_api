@@ -42,9 +42,17 @@
           type: table
           desc: optional table with properties
           parameters:
-                - `blend_duration` [number] The duration of a linear blend between the current and new animation
-                - `offset` [number] The normalized initial value of the animation cursor when the animation starts playing
-                - `playback_rate` [number] The rate with which the animation will be played. Must be positive
+                - name: blend_duration
+                  type: number
+                  desc: The duration of a linear blend between the current and new animation
+
+                - name: offset
+                  type: number
+                  desc: The normalized initial value of the animation cursor when the animation starts playing
+
+                - name: playback_rate
+                  type: number
+                  desc: The rate with which the animation will be played. Must be positive
                
         - name: complete_function
           type: function(self, node)
