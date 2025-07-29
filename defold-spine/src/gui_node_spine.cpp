@@ -19,6 +19,8 @@
 #include <spine/Attachment.h>
 #include <spine/RegionAttachment.h>
 #include <spine/MeshAttachment.h>
+#include <spine/Bone.h>
+#include <spine/IkConstraint.h>
 
 #include "spine_ddf.h" // generated from the spine_ddf.proto
 #include "script_spine_gui.h"
@@ -64,6 +66,10 @@ struct InternalGuiNode
     dmArray<dmhash_t>       m_BonesNames;   // Matches 1:1 with m_BoneNodes (each element is hash(bone_name)))
     dmArray<spBone*>        m_Bones;        // Matches 1:1 with m_BoneNodes
 
+    // IK targets for GUI spine nodes
+    dmArray<GuiIKTarget>    m_IKTargets;           // targets that follow GUI nodes
+    dmArray<GuiIKTarget>    m_IKTargetPositions;   // targets with fixed positions
+
     dmScript::LuaCallbackInfo* m_Callback;
     dmScript::LuaCallbackInfo* m_NextCallback; // If the current callback calls play_anim with another callback
 
@@ -93,6 +99,9 @@ struct InternalGuiNode
 };
 
 static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNode* node, bool create_bones);
+
+// Forward declaration for IK functions
+static void ApplyIKTargets(InternalGuiNode* node);
 
 static inline bool IsLooping(dmGui::Playback playback)
 {
@@ -245,7 +254,7 @@ static inline uint32_t FindAnimationIndex(InternalGuiNode* node, dmhash_t animat
 }
 
 static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::Playback playback,
-                            float blend_duration, float offset, float playback_rate, dmScript::LuaCallbackInfo* callback)
+                            float blend_duration, float offset, float playback_rate, int32_t track, dmScript::LuaCallbackInfo* callback)
 {
     SpineSceneResource* spine_scene = node->m_SpineScene;
     uint32_t index = FindAnimationIndex(node, animation_id);
@@ -260,7 +269,7 @@ static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::P
         return false;
     }
 
-    int trackIndex = 0;
+    int trackIndex = track - 1; // Convert from 1-based to 0-based indexing
     int loop = IsLooping(playback);
 
     spAnimation* animation = spine_scene->m_Skeleton->animations[index];
@@ -357,16 +366,26 @@ dmGui::HNode GetBone(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t bone_id)
 }
 
 bool PlayAnimation(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t animation_id, dmGui::Playback playback,
-                            float blend_duration, float offset, float playback_rate, dmScript::LuaCallbackInfo* callback)
+                            float blend_duration, float offset, float playback_rate, int32_t track, dmScript::LuaCallbackInfo* callback)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    return PlayAnimation(node, animation_id, playback, blend_duration, offset, playback_rate, callback);
+    return PlayAnimation(node, animation_id, playback, blend_duration, offset, playback_rate, track, callback);
 }
 
 void CancelAnimation(dmGui::HScene scene, dmGui::HNode hnode)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
     node->m_Playing = 0;
+}
+
+void CancelAnimation(dmGui::HScene scene, dmGui::HNode hnode, int32_t track)
+{
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    if (node->m_AnimationStateInstance)
+    {
+        int trackIndex = track - 1; // Convert from 1-based to 0-based indexing
+        spAnimationState_setEmptyAnimation(node->m_AnimationStateInstance, trackIndex, 0.0f);
+    }
 }
 
 bool AddSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id_a, dmhash_t skin_id_b){
@@ -928,7 +947,7 @@ static void GuiSetNodeDesc(const dmGameSystem::CompGuiNodeContext* ctx, const dm
     }
 
     if (node->m_AnimationId) {
-        PlayAnimation(node, node->m_AnimationId, dmGui::PLAYBACK_LOOP_FORWARD, 0.0f, 0.0f, 1.0f, 0);
+        PlayAnimation(node, node->m_AnimationId, dmGui::PLAYBACK_LOOP_FORWARD, 0.0f, 0.0f, 1.0f, 1, 0);
     }
 }
 
@@ -999,6 +1018,10 @@ static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
     {
         spSkeleton_updateWorldTransform(node->m_SkeletonInstance, SP_PHYSICS_NONE);
     }   
+    
+    // Apply IK targets
+    ApplyIKTargets(node);
+    
     DM_PROPERTY_ADD_U32(rmtp_SpineGuiNodes, 1);
     UpdateBones(node);
 }
@@ -1031,6 +1054,131 @@ static dmGameObject::Result GuiNodeTypeSpineDestroy(const dmGameSystem::CompGuiN
 
     delete type_context;
     return dmGameObject::RESULT_OK;
+}
+
+// IK functions for GUI spine nodes
+static void ApplyIKTargets(InternalGuiNode* node)
+{
+    // Apply node-based targets (following GUI nodes)
+    uint32_t count = node->m_IKTargets.Size();
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        const GuiIKTarget& target = node->m_IKTargets[i];
+        if (target.m_Constraint && target.m_TargetNode != dmGui::INVALID_HANDLE)
+        {
+            // Get the target node's position
+            dmVMath::Vector4 target_pos = dmGui::GetNodeProperty(node->m_GuiScene, target.m_TargetNode, dmGui::PROPERTY_POSITION);
+            target.m_Constraint->target->x = target_pos.getX();
+            target.m_Constraint->target->y = target_pos.getY();
+        }
+    }
+
+    // Apply position-based targets (fixed positions)
+    count = node->m_IKTargetPositions.Size();
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        const GuiIKTarget& target = node->m_IKTargetPositions[i];
+        if (target.m_Constraint)
+        {
+            // Convert world space to model space
+            dmVMath::Point3 model_pos = dmVMath::Point3(target.m_Position.getX(), target.m_Position.getY(), 0.0f);
+            target.m_Constraint->target->x = model_pos.getX();
+            target.m_Constraint->target->y = model_pos.getY();
+        }
+    }
+    // Clear the position-based targets after applying them (they're one-shot)
+    node->m_IKTargetPositions.SetSize(0);
+}
+
+bool SetIKTargetPosition(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t constraint_id, Vectormath::Aos::Point3 position)
+{
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    if (!node)
+        return false;
+
+    SpineSceneResource* spine_scene = node->m_SpineScene;
+    if (!spine_scene)
+        return false;
+
+    uint32_t* index = spine_scene->m_IKNameToIndex.Get(constraint_id);
+    if (!index)
+        return false;
+    if (*index > node->m_SkeletonInstance->ikConstraintsCount)
+        return false;
+
+    if (node->m_IKTargetPositions.Full())
+        node->m_IKTargetPositions.OffsetCapacity(2);
+
+    spIkConstraint* constraint = node->m_SkeletonInstance->ikConstraints[*index];
+
+    GuiIKTarget target;
+    target.m_ConstraintHash = constraint_id;
+    target.m_Constraint = constraint;
+    target.m_TargetNode = dmGui::INVALID_HANDLE;
+    target.m_Position = position;
+    node->m_IKTargetPositions.Push(target);
+
+    return true;
+}
+
+bool SetIKTarget(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t constraint_id, dmGui::HNode target_node)
+{
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    if (!node)
+        return false;
+
+    SpineSceneResource* spine_scene = node->m_SpineScene;
+    if (!spine_scene)
+        return false;
+
+    uint32_t* index = spine_scene->m_IKNameToIndex.Get(constraint_id);
+    if (!index)
+        return false;
+    if (*index > node->m_SkeletonInstance->ikConstraintsCount)
+        return false;
+
+    if (node->m_IKTargets.Full())
+        node->m_IKTargets.OffsetCapacity(2);
+
+    spIkConstraint* constraint = node->m_SkeletonInstance->ikConstraints[*index];
+
+    GuiIKTarget target;
+    target.m_ConstraintHash = constraint_id;
+    target.m_Constraint = constraint;
+    target.m_TargetNode = target_node;
+    target.m_Position = dmVMath::Point3(0, 0, 0);
+    node->m_IKTargets.Push(target);
+
+    return true;
+}
+
+bool ResetIKTarget(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t constraint_id)
+{
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    if (!node)
+        return false;
+
+    // Remove the constraint from position-based targets
+    for (uint32_t i = 0; i < node->m_IKTargetPositions.Size(); ++i)
+    {
+        if (constraint_id == node->m_IKTargetPositions[i].m_ConstraintHash)
+        {
+            node->m_IKTargetPositions.EraseSwap(i);
+            return true;
+        }
+    }
+
+    // Remove the constraint from node-based targets
+    for (uint32_t i = 0; i < node->m_IKTargets.Size(); ++i)
+    {
+        if (constraint_id == node->m_IKTargets[i].m_ConstraintHash)
+        {
+            node->m_IKTargets.EraseSwap(i);
+            return true;
+        }
+    }
+
+    return false;
 }
 
 } // namespace

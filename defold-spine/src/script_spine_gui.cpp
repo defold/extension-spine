@@ -16,7 +16,7 @@
 // #include "spine_ddf.h"
 // #include "res_spine_model.h"
 
-//#include <dmsdk/sdk.h>
+#include <dmsdk/sdk.h>
 
 namespace dmSpine
 {
@@ -101,6 +101,9 @@ namespace dmSpine
      * `playback_rate`
      * : [type:number] The rate with which the animation will be played. Must be positive
      *
+     * `track`
+     * : [type:number] The track to play the animation on. Defaults to track 1.
+     *
      * @param [complete_function] [type:function(self, node)] function to call when the animation has completed
      */
     static int PlaySpineAnim(lua_State* L)
@@ -115,6 +118,7 @@ namespace dmSpine
         dmhash_t anim_id = dmScript::CheckHashOrString(L, 2);
         dmGui::Playback playback = (dmGui::Playback)luaL_checkinteger(L, 3);
         float blend_duration = 0.0, offset = 0.0, playback_rate = 1.0;
+        int32_t track = 1; // Default to track 1
 
         if (top > 3 && !lua_isnil(L, 4)) // table with args, parse
         {
@@ -131,6 +135,10 @@ namespace dmSpine
 
             lua_getfield(L, -1, "playback_rate");
             playback_rate = lua_isnil(L, -1) ? 1.0 : luaL_checknumber(L, -1);
+            lua_pop(L, 1);
+
+            lua_getfield(L, -1, "track");
+            track = lua_isnil(L, -1) ? 1 : luaL_checkinteger(L, -1);
             lua_pop(L, 1);
 
             lua_pop(L, 1);
@@ -154,7 +162,7 @@ namespace dmSpine
         //     lua_pop(L, 1);
         // }
 
-        bool result = dmSpine::PlayAnimation(scene, node, anim_id, playback, blend_duration, offset, playback_rate, cbk);
+        bool result = dmSpine::PlayAnimation(scene, node, anim_id, playback, blend_duration, offset, playback_rate, track, cbk);
 
         if (!result)
         {
@@ -169,17 +177,43 @@ namespace dmSpine
      *
      * @name gui.cancel_spine
      * @param node [type:node] spine node that should cancel its animation
+     * @param [cancel_properties] [type:table] optional table with properties:
+     *
+     * `track`
+     * : [type:number] track to cancel animation on. cancels animations on all tracks by default.
      */
     static int CancelSpine(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 0);
+        int top = lua_gettop(L);
 
         dmGui::HScene scene = dmGui::LuaCheckScene(L);
         dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
 
         VERIFY_SPINE_NODE(scene, node);
 
-        dmSpine::CancelAnimation(scene, node);
+        int32_t track = -1; // -1 means all tracks (default behavior)
+        if (top > 1) // Options table
+        {
+            luaL_checktype(L, 2, LUA_TTABLE);
+            lua_pushvalue(L, 2);
+
+            lua_getfield(L, -1, "track");
+            track = lua_isnil(L, -1) ? -1 : luaL_checkinteger(L, -1);
+            lua_pop(L, 1);
+
+            lua_pop(L, 1);
+        }
+
+        if (track == -1)
+        {
+            dmSpine::CancelAnimation(scene, node); // Cancel all tracks
+        }
+        else
+        {
+            dmSpine::CancelAnimation(scene, node, track); // Cancel specific track
+        }
+        
         return 0;
     }
 
@@ -678,6 +712,133 @@ namespace dmSpine
         return 0;
     }
 
+    /*# set the target position of an IK constraint object
+     *
+     * Sets a static (vector3) target position of an inverse kinematic (IK) object.
+     *
+     * @name gui.set_spine_ik_target_position
+     * @param node [type:node] the Spine GUI node containing the object
+     * @param ik_constraint_id [type:string|hash] id of the corresponding IK constraint object
+     * @param position [type:vector3] target position
+     * @examples
+     *
+     * The following example assumes that the Spine GUI node has id "spine_node".
+     *
+     * How to set the target IK position of the right_hand_constraint constraint object of the player object
+     *
+     * ```lua
+     * function init(self)
+     *   local pos = vmath.vector3(1, 2, 0)
+     *   gui.set_spine_ik_target_position(gui.get_node("spine_node"), "right_hand_constraint", pos)
+     * end
+     * ```
+     */
+    static int SpineComp_SetIKTargetPosition(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
+
+        VERIFY_SPINE_NODE(scene, node);
+
+        dmhash_t ik_constraint_id = dmScript::CheckHashOrString(L, 2);
+        Vectormath::Aos::Vector3* position = dmScript::CheckVector3(L, 3);
+
+        if (!dmSpine::SetIKTargetPosition(scene, node, ik_constraint_id, (Vectormath::Aos::Point3)*position))
+        {
+            return DM_LUA_ERROR("the IK constraint target '%s' could not be found", dmHashReverseSafe64(ik_constraint_id));
+        }
+
+        return 0;
+    }
+
+    /*# set the IK constraint object target to follow position of a GUI node
+     *
+     * Sets a GUI node as target position of an inverse kinematic (IK) object. As the
+     * target GUI node's position is updated, the constraint object is updated with the
+     * new position.
+     *
+     * @name gui.set_spine_ik_target
+     * @param node [type:node] the Spine GUI node containing the object
+     * @param ik_constraint_id [type:string|hash] id of the corresponding IK constraint object
+     * @param target_node [type:node] target GUI node
+     * @examples
+     *
+     * The following example assumes that the Spine GUI node has id "spine_node".
+     *
+     * How to set the target IK position of the right_hand_constraint constraint object
+     * to follow the position of GUI node with id "target_node"
+     *
+     * ```lua
+     * function init(self)
+     *   local spine_node = gui.get_node("spine_node")
+     *   local target_node = gui.get_node("target_node")
+     *   gui.set_spine_ik_target(spine_node, "right_hand_constraint", target_node)
+     * end
+     * ```
+     */
+    static int SpineComp_SetIKTarget(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
+
+        VERIFY_SPINE_NODE(scene, node);
+
+        dmhash_t ik_constraint_id = dmScript::CheckHashOrString(L, 2);
+        dmGui::HNode target_node = dmGui::LuaCheckNode(L, 3);
+
+        if (!dmSpine::SetIKTarget(scene, node, ik_constraint_id, target_node))
+        {
+            return DM_LUA_ERROR("the IK constraint target '%s' could not be found", dmHashReverseSafe64(ik_constraint_id));
+        }
+
+        return 0;
+    }
+
+    /*# reset the IK constraint target position to default of a Spine GUI node
+     *
+     * Resets any previously set IK target of a Spine GUI node, the position will be reset
+     * to the original position from the spine scene.
+     *
+     * @name gui.reset_spine_ik_target
+     * @param node [type:node] the Spine GUI node containing the object
+     * @param ik_constraint_id [type:string|hash] id of the corresponding IK constraint object
+     * @examples
+     *
+     * The following example assumes that the Spine GUI node has id "spine_node".
+     *
+     * A player no longer has an item in hand, that previously was controlled through IK,
+     * let's reset the IK of the right hand.
+     *
+     * ```lua
+     * function player_lost_item(self)
+     *   gui.reset_spine_ik_target(gui.get_node("spine_node"), "right_hand_constraint")
+     * end
+     * ```
+     */
+    static int SpineComp_ResetIK(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+
+        dmGui::HScene scene = dmGui::LuaCheckScene(L);
+        dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
+
+        VERIFY_SPINE_NODE(scene, node);
+
+        dmhash_t ik_constraint_id = dmScript::CheckHashOrString(L, 2);
+
+        if (!dmSpine::ResetIKTarget(scene, node, ik_constraint_id))
+        {
+            char str[128];
+            return DM_LUA_ERROR("the IK constraint target '%s' could not be found", dmScript::GetStringFromHashOrString(L, 2, str, sizeof(str)));
+        }
+
+        return 0;
+    }
+
     static const luaL_reg SPINE_FUNCTIONS[] =
     {
         {"new_spine_node", NewSpineNode},
@@ -700,6 +861,9 @@ namespace dmSpine
         {"set_spine_attachment",    SetSpineAttachment},
         {"spine_physics_translate", SpineComp_PhysicsTranslate},
         {"spine_physics_rotate",    SpineComp_PhysicsRotate},
+        {"set_spine_ik_target_position", SpineComp_SetIKTargetPosition},
+        {"set_spine_ik_target",     SpineComp_SetIKTarget},
+        {"reset_spine_ik_target",   SpineComp_ResetIK},
 
         // Also gui.set_spine_attachment to mimic the the go.set_attachment
         {0, 0}
