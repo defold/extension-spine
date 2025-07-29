@@ -41,6 +41,7 @@
         - name: play_properties
           type: table
           desc: optional table with properties
+          parameters:
                 - `blend_duration` [number] The duration of a linear blend between the current and new animation
                 - `offset` [number] The normalized initial value of the animation cursor when the animation starts playing
                 - `playback_rate` [number] The rate with which the animation will be played. Must be positive
@@ -322,3 +323,78 @@
         - name: degrees
           type: number
           desc: The rotation angle in degrees.
+
+    - name: set_spine_ik_target_position
+      type: function
+      desc: Sets a static (vector3) target position of an inverse kinematic (IK) object.
+      parameters:
+        - name: node
+          type: node
+          desc: the Spine GUI node containing the object
+        - name: ik_constraint_id
+          type: string|hash
+          desc: id of the corresponding IK constraint object
+        - name: position
+          type: vector3
+          desc: target position
+      examples:
+       - desc: |-
+            The following example assumes that the Spine GUI node has id "spine_node".
+            
+            How to set the target IK position of the right_hand_constraint constraint object of the player object
+            
+            ```lua
+            function init(self)
+              local pos = vmath.vector3(1, 2, 0)
+              gui.set_spine_ik_target_position(gui.get_node("spine_node"), "right_hand_constraint", pos)
+            end
+            ```
+
+    - name: set_spine_ik_target
+      type: function
+      desc: Sets a GUI node as target position of an inverse kinematic (IK) object. As the target GUI node's position is updated, the constraint object is updated with the new position.
+      parameters:
+        - name: node
+          type: node
+          desc: the Spine GUI node containing the object
+        - name: ik_constraint_id
+          type: string|hash
+          desc: id of the corresponding IK constraint object
+        - name: target_node
+          type: node
+          desc: target GUI node
+      examples:
+       - desc: |-
+            The following example assumes that the Spine GUI node has id "spine_node".
+            
+            How to set the target IK position of the right_hand_constraint constraint object to follow the position of GUI node with id "target_node"
+            
+            ```lua
+            function init(self)
+              local spine_node = gui.get_node("spine_node")
+              local target_node = gui.get_node("target_node")
+              gui.set_spine_ik_target(spine_node, "right_hand_constraint", target_node)
+            end
+            ```
+
+    - name: reset_spine_ik_target
+      type: function
+      desc: Resets any previously set IK target of a Spine GUI node, the position will be reset to the original position from the spine scene.
+      parameters:
+        - name: node
+          type: node
+          desc: the Spine GUI node containing the object
+        - name: ik_constraint_id
+          type: string|hash
+          desc: id of the corresponding IK constraint object
+      examples:
+       - desc: |-
+            The following example assumes that the Spine GUI node has id "spine_node".
+            
+            A player no longer has an item in hand, that previously was controlled through IK, let's reset the IK of the right hand.
+            
+            ```lua
+            function player_lost_item(self)
+              gui.reset_spine_ik_target(gui.get_node("spine_node"), "right_hand_constraint")
+            end
+            ```
