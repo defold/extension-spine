@@ -156,3 +156,41 @@ function gui.spine_physics_translate(node, translation) end
 ---@param center vector3 The center point around which to rotate.
 ---@param degrees number The rotation angle in degrees.
 function gui.spine_physics_rotate(node, center, degrees) end
+
+---Sets a static (vector3) target position of an inverse kinematic (IK) object.
+---@param node node the Spine GUI node containing the object
+---@param ik_constraint_id string|hash id of the corresponding IK constraint object
+---@param position vector3 target position
+---@example
+---```
+---function init(self)
+---  local pos = vmath.vector3(1, 2, 0)
+---  gui.set_spine_ik_target_position(gui.get_node("spine_node"), "right_hand_constraint", pos)
+---end
+---```
+function gui.set_spine_ik_target_position(node, ik_constraint_id, position) end
+
+---Sets a GUI node as target position of an inverse kinematic (IK) object. As the target GUI node's position is updated, the constraint object is updated with the new position.
+---@param node node the Spine GUI node containing the object
+---@param ik_constraint_id string|hash id of the corresponding IK constraint object
+---@param target_node node target GUI node
+---@example
+---```
+---function init(self)
+---  local spine_node = gui.get_node("spine_node")
+---  local target_node = gui.get_node("target_node")
+---  gui.set_spine_ik_target(spine_node, "right_hand_constraint", target_node)
+---end
+---```
+function gui.set_spine_ik_target(node, ik_constraint_id, target_node) end
+
+---Resets any previously set IK target of a Spine GUI node, the position will be reset to the original position from the spine scene.
+---@param node node the Spine GUI node containing the object
+---@param ik_constraint_id string|hash id of the corresponding IK constraint object
+---@example
+---```
+---function player_lost_item(self)
+---  gui.reset_spine_ik_target(gui.get_node("spine_node"), "right_hand_constraint")
+---end
+---```
+function gui.reset_spine_ik_target(node, ik_constraint_id) end

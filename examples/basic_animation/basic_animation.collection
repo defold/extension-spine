@@ -87,4 +87,17 @@ embedded_instances {
     x: 200.0
     y: 300.0
   }
+}
+embedded_instances {
+  id: "gui"
+  data: "components {\n"
+  "  id: \"gui\"\n"
+  "  component: \"/examples/basic_animation/basic_animation_gui.gui\"\n"
+  "}\n"
+  ""
+  position {
+    x: 0.0
+    y: 0.0
+    z: 0.1
+  }
 } 
