@@ -100,9 +100,6 @@ struct InternalGuiNode
 
 static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNode* node, bool create_bones);
 
-// Forward declaration for IK functions
-static void ApplyIKTargets(InternalGuiNode* node);
-
 static inline bool IsLooping(dmGui::Playback playback)
 {
     return  playback == dmGui::PLAYBACK_LOOP_BACKWARD ||
@@ -972,6 +969,39 @@ static void GuiGetVertices(const dmGameSystem::CustomNodeCtx* nodectx, uint32_t 
     (void)num_vertices;
 }
 
+// IK functions for GUI spine nodes
+static void ApplyIKTargets(InternalGuiNode* node)
+{
+    // Apply node-based targets (following GUI nodes)
+    uint32_t count = node->m_IKTargets.Size();
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        const GuiIKTarget& target = node->m_IKTargets[i];
+        if (target.m_Constraint && target.m_TargetNode != dmGui::INVALID_HANDLE)
+        {
+            // TODO: Convert target node space into IK space
+            dmVMath::Vector4 target_pos = dmGui::GetNodeProperty(node->m_GuiScene, target.m_TargetNode, dmGui::PROPERTY_POSITION);
+            target.m_Constraint->target->x = target_pos.getX();
+            target.m_Constraint->target->y = target_pos.getY();
+        }
+    }
+
+    // Apply position-based targets (fixed positions)
+    count = node->m_IKTargetPositions.Size();
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        const GuiIKTarget& target = node->m_IKTargetPositions[i];
+        if (target.m_Constraint)
+        {
+            // TODO: Convert target node space into IK space
+            target.m_Constraint->target->x = target.m_Position.getX();
+            target.m_Constraint->target->y = target.m_Position.getY();
+        }
+    }
+    // Clear the position-based targets after applying them (they're one-shot)
+    node->m_IKTargetPositions.SetSize(0);
+}
+
 static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
 {
     InternalGuiNode* node = (InternalGuiNode*)(nodectx->m_NodeData);
@@ -1054,40 +1084,6 @@ static dmGameObject::Result GuiNodeTypeSpineDestroy(const dmGameSystem::CompGuiN
 
     delete type_context;
     return dmGameObject::RESULT_OK;
-}
-
-// IK functions for GUI spine nodes
-static void ApplyIKTargets(InternalGuiNode* node)
-{
-    // Apply node-based targets (following GUI nodes)
-    uint32_t count = node->m_IKTargets.Size();
-    for (uint32_t i = 0; i < count; ++i)
-    {
-        const GuiIKTarget& target = node->m_IKTargets[i];
-        if (target.m_Constraint && target.m_TargetNode != dmGui::INVALID_HANDLE)
-        {
-            // Get the target node's position
-            dmVMath::Vector4 target_pos = dmGui::GetNodeProperty(node->m_GuiScene, target.m_TargetNode, dmGui::PROPERTY_POSITION);
-            target.m_Constraint->target->x = target_pos.getX();
-            target.m_Constraint->target->y = target_pos.getY();
-        }
-    }
-
-    // Apply position-based targets (fixed positions)
-    count = node->m_IKTargetPositions.Size();
-    for (uint32_t i = 0; i < count; ++i)
-    {
-        const GuiIKTarget& target = node->m_IKTargetPositions[i];
-        if (target.m_Constraint)
-        {
-            // Convert world space to model space
-            dmVMath::Point3 model_pos = dmVMath::Point3(target.m_Position.getX(), target.m_Position.getY(), 0.0f);
-            target.m_Constraint->target->x = model_pos.getX();
-            target.m_Constraint->target->y = model_pos.getY();
-        }
-    }
-    // Clear the position-based targets after applying them (they're one-shot)
-    node->m_IKTargetPositions.SetSize(0);
 }
 
 bool SetIKTargetPosition(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t constraint_id, Vectormath::Aos::Point3 position)
