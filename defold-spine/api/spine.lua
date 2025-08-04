@@ -13,11 +13,27 @@ Functions and constants for interacting with Spine models
 ---@class defold_api.spine
 spine = {}
 
+---@type integer
+spine.MIX_BLEND_SETUP = 0   --- 'Setup' mix blend mode
+---@type integer
+spine.MIX_BLEND_FIRST = 1   --- 'First' mix blend mode
+---@type integer
+spine.MIX_BLEND_REPLACE = 2 --- 'Replace' mix blend mode.
+---@type integer
+spine.MIX_BLEND_ADD = 3     --- 'Add' mix blend mode.
+
+---@alias spine.MIX_BLEND
+---| `spine.MIX_BLEND_SETUP`
+---| `spine.MIX_BLEND_FIRST`
+---| `spine.MIX_BLEND_REPLACE`
+---| `spine.MIX_BLEND_ADD`
+
 ---@class spine.play_anim.options
 ---@field blend_duration? number Duration of a linear blend between the current and new animation.
 ---@field offset? number The normalized initial value of the animation cursor when the animation starts playing.
 ---@field playback_rate? number The rate with which the animation will be played. Must be positive.
 ---@field track? number The track index of the animation. Defaults to 1. Animations on different tracks play in parallel.
+---@field mix_blend? spine.MIX_BLEND The mix blend mode for the animation. Defaults to `spine.MIX_BLEND_REPLACE`. Ignored for animations on the first track.
 
 ---@class spine.play_anim.callback_function.message
 ---@field animation_id hash The animation that was completed
