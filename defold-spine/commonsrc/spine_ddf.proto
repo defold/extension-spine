@@ -35,6 +35,12 @@ message SpineModelDesc
     optional float offset               = 8 [default = 0.0];
 }
 
+enum MixBlend {
+  MIX_BLEND_SETUP = 0;
+  MIX_BLEND_FIRST = 1;
+  MIX_BLEND_REPLACE = 2;
+  MIX_BLEND_ADD = 3;
+}
 
 message SpinePlayAnimation
 {
@@ -45,6 +51,7 @@ message SpinePlayAnimation
     optional float offset = 4 [default = 0.0];
     optional float playback_rate = 5 [default = 1.0];
     optional int32 track = 6 [default = 0];
+    optional MixBlend mix_blend = 7 [default = MIX_BLEND_REPLACE];
 }
 
 /*# Spine model API documentation
