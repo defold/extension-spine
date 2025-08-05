@@ -150,3 +150,13 @@ embedded_instances {
   "}\n"
   ""
 }
+embedded_instances {
+  id: "owl_mix_blend_add_proxy"
+  data: "embedded_components {\n"
+  "  id: \"collectionproxy\"\n"
+  "  type: \"collectionproxy\"\n"
+  "  data: \"collection: \\\"/examples/owl_mix_blend_add/owl_mix_blend_add.collection\\\"\\n"
+  "\"\n"
+  "}\n"
+  ""
+}

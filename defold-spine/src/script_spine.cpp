@@ -9,6 +9,7 @@
 #include <gamesys/gamesys_ddf.h>
 #include <rig/rig_ddf.h>
 
+#include "res_spine_scene.h"
 #include "spine_ddf.h"
 #include "res_spine_model.h"
 #include <dmsdk/gamesys/resources/res_skeleton.h>
@@ -281,6 +282,7 @@ namespace dmSpine
         lua_Integer playback = luaL_checkinteger(L, 3);
         lua_Integer track = 1;
         lua_Number blend_duration = 0.0, offset = 0.0, playback_rate = 1.0;
+        dmGameSystemDDF::MixBlend mix_blend = dmGameSystemDDF::MixBlend::MIX_BLEND_REPLACE;
 
         if (top > 3) // table with args
         {
@@ -303,6 +305,10 @@ namespace dmSpine
             track = lua_isnil(L, -1) ? 1 : luaL_checkinteger(L, -1);
             lua_pop(L, 1);
 
+            lua_getfield(L, -1, "mix_blend");
+            mix_blend = lua_isnil(L, -1) ? dmGameSystemDDF::MixBlend::MIX_BLEND_REPLACE : static_cast<dmGameSystemDDF::MixBlend>(luaL_checkinteger(L, -1));
+            lua_pop(L, 1);
+
             lua_pop(L, 1);
         }
 
@@ -315,6 +321,12 @@ namespace dmSpine
             }
         }
 
+        if (mix_blend < dmGameSystemDDF::MixBlend::MIX_BLEND_SETUP || mix_blend > dmGameSystemDDF::MixBlend::MIX_BLEND_ADD)
+        {
+            dmLogError("Invalid mix_blend value: '%u'", mix_blend);
+            return 0;
+        }
+
         dmGameSystemDDF::SpinePlayAnimation msg;
         msg.m_AnimationId = anim_id;
         msg.m_Playback = playback;
@@ -322,6 +334,7 @@ namespace dmSpine
         msg.m_Offset = offset;
         msg.m_PlaybackRate = playback_rate;
         msg.m_Track = track;
+        msg.m_MixBlend = mix_blend;
 
         dmMessage::URL sender;
         dmScript::GetURL(L, &sender);
@@ -1090,6 +1103,19 @@ namespace dmSpine
     void ScriptSpineGoRegister(lua_State* L)
     {
         luaL_register(L, "spine", SPINE_COMP_FUNCTIONS);
+
+        lua_pushinteger(L, dmGameSystemDDF::MixBlend::MIX_BLEND_SETUP);
+        lua_setfield(L, -2, "MIX_BLEND_SETUP");
+
+        lua_pushinteger(L, dmGameSystemDDF::MixBlend::MIX_BLEND_FIRST);
+        lua_setfield(L, -2, "MIX_BLEND_FIRST");
+
+        lua_pushinteger(L, dmGameSystemDDF::MixBlend::MIX_BLEND_REPLACE);
+        lua_setfield(L, -2, "MIX_BLEND_REPLACE");
+
+        lua_pushinteger(L, dmGameSystemDDF::MixBlend::MIX_BLEND_ADD);
+        lua_setfield(L, -2, "MIX_BLEND_ADD");
+
         lua_pop(L, 1);
     }
 }

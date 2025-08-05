@@ -49,6 +49,10 @@
             type: number
             desc: The track index of the animation. Defaults to 1. Animations on different tracks play in parallel.
 
+          - name: mix_blend
+            type: constant
+            desc: The mix blend mode for the animation (from spine.MIX_BLEND_*). Defaults to `spine.MIX_BLEND_REPLACE`. Ignored for animations on the first track.
+
       - name: callback_function
         type: function
         desc: function to call when the animation has completed or a Spine event occured
@@ -407,10 +411,17 @@
       type: string
       desc: The event value. nil if not present
 
+#*****************************************************************************************************
 
-
-
-
-
-
-
+- name: MIX_BLEND_SETUP
+  type: constant
+  desc: "'Setup' mix blend mode"
+- name: MIX_BLEND_FIRST
+  type: constant
+  desc: "'First' mix blend mode"
+- name: MIX_BLEND_REPLACE
+  type: constant
+  desc: "'Replace' mix blend mode"
+- name: MIX_BLEND_ADD
+  type: constant
+  desc: "'Add' mix blend mode"
