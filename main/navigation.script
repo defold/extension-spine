@@ -9,7 +9,8 @@ local examples = {
 	{ name = "GUI Mix Skins", proxy_id = "gui_mix_skins_proxy", description = "GUI-based skin mixing with interactive controls" },
 	{ name = "Color Slots", proxy_id = "slot_color_proxy", description = "Tint attachments in a slot" },
 	{ name = "Physics", proxy_id = "physics_proxy", description = "Demonstrates physics integration" },
-	{ name = "GUI Spine Demo", proxy_id = "gui_spine_demo_proxy", description = "Shows GUI-based spine rendering" }
+	{ name = "GUI Spine Demo", proxy_id = "gui_spine_demo_proxy", description = "Shows GUI-based spine rendering" },
+	{ name = "MixBlend 'Add' Demo", proxy_id = "owl_mix_blend_add_proxy", description = "Demonstrates additive mix blend" }
 }
 
 local current_example = 1

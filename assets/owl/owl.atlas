@@ -1,0 +1,82 @@
+images {
+  image: "/assets/owl/images/beak-down.png"
+}
+images {
+  image: "/assets/owl/images/beak.png"
+}
+images {
+  image: "/assets/owl/images/body.png"
+}
+images {
+  image: "/assets/owl/images/feather-1.png"
+}
+images {
+  image: "/assets/owl/images/feather-2.png"
+}
+images {
+  image: "/assets/owl/images/feather-3.png"
+}
+images {
+  image: "/assets/owl/images/head-base.png"
+}
+images {
+  image: "/assets/owl/images/L_eye-closed.png"
+}
+images {
+  image: "/assets/owl/images/L_eye-iris.png"
+}
+images {
+  image: "/assets/owl/images/L_eye-light.png"
+}
+images {
+  image: "/assets/owl/images/L_eye-pupil.png"
+}
+images {
+  image: "/assets/owl/images/L_foot.png"
+}
+images {
+  image: "/assets/owl/images/L_wing.png"
+}
+images {
+  image: "/assets/owl/images/leaf-1.png"
+}
+images {
+  image: "/assets/owl/images/leaf-2.png"
+}
+images {
+  image: "/assets/owl/images/leaf-3.png"
+}
+images {
+  image: "/assets/owl/images/leaf-4.png"
+}
+images {
+  image: "/assets/owl/images/leaf-5.png"
+}
+images {
+  image: "/assets/owl/images/leaf-6.png"
+}
+images {
+  image: "/assets/owl/images/leaf-7.png"
+}
+images {
+  image: "/assets/owl/images/R_eye-closed.png"
+}
+images {
+  image: "/assets/owl/images/R_eye-iris.png"
+}
+images {
+  image: "/assets/owl/images/R_eye-light.png"
+}
+images {
+  image: "/assets/owl/images/R_eye-pupil.png"
+}
+images {
+  image: "/assets/owl/images/R_foot.png"
+}
+images {
+  image: "/assets/owl/images/R_wing.png"
+}
+images {
+  image: "/assets/owl/images/wood.png"
+}
+extrude_borders: 2

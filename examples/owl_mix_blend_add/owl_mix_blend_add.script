@@ -1,0 +1,19 @@
+local directions = {"up", "left", "down", "right"}
+local spine_animation_done = hash("spine_animation_done")
+
+function animation_loop(self, direction_index)
+    spine.play_anim(self.url, directions[direction_index], go.PLAYBACK_ONCE_FORWARD, {track = 3, mix_blend = spine.MIX_BLEND_ADD, blend_duration = 0.5}, function(_, message_id)
+        if message_id == spine_animation_done then
+            timer.delay(1, false, function()
+                animation_loop(self, direction_index % #directions + 1)
+            end)
+        end
+    end)
+end
+
+function init(self)
+    self.url = "#spinemodel"
+	spine.play_anim(self.url, "idle", go.PLAYBACK_LOOP_FORWARD)
+	spine.play_anim(self.url, "blink", go.PLAYBACK_LOOP_FORWARD, {track = 2})
+	animation_loop(self, 1)
+end
