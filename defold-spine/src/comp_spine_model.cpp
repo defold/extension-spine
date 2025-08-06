@@ -783,7 +783,7 @@ namespace dmSpine
             // }
             // else
             {
-                component.m_World = dmTransform::MulNoScaleZ(go_world, local);
+                component.m_World = dmTransform::Mul(go_world, local);
             }
 
             ++num_active;
