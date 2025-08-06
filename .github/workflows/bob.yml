@@ -25,7 +25,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Install dependencies
-        run: sudo apt-get install -y libopenal-dev libgl1-mesa-dev libglw1-mesa-dev freeglut3-dev
+        run: sudo apt-get install -y libopenal-dev freeglut3-dev libgl-dev libglx-dev libegl-dev
 
       - name: Get Defold version
         run: |
