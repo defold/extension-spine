@@ -114,6 +114,7 @@ namespace dmSpine
 
         dmhash_t anim_id = dmScript::CheckHashOrString(L, 2);
         dmGui::Playback playback = (dmGui::Playback)luaL_checkinteger(L, 3);
+        lua_Integer track = 1;
         float blend_duration = 0.0, offset = 0.0, playback_rate = 1.0;
 
         if (top > 3 && !lua_isnil(L, 4)) // table with args, parse
@@ -131,6 +132,10 @@ namespace dmSpine
 
             lua_getfield(L, -1, "playback_rate");
             playback_rate = lua_isnil(L, -1) ? 1.0 : luaL_checknumber(L, -1);
+            lua_pop(L, 1);
+
+            lua_getfield(L, -1, "track");
+            track = lua_isnil(L, -1) ? 1 : luaL_checkinteger(L, -1);
             lua_pop(L, 1);
 
             lua_pop(L, 1);
@@ -154,7 +159,7 @@ namespace dmSpine
         //     lua_pop(L, 1);
         // }
 
-        bool result = dmSpine::PlayAnimation(scene, node, anim_id, playback, blend_duration, offset, playback_rate, cbk);
+        bool result = dmSpine::PlayAnimation(scene, node, anim_id, playback, blend_duration, offset, playback_rate, track, cbk);
 
         if (!result)
         {

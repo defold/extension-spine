@@ -245,7 +245,7 @@ static inline uint32_t FindAnimationIndex(InternalGuiNode* node, dmhash_t animat
 }
 
 static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::Playback playback,
-                            float blend_duration, float offset, float playback_rate, dmScript::LuaCallbackInfo* callback)
+                            float blend_duration, float offset, float playback_rate, int track_index, dmScript::LuaCallbackInfo* callback)
 {
     SpineSceneResource* spine_scene = node->m_SpineScene;
     uint32_t index = FindAnimationIndex(node, animation_id);
@@ -260,13 +260,18 @@ static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::P
         return false;
     }
 
-    int trackIndex = 0;
+    if (track_index < 0)
+    {
+        dmLogError("Invalid track index %d", track_index);
+        return false;
+    }
+
     int loop = IsLooping(playback);
 
     spAnimation* animation = spine_scene->m_Skeleton->animations[index];
 
     node->m_AnimationId = animation_id;
-    node->m_AnimationInstance = spAnimationState_setAnimation(node->m_AnimationStateInstance, trackIndex, animation, loop);
+    node->m_AnimationInstance = spAnimationState_setAnimation(node->m_AnimationStateInstance, track_index, animation, loop);
 
     node->m_Playing = 1;
     node->m_Playback = playback;
@@ -357,10 +362,10 @@ dmGui::HNode GetBone(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t bone_id)
 }
 
 bool PlayAnimation(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t animation_id, dmGui::Playback playback,
-                            float blend_duration, float offset, float playback_rate, dmScript::LuaCallbackInfo* callback)
+                            float blend_duration, float offset, float playback_rate, int track_index, dmScript::LuaCallbackInfo* callback)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    return PlayAnimation(node, animation_id, playback, blend_duration, offset, playback_rate, callback);
+    return PlayAnimation(node, animation_id, playback, blend_duration, offset, playback_rate, track_index, callback);
 }
 
 void CancelAnimation(dmGui::HScene scene, dmGui::HNode hnode)
@@ -928,7 +933,11 @@ static void GuiSetNodeDesc(const dmGameSystem::CompGuiNodeContext* ctx, const dm
     }
 
     if (node->m_AnimationId) {
-        PlayAnimation(node, node->m_AnimationId, dmGui::PLAYBACK_LOOP_FORWARD, 0.0f, 0.0f, 1.0f, 0);
+        float blend_duration = 0.0f;
+        float offset = 0.0f;
+        float playback_rate = 1.0f;
+        int track_index = 0;
+        PlayAnimation(node, node->m_AnimationId, dmGui::PLAYBACK_LOOP_FORWARD, blend_duration, offset, playback_rate, track_index, 0);
     }
 }
 
