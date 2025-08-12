@@ -36,7 +36,7 @@ spine.MIX_BLEND_ADD = 3     --- 'Add' mix blend mode.
 ---@field mix_blend? spine.MIX_BLEND The mix blend mode for the animation. Defaults to `spine.MIX_BLEND_REPLACE`. Ignored for animations on the first track.
 
 ---@class spine.play_anim.callback_function.message
----@field animation_id hash The animation that was completed
+---@field animation_id string|hash The animation that was completed
 ---@field track number The track index of the animation
 ---@field playback? constant (spine_animation_done only!) The playback mode for the animation
 ---@field event_id? hash (spine_event only!) the event that was triggered.
@@ -54,7 +54,7 @@ spine.MIX_BLEND_ADD = 3     --- 'Add' mix blend mode.
 ---* go.PLAYBACK_ONCE_BACKWARD
 ---* go.PLAYBACK_ONCE_PINGPONG
 ---@param url string|hash|url The Spine model for which to play an animation
----@param anim_id hash Id of the animation to play
+---@param anim_id string|hash Id of the animation to play
 ---@param playback number Playback mode of the animation (from go.PLAYBACK_*)
 ---@param options spine.play_anim.options Playback options
 ---@param callback_function? fun(self: userdata, message_id: hash, message: spine.play_anim.callback_function.message, sender: url) function to call when the animation has completed or a Spine event occured

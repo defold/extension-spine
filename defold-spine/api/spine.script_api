@@ -22,7 +22,7 @@
         desc: The Spine model for which to play an animation
 
       - name: anim_id
-        type: hash
+        type: string|hash
         desc: Id of the animation to play
 
       - name: playback
