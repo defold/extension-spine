@@ -93,6 +93,26 @@ function on_input(self, action_id, action)
 			self.ik_mode = "follow"
 			print("GO IK mode: follow mouse")
 		end
+	elseif action_id == hash("key_c") and action.pressed then
+		-- Test cursor control on different tracks
+		print("GO: Testing cursor control")
+		go.set(self.url, "cursor", 0.5)  -- Set track 1 cursor to 50% (old API)
+		print("GO: Set track 1 cursor to 0.5 using go.set")
+		
+		-- Note: Spine GO component uses go.set/go.get for properties, not spine.set_cursor
+		-- This is different from GUI which has gui.set_spine_cursor functions
+		local cursor = go.get(self.url, "cursor")
+		print("GO: Current cursor value:", cursor)
+	elseif action_id == hash("key_p") and action.pressed then
+		-- Test playback rate control on different tracks
+		print("GO: Testing playback rate control")
+		go.set(self.url, "playback_rate", 2.0)  -- Set track 1 to double speed (old API)
+		print("GO: Set track 1 playback rate to 2.0 using go.set")
+		
+		-- Note: Spine GO component uses go.set/go.get for properties, not spine.set_playback_rate
+		-- This is different from GUI which has gui.set_spine_playback_rate functions
+		local rate = go.get(self.url, "playback_rate")
+		print("GO: Current playback rate:", rate)
 	end
 end
 
