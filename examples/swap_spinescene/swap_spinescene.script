@@ -1,0 +1,14 @@
+function init(self)
+    timer.delay(1.0, false, function()
+        local a = go.get("#spine_a", "spine_scene")
+        local b = go.get("#spine_b", "spine_scene")
+
+        go.set("#spine_a", "spine_scene", b)
+        go.set("#spine_b", "spine_scene", a)
+
+        spine.play_anim("#spine_a", "Idle", go.PLAYBACK_LOOP_FORWARD)
+        spine.play_anim("#spine_b", "idle", go.PLAYBACK_LOOP_FORWARD)
+    end)
+end
+
+
