@@ -20,6 +20,7 @@ function gui.new_spine_node(pos, spine_scene) end
 ---@field blend_duration? number The duration of a linear blend between the current and new animation
 ---@field offset? number The normalized initial value of the animation cursor when the animation starts playing
 ---@field playback_rate? number The rate with which the animation will be played. Must be positive
+---@field track? number The track to play the animation on (1-based indexing, defaults to 1)
 
 ---Starts a spine animation.
 ---@param node node spine node that should play the animation
@@ -32,12 +33,16 @@ function gui.new_spine_node(pos, spine_scene) end
 --- - `gui.PLAYBACK_LOOP_BACKWARD`
 --- - `gui.PLAYBACK_LOOP_PINGPONG`
 ---@param play_properties? gui.play_spine_anim.play_properties optional table with properties
----@param complete_function? fun(self: userdata, node: node) function to call when the animation has completed
+---@param complete_function? fun(self: userdata, node: node, message_id: hash, message: table) function to call when the animation has completed or when spine events occur
 function gui.play_spine_anim(node, animation_id, playback, play_properties, complete_function) end
 
----cancel a spine animation
+---@class gui.cancel_spine.cancel_properties
+---@field track? number The track to cancel (-1 for all tracks, defaults to all tracks)
+
+---Cancel a spine animation
 ---@param node node spine node that should cancel its animation
-function gui.cancel_spine(node) end
+---@param cancel_properties? gui.cancel_spine.cancel_properties optional table with properties
+function gui.cancel_spine(node, cancel_properties) end
 
 ---The returned node can be used for parenting and transform queries.
 ---This function has complexity O(n), where n is the number of bones in the spine model skeleton.
@@ -109,30 +114,50 @@ function gui.clear_spine_skin(node, spine_skin) end
 ---@return hash id spine skin id, 0 if no explicit skin is set
 function gui.get_spine_skin(node) end
 
+---@class gui.get_spine_animation.get_properties
+---@field track? number The track to get animation from (defaults to 1)
+
 ---Gets the playing animation on a spine node
----@param node node node to get spine skin from
+---@param node node node to get spine animation from
+---@param get_properties? gui.get_spine_animation.get_properties optional table with properties
 ---@return hash id spine animation id, 0 if no animation is playing
-function gui.get_spine_animation(node) end
+function gui.get_spine_animation(node, get_properties) end
+
+---@class gui.set_spine_cursor.cursor_properties
+---@field track? number The track to set cursor for (defaults to 1)
 
 ---This is only useful for spine nodes. The cursor is normalized.
 ---@param node node spine node to set the cursor for
 ---@param cursor number cursor value
-function gui.set_spine_cursor(node, cursor) end
+---@param cursor_properties? gui.set_spine_cursor.cursor_properties optional table with properties
+function gui.set_spine_cursor(node, cursor, cursor_properties) end
+
+---@class gui.get_spine_cursor.cursor_properties
+---@field track? number The track to get cursor from (defaults to 1)
 
 ---This is only useful for spine nodes. Gets the normalized cursor of the animation on a spine node.
 ---@param node node spine node to get the cursor for (node)
+---@param cursor_properties? gui.get_spine_cursor.cursor_properties optional table with properties
 ---@return number cursor_value cursor value
-function gui.get_spine_cursor(node) end
+function gui.get_spine_cursor(node, cursor_properties) end
+
+---@class gui.set_spine_playback_rate.rate_properties
+---@field track? number The track to set playback rate for (defaults to 1)
 
 ---This is only useful for spine nodes. Sets the playback rate of the animation on a spine node. Must be positive.
 ---@param node node spine node to set the cursor for
 ---@param playback_rate number playback rate
-function gui.set_spine_playback_rate(node, playback_rate) end
+---@param rate_properties? gui.set_spine_playback_rate.rate_properties optional table with properties
+function gui.set_spine_playback_rate(node, playback_rate, rate_properties) end
+
+---@class gui.get_spine_playback_rate.rate_properties
+---@field track? number The track to get playback rate from (defaults to 1)
 
 ---This is only useful for spine nodes. Gets the playback rate of the animation on a spine node.
 ---@param node node spine node to set the cursor for
+---@param rate_properties? gui.get_spine_playback_rate.rate_properties optional table with properties
 ---@return number rate playback rate
-function gui.get_spine_playback_rate(node) end
+function gui.get_spine_playback_rate(node, rate_properties) end
 
 ---This is only useful for spine nodes. Sets an attachment to a slot on a spine node.
 ---@param node node spine node to set the slot for
