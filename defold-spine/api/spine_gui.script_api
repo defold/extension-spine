@@ -53,10 +53,14 @@
                 - name: playback_rate
                   type: number
                   desc: The rate with which the animation will be played. Must be positive
-               
+
+                - name: track
+                  type: number
+                  desc: The track number for the animation (1-based). Defaults to track 1. Multiple tracks allow for layered animations.
+
         - name: complete_function
-          type: function(self, node)
-          desc: function to call when the animation has completed
+          type: function(self, node, message_id, message)
+          desc: function to call when the animation has completed or when spine events occur
 
 
     - name: cancel_spine
@@ -66,6 +70,13 @@
         - name: node
           type: node
           desc: spine node that should cancel its animation
+        - name: options
+          type: table
+          desc: optional table with properties
+          parameters:
+                - name: track
+                  type: number
+                  desc: The track number to cancel (1-based). If not specified, cancels all tracks.
 
 
     - name: get_spine_bone
@@ -221,7 +232,14 @@
       parameters:
         - name: node
           type: node
-          desc: node to get spine skin from
+          desc: node to get spine animation from
+        - name: options
+          type: table
+          desc: optional table with properties
+          parameters:
+                - name: track
+                  type: number
+                  desc: The track number to get animation from (1-based). Defaults to track 1.
       return:
         - name: id
           type: hash
@@ -238,6 +256,13 @@
         - name: cursor
           type: number
           desc: cursor value
+        - name: options
+          type: table
+          desc: optional table with properties
+          parameters:
+                - name: track
+                  type: number
+                  desc: The track number to set cursor for (1-based). Defaults to track 1.
 
 
     - name: get_spine_cursor
@@ -246,7 +271,14 @@
       parameters:
         - name: node
           type: node
-          desc: spine node to get the cursor for (node)
+          desc: spine node to get the cursor for
+        - name: options
+          type: table
+          desc: optional table with properties
+          parameters:
+                - name: track
+                  type: number
+                  desc: The track number to get cursor from (1-based). Defaults to track 1.
       return:
         - name: cursor_value
           type: number
@@ -259,10 +291,17 @@
       parameters:
         - name: node
           type: node
-          desc: spine node to set the cursor for
+          desc: spine node to set the playback rate for
         - name: playback_rate
           type: number
           desc: playback rate
+        - name: options
+          type: table
+          desc: optional table with properties
+          parameters:
+                - name: track
+                  type: number
+                  desc: The track number to set playback rate for (1-based). Defaults to track 1.
 
 
     - name: get_spine_playback_rate
@@ -271,7 +310,14 @@
       parameters:
         - name: node
           type: node
-          desc: spine node to set the cursor for
+          desc: spine node to get the playback rate for
+        - name: options
+          type: table
+          desc: optional table with properties
+          parameters:
+                - name: track
+                  type: number
+                  desc: The track number to get playback rate from (1-based). Defaults to track 1.
       return:
         - name: rate
           type: number

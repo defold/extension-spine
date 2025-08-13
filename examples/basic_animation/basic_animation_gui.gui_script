@@ -1,6 +1,22 @@
 
+local function gui_callback(self, node, message_id, message)
+	pprint("GUI callback", message_id, message, node)
+end
+
 local function play_gui_animation(self)
-	gui.play_spine_anim(self.spine_node, "run", gui.PLAYBACK_LOOP_FORWARD, {})
+	gui.play_spine_anim(self.spine_node, "run", gui.PLAYBACK_ONCE_FORWARD, {},
+	function(self, node, message_id, message)
+		if (message_id == hash("spine_animation_done")) then
+			gui.play_spine_anim(self.spine_node, "run", gui.PLAYBACK_ONCE_FORWARD, {},
+				function(self, node, message_id, message)
+					assert(type(message_id) ~= "string")
+					pprint("GUI callback", message_id, message, node)
+					if (message_id == hash("spine_animation_done")) then
+						gui.play_spine_anim(self.spine_node, "run", gui.PLAYBACK_LOOP_FORWARD, {}, gui_callback)
+					end
+				end)
+		end
+	end)
 	self.is_playing = true
 end
 
@@ -80,11 +96,23 @@ function on_input(self, action_id, action)
 	elseif action_id == hash("mouse_button_left") and action.pressed then
 		gui.play_spine_anim(self.spine_node, "shoot", gui.PLAYBACK_ONCE_FORWARD, { track = 3 })
 	elseif action_id == hash("key_space") and action.pressed then
-		-- Test position-based IK (new functionality)
-		gui.set_spine_ik_target_position(self.spine_node, "aim-ik", self.mouse_pos)
-		self.ik_mode = "fixed"
-		-- Change target color to indicate fixed mode
-		gui.set_color(self.ik_target, vmath.vector4(0, 0, 1, 1)) -- blue for fixed
+		-- Toggle between fixed and follow mode
+		if self.ik_mode == "follow" then
+			-- Switch to fixed mode
+			gui.set_spine_ik_target_position(self.spine_node, "aim-ik", self.mouse_pos)
+			self.ik_mode = "fixed"
+			-- Change target color to indicate fixed mode
+			gui.set_color(self.ik_target, vmath.vector4(0, 0, 1, 1)) -- blue for fixed
+			print("IK mode: fixed at current mouse position")
+		else
+			-- Switch back to follow mode
+			gui.reset_spine_ik_target(self.spine_node, "aim-ik")
+			gui.set_spine_ik_target(self.spine_node, "aim-ik", self.ik_target)
+			self.ik_mode = "follow"
+			-- Change target color back to red for follow mode
+			gui.set_color(self.ik_target, vmath.vector4(1, 0, 0, 1)) -- red for follow
+			print("IK mode: follow mouse")
+		end
 	elseif action_id == hash("key_r") and action.pressed then
 		-- Reset IK target and return to follow mode
 		gui.reset_spine_ik_target(self.spine_node, "aim-ik")
