@@ -7,9 +7,11 @@
 #include <dmsdk/gui/gui.h>
 #include <dmsdk/script/script.h>
 #include <dmsdk/dlib/vmath.h>
+#include <dmsdk/dlib/array.h>
 
 // Forward declarations for Spine types (global namespace, not dmSpine)
 struct spIkConstraint;
+struct spTrackEntry;
 
 namespace dmSpine
 {
@@ -21,6 +23,16 @@ struct GuiIKTarget
     spIkConstraint*                         m_Constraint;
     dmGui::HNode                            m_TargetNode;     // for following a GUI node
     dmVMath::Point3                         m_Position;       // for fixed position
+};
+
+// Animation track structure for GUI spine nodes
+struct GuiSpineAnimationTrack 
+{
+    spTrackEntry*                           m_AnimationInstance;
+    dmhash_t                                m_AnimationId;
+    dmGui::Playback                         m_Playback;
+    dmScript::LuaCallbackInfo*              m_CallbackInfo;
+    uint32_t                                m_CallbackId;
 };
 
 bool        SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene);
@@ -36,13 +48,13 @@ bool        ClearSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_sk
 bool        CopySkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_skin_id_a, dmhash_t spine_skine_id_b);
 bool        SetSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_skin_id);
 dmhash_t    GetSkin(dmGui::HScene scene, dmGui::HNode hnode);
-dmhash_t    GetAnimation(dmGui::HScene scene, dmGui::HNode hnode);
+dmhash_t    GetAnimation(dmGui::HScene scene, dmGui::HNode hnode, int32_t track);
 
-bool        SetCursor(dmGui::HScene scene, dmGui::HNode hnode, float cursor);
-float       GetCursor(dmGui::HScene scene, dmGui::HNode hnode);
+bool        SetCursor(dmGui::HScene scene, dmGui::HNode hnode, float cursor, int32_t track);
+float       GetCursor(dmGui::HScene scene, dmGui::HNode hnode, int32_t track);
 
-bool        SetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode, float playback_rate);
-float       GetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode);
+bool        SetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode, float playback_rate, int32_t track);
+float       GetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode, int32_t track);
 
 dmGui::HNode GetBone(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t bone_id);
 

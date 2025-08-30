@@ -24,6 +24,25 @@ namespace dmSpine
 
     static const uint32_t SPINE_NODE_TYPE = dmHashString32("Spine");
 
+    // Helper function to validate track parameter
+    static void ValidateTrack(lua_State* L, int32_t track, bool allow_all_tracks = false)
+    {
+        if (allow_all_tracks)
+        {
+            if (track < -1 || track == 0)
+            {
+                luaL_error(L, "Invalid track index %d, use -1 for all tracks or track >= 1", track);
+            }
+        }
+        else
+        {
+            if (track < 1)
+            {
+                luaL_error(L, "Invalid track index %d, tracks are 1-based", track);
+            }
+        }
+    }
+
     int VerifySpineNode(lua_State* L, dmGui::HScene scene, dmGui::HNode node)
     {
         uint32_t custom_type = GetNodeCustomType(scene, node);
@@ -104,7 +123,7 @@ namespace dmSpine
      * `track`
      * : [type:number] The track to play the animation on. Defaults to track 1.
      *
-     * @param [complete_function] [type:function(self, node)] function to call when the animation has completed
+     * @param [complete_function] [type:function(self, node, message_id, message)] function to call when the animation has completed or when spine events occur
      */
     static int PlaySpineAnim(lua_State* L)
     {
@@ -119,6 +138,9 @@ namespace dmSpine
         dmGui::Playback playback = (dmGui::Playback)luaL_checkinteger(L, 3);
         float blend_duration = 0.0, offset = 0.0, playback_rate = 1.0;
         int32_t track = 1; // Default to track 1
+
+        int node_ref = LUA_NOREF;
+        dmScript::LuaCallbackInfo* cbk = 0x0;
 
         if (top > 3 && !lua_isnil(L, 4)) // table with args, parse
         {
@@ -140,12 +162,13 @@ namespace dmSpine
             lua_getfield(L, -1, "track");
             track = lua_isnil(L, -1) ? 1 : luaL_checkinteger(L, -1);
             lua_pop(L, 1);
+            
+            ValidateTrack(L, track);
 
             lua_pop(L, 1);
         }
-
-        int node_ref = LUA_NOREF;
-        dmScript::LuaCallbackInfo* cbk = 0x0;
+        
+        // Check for callback function as separate parameter (like original design)
         if (top > 4) // completed cb
         {
             if (lua_isfunction(L, 5))
@@ -201,6 +224,8 @@ namespace dmSpine
             lua_getfield(L, -1, "track");
             track = lua_isnil(L, -1) ? -1 : luaL_checkinteger(L, -1);
             lua_pop(L, 1);
+            
+            ValidateTrack(L, track, true);
 
             lua_pop(L, 1);
         }
@@ -467,19 +492,40 @@ namespace dmSpine
      * Gets the playing animation on a spine node
      *
      * @name gui.get_spine_animation
-     * @param node [type:node] node to get spine skin from
+     * @param node [type:node] node to get spine animation from
+     * @param [options] [type:table] optional table with options:
+     *
+     * `track`
+     * : [type:number] track to get animation from. Defaults to track 1.
+     * 
      * @return id [type:hash] spine animation id, 0 if no animation is playing
      */
     static int GetSpineAnimation(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 1); // hash pushed onto state will increase stack by 1
+        int top = lua_gettop(L);
 
         dmGui::HScene scene = dmGui::LuaCheckScene(L);
         dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
 
         VERIFY_SPINE_NODE(scene, node);
 
-        dmhash_t anim_id = dmSpine::GetAnimation(scene, node);
+        int32_t track = 1; // Default to track 1
+        if (top > 1 && !lua_isnil(L, 2)) // Options table
+        {
+            luaL_checktype(L, 2, LUA_TTABLE);
+            lua_pushvalue(L, 2);
+
+            lua_getfield(L, -1, "track");
+            track = lua_isnil(L, -1) ? 1 : luaL_checkinteger(L, -1);
+            lua_pop(L, 1);
+            
+            ValidateTrack(L, track);
+
+            lua_pop(L, 1);
+        }
+
+        dmhash_t anim_id = dmSpine::GetAnimation(scene, node, track);
         dmScript::PushHash(L, anim_id);
         return 1;
     }
@@ -490,10 +536,15 @@ namespace dmSpine
      * @name gui.set_spine_cursor
      * @param node [type:node] spine node to set the cursor for
      * @param cursor [type:number] cursor value
+     * @param [options] [type:table] optional table with options:
+     *
+     * `track`
+     * : [type:number] track to set cursor for. Defaults to track 1.
      */
     static int SetSpineCursor(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 0);
+        int top = lua_gettop(L);
 
         dmGui::HScene scene = dmGui::LuaCheckScene(L);
         dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
@@ -502,7 +553,20 @@ namespace dmSpine
 
         float cursor = luaL_checknumber(L, 2);
 
-        bool result = dmSpine::SetCursor(scene, node, cursor);
+        int32_t track = 1; // Default to track 1
+        if (top > 2 && !lua_isnil(L, 3)) // Options table
+        {
+            luaL_checktype(L, 3, LUA_TTABLE);
+            lua_pushvalue(L, 3);
+
+            lua_getfield(L, -1, "track");
+            track = lua_isnil(L, -1) ? 1 : luaL_checkinteger(L, -1);
+            lua_pop(L, 1);
+
+            lua_pop(L, 1);
+        }
+
+        bool result = dmSpine::SetCursor(scene, node, cursor, track);
         if (!result)
         {
             return DM_LUA_ERROR("Failed to set spine cursor for gui spine node");
@@ -515,19 +579,38 @@ namespace dmSpine
      * This is only useful for spine nodes. Gets the normalized cursor of the animation on a spine node.
      *
      * @name gui.get_spine_cursor
-     * @param node [type:node] spine node to get the cursor for (node)
+     * @param node [type:node] spine node to get the cursor for
+     * @param [options] [type:table] optional table with options:
+     *
+     * `track`
+     * : [type:number] track to get cursor from. Defaults to track 1.
+     * 
      * @return cursor value [type:number] cursor value
      */
     static int GetSpineCursor(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 1);
+        int top = lua_gettop(L);
 
         dmGui::HScene scene = dmGui::LuaCheckScene(L);
         dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
 
         VERIFY_SPINE_NODE(scene, node);
 
-        float cursor = dmSpine::GetCursor(scene, node);
+        int32_t track = 1; // Default to track 1
+        if (top > 1 && !lua_isnil(L, 2)) // Options table
+        {
+            luaL_checktype(L, 2, LUA_TTABLE);
+            lua_pushvalue(L, 2);
+
+            lua_getfield(L, -1, "track");
+            track = lua_isnil(L, -1) ? 1 : luaL_checkinteger(L, -1);
+            lua_pop(L, 1);
+
+            lua_pop(L, 1);
+        }
+
+        float cursor = dmSpine::GetCursor(scene, node, track);
         lua_pushnumber(L, cursor);
         return 1;
     }
@@ -536,12 +619,17 @@ namespace dmSpine
      * This is only useful for spine nodes. Sets the playback rate of the animation on a spine node. Must be positive.
      *
      * @name gui.set_spine_playback_rate
-     * @param node [type:node] spine node to set the cursor for
+     * @param node [type:node] spine node to set the playback rate for
      * @param playback_rate [type:number] playback rate
+     * @param [options] [type:table] optional table with options:
+     *
+     * `track`
+     * : [type:number] track to set playback rate for. Defaults to track 1.
      */
     static int SetSpinePlaybackRate(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 0);
+        int top = lua_gettop(L);
 
         dmGui::HScene scene = dmGui::LuaCheckScene(L);
         dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
@@ -549,7 +637,21 @@ namespace dmSpine
         VERIFY_SPINE_NODE(scene, node);
 
         float playback_rate = luaL_checknumber(L, 2);
-        bool result = dmSpine::SetPlaybackRate(scene, node, playback_rate);
+
+        int32_t track = 1; // Default to track 1
+        if (top > 2 && !lua_isnil(L, 3)) // Options table
+        {
+            luaL_checktype(L, 3, LUA_TTABLE);
+            lua_pushvalue(L, 3);
+
+            lua_getfield(L, -1, "track");
+            track = lua_isnil(L, -1) ? 1 : luaL_checkinteger(L, -1);
+            lua_pop(L, 1);
+
+            lua_pop(L, 1);
+        }
+
+        bool result = dmSpine::SetPlaybackRate(scene, node, playback_rate, track);
 
         if (!result)
         {
@@ -562,19 +664,38 @@ namespace dmSpine
      * This is only useful for spine nodes. Gets the playback rate of the animation on a spine node.
      *
      * @name gui.get_spine_playback_rate
-     * @param node [type:node] spine node to set the cursor for
+     * @param node [type:node] spine node to get the playback rate for
+     * @param [options] [type:table] optional table with options:
+     *
+     * `track`
+     * : [type:number] track to get playback rate from. Defaults to track 1.
+     * 
      * @return rate [type:number] playback rate
      */
     static int GetSpinePlaybackRate(lua_State* L)
     {
         DM_LUA_STACK_CHECK(L, 1);
+        int top = lua_gettop(L);
 
         dmGui::HScene scene = dmGui::LuaCheckScene(L);
         dmGui::HNode node = dmGui::LuaCheckNode(L, 1);
 
         VERIFY_SPINE_NODE(scene, node);
 
-        float playback_rate = dmSpine::GetPlaybackRate(scene, node);
+        int32_t track = 1; // Default to track 1
+        if (top > 1 && !lua_isnil(L, 2)) // Options table
+        {
+            luaL_checktype(L, 2, LUA_TTABLE);
+            lua_pushvalue(L, 2);
+
+            lua_getfield(L, -1, "track");
+            track = lua_isnil(L, -1) ? 1 : luaL_checkinteger(L, -1);
+            lua_pop(L, 1);
+
+            lua_pop(L, 1);
+        }
+
+        float playback_rate = dmSpine::GetPlaybackRate(scene, node, track);
         lua_pushnumber(L, playback_rate);
         return 1;
     }
