@@ -15,17 +15,16 @@
 
 namespace dmSpine {
 
-// Per-scene override map and scene refcounts
-struct SceneOverrides {
-    dmHashTable64<void*>   m_AliasToResource; // alias -> SpineSceneResource*
-    dmArray<dmhash_t>      m_Keys;            // track keys for cleanup
-};
+    // Per-scene override map and scene refcounts
+    struct SceneOverrides {
+        dmHashTable64<void*>   m_AliasToResource; // alias -> SpineSceneResource*
+        dmArray<dmhash_t>      m_Keys;            // track keys for cleanup
+    };
 
-static dmHashTable64<SceneOverrides*> g_SceneOverrides; // (scene_ptr) -> SceneOverrides*
-static dmHashTable64<uint32_t>        g_SceneRefcounts; // (scene_ptr) -> count
-static dmHashTable64< dmArray<dmGui::HNode>* > g_SceneNodes; // (scene_ptr) -> list of spine gui nodes
-static dmArray<uint64_t>              g_SceneKeys;      // list of scene keys for iteration
-static dmResource::HFactory           g_ResourceFactory = 0x0;
+    static dmHashTable64<SceneOverrides*> g_SceneOverrides; // (scene_ptr) -> SceneOverrides*
+    static dmHashTable64<uint32_t>        g_SceneRefcounts; // (scene_ptr) -> count
+    static dmHashTable64< dmArray<dmGui::HNode>* > g_SceneNodes; // (scene_ptr) -> list of spine gui nodes
+    static dmResource::HFactory           g_ResourceFactory = 0x0;
 
 static inline uint64_t SceneKey(dmGui::HScene scene) {
     return (uint64_t)(uintptr_t)scene;
@@ -48,8 +47,6 @@ static dmGameObject::PropertyResult CompSpineGuiSetProperty(dmGui::HScene scene,
         ov->m_AliasToResource.SetCapacity(4, 8);
         ov->m_Keys.SetCapacity(8);
         g_SceneOverrides.Put(skey, ov);
-        if (g_SceneKeys.Full()) g_SceneKeys.OffsetCapacity(4);
-        g_SceneKeys.Push(skey);
         scene_bucket_ptr = g_SceneOverrides.Get(skey);
     }
     SceneOverrides* scene_bucket = *scene_bucket_ptr;
@@ -92,22 +89,13 @@ static dmGameObject::PropertyResult CompSpineGuiGetProperty(dmGui::HScene scene,
     // If we have overrides, try those first
     if (scene_bucket_ptr) {
         SceneOverrides* scene_bucket = *scene_bucket_ptr;
-        if (has_key) {
-            if (void** slot = scene_bucket->m_AliasToResource.Get(key_hash)) {
-                if (*slot) {
-                    out_value.m_ValueType = dmGameObject::PROP_VALUE_HASHTABLE;
-                    return dmGameSystem::GetResourceProperty(g_ResourceFactory, *slot, out_value);
-                }
-            }
-        } else {
-            // No key provided: return first available override for this scene
-            for (uint32_t i = 0; i < scene_bucket->m_Keys.Size(); ++i) {
-                if (void** slot = scene_bucket->m_AliasToResource.Get(scene_bucket->m_Keys[i])) {
-                    if (*slot) {
-                        // Not a keyed get; leave type as default
-                        return dmGameSystem::GetResourceProperty(g_ResourceFactory, *slot, out_value);
-                    }
-                }
+        if (!has_key) {
+            return dmGameObject::PROPERTY_RESULT_INVALID_KEY;
+        }
+        if (void** slot = scene_bucket->m_AliasToResource.Get(key_hash)) {
+            if (*slot) {
+                out_value.m_ValueType = dmGameObject::PROP_VALUE_HASHTABLE;
+                return dmGameSystem::GetResourceProperty(g_ResourceFactory, *slot, out_value);
             }
         }
     }
@@ -119,6 +107,9 @@ static dmGameObject::PropertyResult CompSpineGuiGetProperty(dmGui::HScene scene,
             out_value.m_ValueType = dmGameObject::PROP_VALUE_HASHTABLE;
             return dmGameSystem::GetResourceProperty(g_ResourceFactory, res, out_value);
         }
+    }
+    else {
+        return dmGameObject::PROPERTY_RESULT_INVALID_KEY;
     }
 
     return dmGameObject::PROPERTY_RESULT_NOT_FOUND;
@@ -156,10 +147,6 @@ static void CleanupSceneOverrides(dmGui::HScene scene)
     // Remove from map and delete bucket
     uint64_t skey = SceneKey(scene);
     g_SceneOverrides.Erase(skey);
-    // remove from keys list
-    for (uint32_t i = 0; i < g_SceneKeys.Size(); ++i) {
-        if (g_SceneKeys[i] == skey) { g_SceneKeys.EraseSwap(i); break; }
-    }
     delete scene_bucket;
 }
 
@@ -206,15 +193,6 @@ void GuiSpineFinalize()
     // Unregister per-property handlers for GUI spine_scene property
     dmGameSystem::CompGuiUnregisterSetPropertyFn(SPINE_SCENE);
     dmGameSystem::CompGuiUnregisterGetPropertyFn(SPINE_SCENE);
-
-    // Cleanup all remaining scenes (safety)
-    for (uint32_t i = 0; i < g_SceneKeys.Size(); ++i) {
-        dmGui::HScene scene = (dmGui::HScene)(uintptr_t)g_SceneKeys[i];
-        CleanupSceneOverrides(scene);
-        CleanupSceneNodes(scene);
-    }
-    g_SceneKeys.SetSize(0);
-
     g_ResourceFactory = 0x0;
 }
 
@@ -227,8 +205,6 @@ void GuiSpineRegisterNode(dmGui::HScene scene, dmGui::HNode node)
         list->SetCapacity(8);
         g_SceneNodes.Put(skey, list);
         nodes_ptr = g_SceneNodes.Get(skey);
-        if (g_SceneKeys.Full()) g_SceneKeys.OffsetCapacity(4);
-        g_SceneKeys.Push(skey);
     }
     dmArray<dmGui::HNode>* nodes = *nodes_ptr;
     if (nodes->Full()) nodes->OffsetCapacity(8);

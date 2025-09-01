@@ -214,9 +214,8 @@ namespace dmSpine
         dmhash_t canonical_hash = 0;
         ResourceGetPath(g_Factory, out_scene_res, &canonical_hash);
 
-        // Get collection for automatic resource cleanup
-        dmGameObject::HInstance sender_instance = dmScript::CheckGOInstance(L);
-        dmGameObject::HCollection collection = dmGameObject::GetCollection(sender_instance);
+        // Get collection for automatic resource cleanup (works from both .script and .gui_script)
+        dmGameObject::HCollection collection = dmScript::CheckCollection(L);
 
         // Register only the scene resource for automatic cleanup
         // (JSON resource is intermediate and will be released immediately)
