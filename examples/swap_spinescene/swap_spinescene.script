@@ -34,6 +34,7 @@ function init(self)
 
     -- After a second, dynamically create a squirrel spinescene and swap it onto spine_b
     timer.delay(3.0, false, function()
+        print(go.get("/gui#swap", "spine_scene", { key = "spineboy" }))
         -- Load squirrel spine json bytes
         local json = sys.load_resource("/custom_res/squirrel.spinejson")
         -- Create spinescene dynamically (atlas path must be the compiled texturesetc)

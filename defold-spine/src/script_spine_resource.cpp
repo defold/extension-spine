@@ -33,22 +33,6 @@ namespace dmSpine
         return strcmp(s + (ls - lt), suffix) == 0;
     }
 
-    static void PreCreateResource(lua_State* L, const char* path_str, const char* required_ext, dmhash_t* out_canonical)
-    {
-        if (!HasSuffix(path_str, required_ext))
-        {
-            luaL_error(L, "Unable to create resource, path '%s' must have extension %s", path_str, required_ext);
-        }
-        // Check that resource doesn't already exist
-        HResourceDescriptor rd;
-        if (ResourceGetDescriptor(g_Factory, path_str, &rd) == RESOURCE_RESULT_OK)
-        {
-            luaL_error(L, "Unable to create resource, a resource is already registered at path '%s'", path_str);
-        }
-
-        *out_canonical = dmHashString64(path_str);
-    }
-
     /*# Creates a spinescene resource (.spinescenec) from runtime data
      *
      * Creates a Spine scene resource dynamically at runtime. This allows loading
@@ -91,12 +75,15 @@ namespace dmSpine
         }
 
         const char* scene_path = luaL_checkstring(L, 1);
-        // Validate extension
+        // Validate extension and absolute path
         if (!HasSuffix(scene_path, SPINESCENE_EXT))
         {
             return luaL_error(L, "Unable to create resource, path '%s' must have extension %s", scene_path, SPINESCENE_EXT);
         }
-        dmhash_t scene_path_hash = dmHashString64(scene_path);
+        if (scene_path[0] != '/')
+        {
+            return luaL_error(L, "'path' must be an absolute resource path starting with '/'");
+        }
 
         // Remove any stale registered file for this path (safe if none exists)
         dmResource::RemoveFile(g_Factory, scene_path);
@@ -133,7 +120,7 @@ namespace dmSpine
         }
         lua_pop(L, 1); // spine_data
 
-        // atlas_path (hash or string)
+        // atlas_path (string)
         lua_getfield(L, -1, "atlas_path");
         if (!lua_isstring(L, -1))
         {
@@ -160,7 +147,7 @@ namespace dmSpine
         // Ensure any stale intermediate file is cleared first
         dmResource::RemoveFile(g_Factory, json_path);
 
-        // Defensive: ensure no collision
+        // Ensure no collision
         HResourceDescriptor tmp;
         if (ResourceGetDescriptor(g_Factory, json_path, &tmp) == RESOURCE_RESULT_OK)
         {

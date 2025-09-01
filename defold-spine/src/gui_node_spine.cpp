@@ -1063,8 +1063,6 @@ static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
     UpdateBones(node);
 }
 
-// Property handlers moved to gui_spine.cpp and registered during gui spine init
-
 static dmGameObject::Result GuiNodeTypeSpineCreate(const dmGameSystem::CompGuiNodeTypeCtx* ctx, dmGameSystem::CompGuiNodeType* type)
 {
     GuiNodeTypeContext* type_context = new GuiNodeTypeContext;

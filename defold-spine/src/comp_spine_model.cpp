@@ -46,6 +46,7 @@ extern "C" {
 #include <gameobject/gameobject_ddf.h>
 
 #include <common/vertices.h>
+#include "spine_gui_common.h"
 
 
 #define _USE_MATH_DEFINES
@@ -65,8 +66,6 @@ namespace dmSpine
     static const dmhash_t PROP_PLAYBACK_RATE = dmHashString64("playback_rate");
     static const dmhash_t PROP_MATERIAL = dmHashString64("material");
     static const dmhash_t MATERIAL_EXT_HASH = dmHashString64("materialc");
-    static const dmhash_t PROP_SPINE_SCENE = dmHashString64("spine_scene");
-    static const dmhash_t SPINE_SCENE_EXT_HASH = dmHashString64("spinescenec");
 
     static const uint32_t INVALID_ANIMATION_INDEX = 0xFFFFFFFF;
 
@@ -1275,7 +1274,7 @@ namespace dmSpine
         {
             return dmGameSystem::GetResourceProperty(context->m_Factory, GetMaterialResource(component), out_value);
         }
-        else if (params.m_PropertyId == PROP_SPINE_SCENE)
+        else if (params.m_PropertyId == SPINE_SCENE)
         {
             return dmGameSystem::GetResourceProperty(context->m_Factory, (void*)GetSpineScene(component), out_value);
         }
@@ -1354,7 +1353,7 @@ namespace dmSpine
             component->m_ReHash |= res == dmGameObject::PROPERTY_RESULT_OK;
             return res;
         }
-        else if (params.m_PropertyId == PROP_SPINE_SCENE)
+        else if (params.m_PropertyId == SPINE_SCENE)
         {
             dmGameObject::PropertyResult res = dmGameSystem::SetResourceProperty(context->m_Factory, params.m_Value, SPINE_SCENE_EXT_HASH, (void**)&component->m_SpineScene);
             if (res == dmGameObject::PROPERTY_RESULT_OK)

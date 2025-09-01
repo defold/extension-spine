@@ -31,7 +31,7 @@ static inline uint64_t SceneKey(dmGui::HScene scene) {
     return (uint64_t)(uintptr_t)scene;
 }
 
-// Property handler implementations (moved from gui_node_spine.cpp and optimized)
+// Property handler implementations
 static dmGameObject::PropertyResult CompSpineGuiSetProperty(dmGui::HScene scene, const dmGameObject::ComponentSetPropertyParams& params)
 {
     if (params.m_Value.m_Type != dmGameObject::PROPERTY_TYPE_HASH)
@@ -89,25 +89,38 @@ static dmGameObject::PropertyResult CompSpineGuiGetProperty(dmGui::HScene scene,
     dmhash_t key_hash = params.m_Options.m_Key;
 
     SceneOverrides** scene_bucket_ptr = g_SceneOverrides.Get(SceneKey(scene));
-    if (!scene_bucket_ptr)
-        return dmGameObject::PROPERTY_RESULT_NOT_FOUND;
+    // If we have overrides, try those first
+    if (scene_bucket_ptr) {
+        SceneOverrides* scene_bucket = *scene_bucket_ptr;
+        if (has_key) {
+            if (void** slot = scene_bucket->m_AliasToResource.Get(key_hash)) {
+                if (*slot) {
+                    out_value.m_ValueType = dmGameObject::PROP_VALUE_HASHTABLE;
+                    return dmGameSystem::GetResourceProperty(g_ResourceFactory, *slot, out_value);
+                }
+            }
+        } else {
+            // No key provided: return first available override for this scene
+            for (uint32_t i = 0; i < scene_bucket->m_Keys.Size(); ++i) {
+                if (void** slot = scene_bucket->m_AliasToResource.Get(scene_bucket->m_Keys[i])) {
+                    if (*slot) {
+                        // Not a keyed get; leave type as default
+                        return dmGameSystem::GetResourceProperty(g_ResourceFactory, *slot, out_value);
+                    }
+                }
+            }
+        }
+    }
 
-    SceneOverrides* scene_bucket = *scene_bucket_ptr;
+    // Fallback to default GUI resource mapping if no override exists
     if (has_key) {
-        if (void** slot = scene_bucket->m_AliasToResource.Get(key_hash)) {
-            if (*slot)
-                return dmGameSystem::GetResourceProperty(g_ResourceFactory, *slot, out_value);
+        void* res = dmGui::GetResource(scene, key_hash, SPINE_SCENE_SUFFIX);
+        if (res) {
+            out_value.m_ValueType = dmGameObject::PROP_VALUE_HASHTABLE;
+            return dmGameSystem::GetResourceProperty(g_ResourceFactory, res, out_value);
         }
-        return dmGameObject::PROPERTY_RESULT_NOT_FOUND;
     }
 
-    // No key provided: return first available override for this scene
-    for (uint32_t i = 0; i < scene_bucket->m_Keys.Size(); ++i) {
-        if (void** slot = scene_bucket->m_AliasToResource.Get(scene_bucket->m_Keys[i])) {
-            if (*slot)
-                return dmGameSystem::GetResourceProperty(g_ResourceFactory, *slot, out_value);
-        }
-    }
     return dmGameObject::PROPERTY_RESULT_NOT_FOUND;
 }
 
