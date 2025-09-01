@@ -24,6 +24,8 @@
 
 #include "spine_ddf.h" // generated from the spine_ddf.proto
 #include "script_spine_gui.h"
+#include "gui_spine.h"
+#include "spine_gui_common.h"
 
 DM_PROPERTY_EXTERN(rmtp_Spine);
 DM_PROPERTY_EXTERN(rmtp_SpineBones);
@@ -31,11 +33,8 @@ DM_PROPERTY_U32(rmtp_SpineGuiNodes, 0, PROFILE_PROPERTY_FRAME_RESET, "", &rmtp_S
 
 namespace dmSpine
 {
-
-static const dmhash_t SPINE_SCENE               = dmHashString64("spine_scene");
 static const dmhash_t SPINE_DEFAULT_ANIMATION   = dmHashString64("spine_default_animation");
 static const dmhash_t SPINE_SKIN                = dmHashString64("spine_skin");
-static const dmhash_t SPINE_SCENE_SUFFIX        = dmHashString64(".spinescenec");
 
 struct GuiNodeTypeContext
 {
@@ -301,12 +300,14 @@ bool SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
 
-    if (spine_scene == node->m_SpinePath)
-        return true;
-
-    SpineSceneResource* resource = (SpineSceneResource*)dmGui::GetResource(scene, spine_scene, SPINE_SCENE_SUFFIX);
+    SpineSceneResource* resource = (SpineSceneResource*)dmSpine::GetResource(scene, spine_scene, dmSpine::SPINE_SCENE_SUFFIX);
     if (!resource)
         return false;
+
+    // If alias is the same but the underlying resource changed via override, we must rebind.
+    // Only early-out when both alias and resource pointer match.
+    if (spine_scene == node->m_SpinePath && resource == node->m_SpineScene)
+        return true;
 
     if (node->m_FindBones)
     {
@@ -784,6 +785,8 @@ static void* GuiCreate(const dmGameSystem::CompGuiNodeContext* ctx, void* contex
     node_data->m_GuiScene = scene;
     node_data->m_GuiNode = node;
     node_data->m_FirstUpdate = 1;
+    dmSpine::GuiSpineSceneRetain(scene);
+    dmSpine::GuiSpineRegisterNode(scene, node);
     return node_data;
 }
 
@@ -802,6 +805,8 @@ static void GuiDestroy(const dmGameSystem::CompGuiNodeContext* ctx, const dmGame
     }
 
     delete node;
+    dmSpine::GuiSpineSceneRelease(nodectx->m_Scene);
+    dmSpine::GuiSpineUnregisterNode(nodectx->m_Scene, nodectx->m_Node);
 }
 
 static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNode* node, bool create_bones)
@@ -853,6 +858,8 @@ static void* GuiClone(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameS
 
     dst->m_GuiScene = nodectx->m_Scene;
     dst->m_GuiNode = nodectx->m_Node;
+    dmSpine::GuiSpineSceneRetain(nodectx->m_Scene);
+    dmSpine::GuiSpineRegisterNode(nodectx->m_Scene, nodectx->m_Node);
 
     // We don't get a GuiSetNodeDesc call when cloning, as we should already have the data we need in the node itself
     dst->m_Id = src->m_Id;
@@ -926,7 +933,7 @@ static void GuiSetNodeDesc(const dmGameSystem::CompGuiNodeContext* ctx, const dm
     InternalGuiNode* node = (InternalGuiNode*)(nodectx->m_NodeData);
 
     dmhash_t name_hash = dmHashString64(node_desc->m_SpineScene);
-    SpineSceneResource* resource = (SpineSceneResource*)dmGui::GetResource(nodectx->m_Scene, name_hash, SPINE_SCENE_SUFFIX);
+    SpineSceneResource* resource = (SpineSceneResource*)dmSpine::GetResource(nodectx->m_Scene, name_hash, dmSpine::SPINE_SCENE_SUFFIX);
     if (!resource) {
         dmLogError("Failed to get resource: %s", node_desc->m_SpineScene);
         return;
@@ -1056,6 +1063,8 @@ static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
     UpdateBones(node);
 }
 
+// Property handlers moved to gui_spine.cpp and registered during gui spine init
+
 static dmGameObject::Result GuiNodeTypeSpineCreate(const dmGameSystem::CompGuiNodeTypeCtx* ctx, dmGameSystem::CompGuiNodeType* type)
 {
     GuiNodeTypeContext* type_context = new GuiNodeTypeContext;
@@ -1178,7 +1187,5 @@ bool ResetIKTarget(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t constraint_
 }
 
 } // namespace
-
-
 
 DM_DECLARE_COMPGUI_NODE_TYPE(ComponentTypeGuiNodeSpineModelExt, "Spine", dmSpine::GuiNodeTypeSpineCreate, dmSpine::GuiNodeTypeSpineDestroy)

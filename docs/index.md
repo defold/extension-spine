@@ -407,6 +407,41 @@ Use one of the following playback modes to control animation playback:
 * gui.PLAYBACK_LOOP_BACKWARD
 * gui.PLAYBACK_LOOP_PINGPONG
 
+### GUI spine_scene overrides
+
+Define aliases in the `.gui` via `resources { name: "<alias>" path: "...spinescene" }`. You can then update which spinescene an alias points to, or set a node’s scene directly.
+
+- Using `go.set` (scene-wide alias override):
+```lua
+-- Build a dynamic spinescene
+local alias = "my_gui_scene" -- must exist as a GUI resource alias
+ local atlat_path = "/dyn/my_atlas.a.texturesetc"
+    local atlas_resource = resource.create_atlas(atlat_path, {
+        texture = texture_path,
+        animations = atlas_data.animations,
+        geometries = atlas_data.geometries
+    })
+local scene = resource.create_spinescene("/dyn/squirrel.spinescenec", {
+  spine_data = sys.load_resource("/custom_res/squirrel.spinejson"),
+  atlas_path = atlat_path
+})
+-- Remap alias -> scene for the GUI component; all nodes using this alias update
+go.set("/gui#gui_comp", "spine_scene", scene, { key = alias })
+-- It's posisble to set from gui component itself as well:
+-- gui.set(msg.url(), "spine_scene", scene, { key = alias })
+```
+
+- Using `gui.set_spine_scene` (per-node):
+```lua
+local node = gui.get_node("spine_node_anim")
+local alias = "my_gui_scene"  -- or a variable with another alias
+gui.set_spine_scene(node, alias)
+```
+
+Notes:
+- Alias overrides propagate immediately to registered Spine GUI nodes using that alias.
+- Overrides are scoped per GUI scene and cleaned up when the scene unloads.
+
 
 ### GUI node bone hierarchy
 

@@ -1,4 +1,10 @@
+local create_atlas = require("examples.swap_spinescene.create_atlas")
+
 function init(self)
+    -- Start both as spineboy
+    spine.play_anim("#spine_a", "idle", go.PLAYBACK_LOOP_FORWARD)
+    spine.play_anim("#spine_b", "idle", go.PLAYBACK_LOOP_FORWARD)
+
     timer.delay(1.0, false, function()
         local a = go.get("#spine_a", "spine_scene")
         local b = go.get("#spine_b", "spine_scene")
@@ -6,9 +12,47 @@ function init(self)
         go.set("#spine_a", "spine_scene", b)
         go.set("#spine_b", "spine_scene", a)
 
-        spine.play_anim("#spine_a", "Idle", go.PLAYBACK_LOOP_FORWARD)
+        spine.play_anim("#spine_a", "idle", go.PLAYBACK_LOOP_FORWARD)
         spine.play_anim("#spine_b", "idle", go.PLAYBACK_LOOP_FORWARD)
     end)
-end
+    
 
+    -- After a second, dynamically create a squirrel spinescene and swap it onto spine_b
+    timer.delay(2.0, false, function()
+        -- Load squirrel spine json bytes
+        local json = sys.load_resource("/custom_res/squirrel.spinejson")
+        -- Create spinescene dynamically (atlas path must be the compiled texturesetc)
+        self.dynamic_scene1 = resource.create_spinescene("/dyn/squirrel.spinescenec", {
+            spine_data = json, 
+            atlas_path = "/assets/squirrel/squirrel.a.texturesetc"})
+
+        -- Swap spine_b to use the dynamically created squirrel scene
+        go.set("#spine_b", "spine_scene", self.dynamic_scene1)
+        spine.play_anim("#spine_b", "idle", go.PLAYBACK_LOOP_FORWARD)
+        
+    end)
+
+    -- After a second, dynamically create a squirrel spinescene and swap it onto spine_b
+    timer.delay(3.0, false, function()
+        -- Load squirrel spine json bytes
+        local json = sys.load_resource("/custom_res/squirrel.spinejson")
+        -- Create spinescene dynamically (atlas path must be the compiled texturesetc)
+        local atlas_path, atlas_id, texture_resource = create_atlas.create_atlas()
+        go.set("/go#model", "texture0", texture_resource)
+        self.dynamic_scene2 = resource.create_spinescene("/dyn/squirrel2.spinescenec", {
+            spine_data = json, 
+            atlas_path = atlas_path})
+
+        -- Swap spine_b to use the dynamically created squirrel scene
+        go.set("#spine_a1", "spine_scene", self.dynamic_scene2)
+        spine.play_anim("#spine_a1", "idle", go.PLAYBACK_LOOP_FORWARD)
+
+        go.set("/gui#swap", "spine_scene", self.dynamic_scene1, { key = "dynamic_scene" })
+        -- go.set("/gui#swap", "spine_scene", self.dynamic_scene1, { key = "spineboy" })
+        msg.post("/gui#swap", "set_spine_scene", { scene = "dynamic_scene" })
+
+        msg.post("/gui#swap", "set_spine_scene_gui", { scene = self.dynamic_scene2, key = "spineboy"})
+    end)
+
+end
 
