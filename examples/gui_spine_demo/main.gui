@@ -118,7 +118,7 @@ nodes {
   inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
   spine_scene: "squirrel"
-  spine_default_animation: "Idle"
+  spine_default_animation: "idle"
   custom_type: 405028931
 }
 material: "/builtins/materials/gui.material"

@@ -1,0 +1,54 @@
+- name: resource
+  type: table
+  desc: Functions for creating Spine resources dynamically
+
+  members:
+
+  - name: create_spinescene
+    type: function
+    desc: Creates a spinescene resource (.spinescenec) from runtime data.
+     Creates a Spine scene resource dynamically at runtime. This allows loading
+     Spine animations from data rather than pre-built assets.
+     The atlas path must reference a compiled `.texturesetc` resource. The created
+     spinescene is tracked for cleanup when the collection unloads; internal
+     intermediate JSON is removed automatically.
+
+    parameters:
+      - name: path
+        type: string
+        desc: The target resource path. Must end with .spinescenec
+
+      - name: options
+        type: table
+        desc: Table with fields
+        parameters:
+          - name: spine_data
+            type: string
+            desc: JSON bytes of the Spine skeleton
+
+          - name: atlas_path
+            type: string
+            desc: Path to the compiled atlas resource (.texturesetc)
+
+    return:
+      - name: path_hash
+        type: hash
+        desc: canonical path hash of the created resource
+
+    examples: |
+      ```lua
+      function init(self)
+          -- Load Spine JSON data
+          local json = sys.load_resource("/data/character.spinejson")
+          
+          -- Create spinescene dynamically
+          local scene = resource.create_spinescene("/dyn/character.spinescenec", {
+              spine_data = json,
+              atlas_path = "/textures/character.a.texturesetc"
+          })
+          
+          go.set("/gui#swap", "spine_scene", scene, { key = "spineboy" })
+        -- It's posisble to set from gui component itself as well:
+        -- gui.set(msg.url(), "spine_scene", scene, { key = "spineboy" })
+      end
+      ```

@@ -1,0 +1,49 @@
+function init(self)
+	-- Add initialization code here
+	-- Learn more: https://defold.com/manuals/script/
+	-- Remove this function if not needed
+end
+
+function final(self)
+end
+
+function update(self, dt)
+	-- Add update code here
+	-- Learn more: https://defold.com/manuals/script/
+	-- Remove this function if not needed
+end
+
+function on_message(self, message_id, message, sender)
+	if message_id == hash("set_spine_scene") then
+		local node
+		if message.node then
+			node = gui.get_node(message.node)
+			gui.set_spine_scene(node, message.scene)
+		else
+			node = gui.new_spine_node(vmath.vector3(10,10,0), message.scene)
+			gui.play_spine_anim(node, "idle", gui.PLAYBACK_LOOP_PINGPONG)
+		end
+	elseif message_id == hash("set_spine_scene_gui") then
+		gui.set(msg.url(), "spine_scene", message.scene, { key = message.key })
+		local node = gui.new_spine_node(vmath.vector3(10,100,0), message.key)
+		gui.play_spine_anim(node, "idle", gui.PLAYBACK_LOOP_PINGPONG)
+	end
+end
+
+function on_input(self, action_id, action)
+	-- Add input-handling code here. The game object this script is attached to
+	-- must have acquired input focus:
+	--
+	--    msg.post(".", "acquire_input_focus")
+	--
+	-- All mapped input bindings will be received. Mouse and touch input will
+	-- be received regardless of where on the screen it happened.
+	-- Learn more: https://defold.com/manuals/input/
+	-- Remove this function if not needed
+end
+
+function on_reload(self)
+	-- Add reload-handling code here
+	-- Learn more: https://defold.com/manuals/hot-reload/
+	-- Remove this function if not needed
+end
