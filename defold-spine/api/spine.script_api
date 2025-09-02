@@ -30,7 +30,7 @@
         desc: Playback mode of the animation (from go.PLAYBACK_*)
 
       - name: options
-        type: table
+        type: table|nil
         desc: Playback options
         parameters:
           - name: blend_duration

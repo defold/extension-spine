@@ -1,0 +1,47 @@
+script: "/examples/swap_spinescene/swap.gui_script"
+fonts {
+  name: "default"
+  font: "/main/default.font"
+}
+nodes {
+  position {
+    x: 381.0
+    y: 425.0
+  }
+  scale {
+    x: 0.3
+    y: 0.3
+  }
+  type: TYPE_CUSTOM
+  id: "spine_node_1"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+  spine_scene: "spineboy"
+  spine_default_animation: "idle"
+  custom_type: 405028931
+}
+nodes {
+  position {
+    y: -70.0
+  }
+  scale {
+    x: 4.0
+    y: 4.0
+  }
+  size {
+    x: 200.0
+    y: 100.0
+  }
+  type: TYPE_TEXT
+  text: "GUI"
+  font: "default"
+  id: "text"
+  parent: "spine_node_1"
+  inherit_alpha: true
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT
+resources {
+  name: "spineboy"
+  path: "/assets/spineboy/spineboy.spinescene"
+}
