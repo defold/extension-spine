@@ -71,6 +71,8 @@ static dmGameObject::PropertyResult CompSpineGuiSetProperty(dmGui::HScene scene,
         const uint32_t n = nodes.Size();
         for (uint32_t i = 0; i < n; ++i) {
             dmGui::HNode hnode = nodes[i];
+            // if an existing node already use a spine scene with this alias, we need to re-set it,
+            // since now it's a new spine scene in this slot/alias
             if (dmSpine::GetScene(scene, hnode) == name_hash) {
                 dmSpine::SetScene(scene, hnode, name_hash);
             }
