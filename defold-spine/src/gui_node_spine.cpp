@@ -48,13 +48,12 @@ struct InternalGuiNode
 
     spSkeleton*         m_SkeletonInstance;
     spAnimationState*   m_AnimationStateInstance;
-    spTrackEntry*       m_AnimationInstance;
-    dmhash_t            m_AnimationId;
+    dmArray<dmSpine::GuiSpineAnimationTrack> m_AnimationTracks;
+    
     dmhash_t            m_SkinId;
 
     dmVMath::Matrix4    m_Transform; // the world transform
 
-    dmGui::Playback     m_Playback;
     dmGui::HScene       m_GuiScene;
     dmGui::HNode        m_GuiNode;
     dmGui::AdjustMode   m_AdjustMode;
@@ -69,31 +68,19 @@ struct InternalGuiNode
     dmArray<GuiIKTarget>    m_IKTargets;           // targets that follow GUI nodes
     dmArray<GuiIKTarget>    m_IKTargetPositions;   // targets with fixed positions
 
-    dmScript::LuaCallbackInfo* m_Callback;
-    dmScript::LuaCallbackInfo* m_NextCallback; // If the current callback calls play_anim with another callback
-
-    uint8_t             m_Playing : 1;
-    uint8_t             m_UseCursor : 1;
     uint8_t             m_FindBones : 1;
-    uint8_t             m_HasNextCallback : 1;
     uint8_t             m_FirstUpdate : 1;
-    uint8_t             : 3;
+    uint8_t             : 6;
 
     InternalGuiNode()
     : m_SpinePath(0)
     , m_SpineScene(0)
     , m_SkeletonInstance(0)
     , m_AnimationStateInstance(0)
-    , m_AnimationInstance(0)
-    , m_AnimationId(0)
     , m_SkinId(0)
     , m_Id(0)
-    , m_Callback(0)
-    , m_NextCallback(0)
-    , m_Playing(0)
-    , m_UseCursor(0)
     , m_FindBones(0)
-    , m_HasNextCallback(0)
+    , m_FirstUpdate(1)
     {}
 };
 
@@ -139,41 +126,69 @@ static inline bool IsPingPong(dmGui::Playback playback)
 //     lua_pop(L, 1);
 // }
 
-static void SendDDF(InternalGuiNode* node, const dmDDF::Descriptor* descriptor, const char* data)
+
+static GuiSpineAnimationTrack* GetTrackFromIndex(InternalGuiNode* node, int track_index)
 {
-    if (!dmScript::IsCallbackValid(node->m_Callback))
-        return;
-
-    lua_State* L = dmScript::GetCallbackLuaContext(node->m_Callback);
-    DM_LUA_STACK_CHECK(L, 0);
-
-    if (!dmScript::SetupCallback(node->m_Callback))
-    {
-        dmLogError("Failed to setup callback");
-        return;
-    }
-
-    dmGui::LuaPushNode(L, node->m_GuiScene, node->m_GuiNode);
-    dmScript::PushHash(L, descriptor->m_NameHash);
-    dmScript::PushDDF(L, descriptor, data, true); // from comp_script.cpp
-
-    dmScript::PCall(L, 4, 0); // instance + 3
-
-    dmScript::TeardownCallback(node->m_Callback);
+    if (track_index < 0 || track_index >= node->m_AnimationTracks.Size())
+        return nullptr;
+    return &node->m_AnimationTracks[track_index];
 }
+
+static void ClearTrackCallback(GuiSpineAnimationTrack* track)
+{
+    if (track->m_CallbackInfo)
+    {
+        dmScript::DestroyCallback(track->m_CallbackInfo);
+        track->m_CallbackInfo = 0x0;
+    }
+}
+
 
 static void SendAnimationDone(InternalGuiNode* node, const spAnimationState* state, const spTrackEntry* entry, const spEvent* event)
 {
+    GuiSpineAnimationTrack* track = GetTrackFromIndex(node, entry->trackIndex);
+    if (!track)
+        return;
+
     dmGameSystemDDF::SpineAnimationDone message;
     message.m_AnimationId = dmHashString64(entry->animation->name);
-    message.m_Playback    = node->m_Playback;
-    message.m_Track       = entry->trackIndex;
+    message.m_Playback    = track->m_Playback;
+    message.m_Track       = entry->trackIndex + 1; // Convert to 1-based indexing for API
 
-    SendDDF(node, dmGameSystemDDF::SpineAnimationDone::m_DDFDescriptor, (const char*)&message);
+    // Send to track-specific callback if available
+    if (track->m_CallbackInfo && dmScript::IsCallbackValid(track->m_CallbackInfo))
+    {
+        // Store callback ID to check if callback is still valid after execution
+        uint32_t callbackId = track->m_CallbackId;
+        
+        lua_State* L = dmScript::GetCallbackLuaContext(track->m_CallbackInfo);
+        DM_LUA_STACK_CHECK(L, 0);
+
+        if (dmScript::SetupCallback(track->m_CallbackInfo))
+        {
+            dmGui::LuaPushNode(L, node->m_GuiScene, node->m_GuiNode);
+            dmScript::PushHash(L, dmGameSystemDDF::SpineAnimationDone::m_DDFDescriptor->m_NameHash);
+            dmScript::PushDDF(L, dmGameSystemDDF::SpineAnimationDone::m_DDFDescriptor, (const char*)&message, true);
+
+            dmScript::PCall(L, 4, 0); // instance + 3
+            dmScript::TeardownCallback(track->m_CallbackInfo);
+        }
+        
+        // Only clear callback if it hasn't been replaced during callback execution
+        // (user might have called gui.play_spine_anim from within the callback)
+        if (callbackId == track->m_CallbackId)
+        {
+            ClearTrackCallback(track);
+        }
+    }
 }
 
 static void SendSpineEvent(InternalGuiNode* node, const spAnimationState* state, const spTrackEntry* entry, const spEvent* event)
 {
+    GuiSpineAnimationTrack* track = GetTrackFromIndex(node, entry->trackIndex);
+    if (!track)
+        return;
+
     dmGameSystemDDF::SpineEvent message;
     message.m_AnimationId = dmHashString64(entry->animation->name);
     message.m_EventId     = dmHashString64(event->data->name);
@@ -184,13 +199,33 @@ static void SendSpineEvent(InternalGuiNode* node, const spAnimationState* state,
     message.m_String      = dmHashString64(event->stringValue?event->stringValue:"");
     message.m_Node.m_Ref  = 0;
     message.m_Node.m_ContextTableRef = 0;
+    message.m_Track       = entry->trackIndex + 1; // Convert to 1-based indexing for API
 
-    SendDDF(node, dmGameSystemDDF::SpineEvent::m_DDFDescriptor, (const char*)&message);
+    // Send to track-specific callback if available
+    if (track->m_CallbackInfo && dmScript::IsCallbackValid(track->m_CallbackInfo))
+    {
+        lua_State* L = dmScript::GetCallbackLuaContext(track->m_CallbackInfo);
+        DM_LUA_STACK_CHECK(L, 0);
+
+        if (dmScript::SetupCallback(track->m_CallbackInfo))
+        {
+            dmGui::LuaPushNode(L, node->m_GuiScene, node->m_GuiNode);
+            dmScript::PushHash(L, dmGameSystemDDF::SpineEvent::m_DDFDescriptor->m_NameHash);
+            dmScript::PushDDF(L, dmGameSystemDDF::SpineEvent::m_DDFDescriptor, (const char*)&message, true);
+
+            dmScript::PCall(L, 4, 0); // instance + 3
+            dmScript::TeardownCallback(track->m_CallbackInfo);
+        }
+        
+        // Note: For spine events, we don't clear the callback since events can occur multiple times
+        // during an animation. The callback will be cleared when the animation completes or is cancelled.
+    }
 }
 
 static void SpineEventListener(spAnimationState* state, spEventType type, spTrackEntry* entry, spEvent* event)
 {
     InternalGuiNode* node = (InternalGuiNode*)state->userData;
+    GuiSpineAnimationTrack* track = GetTrackFromIndex(node, entry->trackIndex);
 
     switch (type)
     {
@@ -205,33 +240,36 @@ static void SpineEventListener(spAnimationState* state, spEventType type, spTrac
     //     break;
     case SP_ANIMATION_COMPLETE:
         {
+            if (!track)
+                break;
+
             //printf("Animation %s complete on track %i\n", entry->animation->name, entry->trackIndex);
-    // TODO: Should we send event for looping animations as well?
+            // TODO: Should we send event for looping animations as well?
 
-            if (!IsLooping(node->m_Playback))
+            if (!IsLooping(track->m_Playback))
             {
-                node->m_Playing = 0;
-
-                if (node->m_Callback)
-                {
-                    // We only send the event if it's not looping (same behavior as before)
-                    SendAnimationDone(node, state, entry, event);
-
-                    // The animation has ended, so we won't send any more on this callback
-                    dmScript::DestroyCallback(node->m_Callback);
-                    node->m_Callback = 0;
-                }
+                // Only send the animation done event if it's not looping
+                // Note: SendAnimationDone will safely clear the callback with ID check
+                SendAnimationDone(node, state, entry, event);
             }
 
-            if (IsPingPong(node->m_Playback))
+            if (IsPingPong(track->m_Playback))
             {
-                node->m_AnimationInstance->reverse = !node->m_AnimationInstance->reverse;
+                entry->reverse = !entry->reverse;
+            }
+            
+        }
+        break;
+    case SP_ANIMATION_DISPOSE:
+        {
+            if (track && track->m_AnimationInstance == entry)
+            {
+                ClearTrackCallback(track);
+                track->m_AnimationInstance = nullptr;
+                track->m_AnimationId = 0;
             }
         }
         break;
-    // case SP_ANIMATION_DISPOSE:
-    //     printf("Track entry for animation %s disposed on track %i\n", entry->animation->name, entry->trackIndex);
-    //     break;
     case SP_ANIMATION_EVENT:
         SendSpineEvent(node, state, entry, event);
         break;
@@ -270,24 +308,43 @@ static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::P
 
     spAnimation* animation = spine_scene->m_Skeleton->animations[index];
 
-    node->m_AnimationId = animation_id;
-    node->m_AnimationInstance = spAnimationState_setAnimation(node->m_AnimationStateInstance, trackIndex, animation, loop);
-
-    node->m_Playing = 1;
-    node->m_Playback = playback;
-    node->m_UseCursor = 0;
-    node->m_AnimationInstance->timeScale = playback_rate;
-    node->m_AnimationInstance->reverse = IsReverse(playback);
-    node->m_AnimationInstance->mixDuration = blend_duration;
-    node->m_AnimationInstance->trackTime = dmMath::Clamp(offset, node->m_AnimationInstance->animationStart, node->m_AnimationInstance->animationEnd);
-
-    if (node->m_NextCallback)
+    // Ensure we have enough tracks
+    if (trackIndex >= node->m_AnimationTracks.Capacity())
     {
-        // We cannot delete the current callback since we might be inside the current callback
-        dmScript::DestroyCallback(node->m_NextCallback);
+        node->m_AnimationTracks.SetCapacity(trackIndex + 4);
     }
-    node->m_HasNextCallback = 1;
-    node->m_NextCallback = callback; // Might be 0
+
+    while (trackIndex >= node->m_AnimationTracks.Size())
+    {
+        GuiSpineAnimationTrack track;
+        track.m_AnimationInstance = nullptr;
+        track.m_AnimationId = 0;
+        track.m_Playback = dmGui::PLAYBACK_LOOP_FORWARD;
+        track.m_CallbackInfo = nullptr;
+        track.m_CallbackId = 0;
+        node->m_AnimationTracks.Push(track);
+    }
+
+    GuiSpineAnimationTrack& targetTrack = node->m_AnimationTracks[trackIndex];
+
+    // Clear any existing callback for this track
+    ClearTrackCallback(&targetTrack);
+
+    // Set up the track
+    targetTrack.m_AnimationId = animation_id;
+    targetTrack.m_AnimationInstance = spAnimationState_setAnimation(node->m_AnimationStateInstance, trackIndex, animation, loop);
+    targetTrack.m_Playback = playback;
+    targetTrack.m_CallbackInfo = callback;
+    targetTrack.m_CallbackId++;
+
+    // Configure animation properties
+    targetTrack.m_AnimationInstance->timeScale = playback_rate;
+    targetTrack.m_AnimationInstance->reverse = IsReverse(playback);
+    targetTrack.m_AnimationInstance->mixDuration = blend_duration;
+    targetTrack.m_AnimationInstance->trackTime = dmMath::Clamp(offset, 
+        targetTrack.m_AnimationInstance->animationStart, 
+        targetTrack.m_AnimationInstance->animationEnd);
+
 
     return true;
 }
@@ -324,12 +381,12 @@ bool SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene)
         spSkeleton_dispose(node->m_SkeletonInstance);
     node->m_SkeletonInstance = 0;
 
-    // if we want to play an animation, the user needs to explicitly do it with gui.play_spine_anim()
-    // which will then ofc also use a callback
-    // It in turn means that we have no use for the current callback
-    // Also, we cannot delete it here, as we might be inside the current callback
-    node->m_HasNextCallback = 1;
-    node->m_NextCallback = 0;
+    // Clean up all track callbacks since we're changing scenes
+    for (int32_t i = 0; i < node->m_AnimationTracks.Size(); i++)
+    {
+        ClearTrackCallback(&node->m_AnimationTracks[i]);
+    }
+    node->m_AnimationTracks.SetSize(0);
 
     return SetupNode(spine_scene, resource, node, true);
 }
@@ -370,20 +427,38 @@ bool PlayAnimation(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t animation_i
     return PlayAnimation(node, animation_id, playback, blend_duration, offset, playback_rate, track, callback);
 }
 
+static void CancelTrackAnimation(InternalGuiNode* node, int32_t track_index)
+{
+    GuiSpineAnimationTrack* track = GetTrackFromIndex(node, track_index);
+    if (!track || !track->m_AnimationInstance)
+        return;
+
+    spAnimationState_clearTrack(node->m_AnimationStateInstance, track->m_AnimationInstance->trackIndex);
+
+    ClearTrackCallback(track);
+    track->m_AnimationInstance = nullptr;
+    track->m_AnimationId = 0;
+}
+
+static void CancelAllAnimations(InternalGuiNode* node)
+{
+    for (int32_t i = 0; i < node->m_AnimationTracks.Size(); i++) {
+        CancelTrackAnimation(node, i);
+    }
+}
+
 void CancelAnimation(dmGui::HScene scene, dmGui::HNode hnode)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    node->m_Playing = 0;
+    CancelAllAnimations(node);
 }
 
 void CancelAnimation(dmGui::HScene scene, dmGui::HNode hnode, int32_t track)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    if (node->m_AnimationStateInstance)
-    {
-        int trackIndex = track - 1; // Convert from 1-based to 0-based indexing
-        spAnimationState_setEmptyAnimation(node->m_AnimationStateInstance, trackIndex, 0.0f);
-    }
+    
+    int trackIndex = track - 1; // Convert from 1-based to 0-based indexing
+    CancelTrackAnimation(node, trackIndex);
 }
 
 bool AddSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id_a, dmhash_t skin_id_b){
@@ -494,34 +569,47 @@ dmhash_t GetSkin(dmGui::HScene scene, dmGui::HNode hnode)
     return node->m_SkinId;
 }
 
-dmhash_t GetAnimation(dmGui::HScene scene, dmGui::HNode hnode)
+dmhash_t GetAnimation(dmGui::HScene scene, dmGui::HNode hnode, int32_t track)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    return node->m_AnimationId;
+    
+    int trackIndex = track - 1;
+    GuiSpineAnimationTrack* targetTrack = GetTrackFromIndex(node, trackIndex);
+    return targetTrack ? targetTrack->m_AnimationId : 0;
 }
 
-bool SetCursor(dmGui::HScene scene, dmGui::HNode hnode, float cursor)
+bool SetCursor(dmGui::HScene scene, dmGui::HNode hnode, float cursor, int32_t track)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    if (!node->m_AnimationInstance)
+    
+    int trackIndex = track - 1;
+    GuiSpineAnimationTrack* targetTrack = GetTrackFromIndex(node, trackIndex);
+    if (!targetTrack || !targetTrack->m_AnimationInstance)
     {
         return false;
     }
 
     float unit_0_1 = fmodf(cursor + 1.0f, 1.0f);
 
-    float duration = node->m_AnimationInstance->animationEnd - node->m_AnimationInstance->animationStart;
+    float duration = targetTrack->m_AnimationInstance->animationEnd - targetTrack->m_AnimationInstance->animationStart;
     float t = unit_0_1 * duration;
 
-    node->m_AnimationInstance->trackTime = t;
-    node->m_UseCursor = 1;
+    targetTrack->m_AnimationInstance->trackTime = t;
     return true;
 }
 
-float GetCursor(dmGui::HScene scene, dmGui::HNode hnode)
+float GetCursor(dmGui::HScene scene, dmGui::HNode hnode, int32_t track)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    spTrackEntry* entry = node->m_AnimationInstance;
+    
+    int trackIndex = track - 1;
+    GuiSpineAnimationTrack* targetTrack = GetTrackFromIndex(node, trackIndex);
+    if (!targetTrack || !targetTrack->m_AnimationInstance)
+    {
+        return 0.0f;
+    }
+    
+    spTrackEntry* entry = targetTrack->m_AnimationInstance;
     float unit = 0.0f;
     if (entry)
     {
@@ -534,21 +622,29 @@ float GetCursor(dmGui::HScene scene, dmGui::HNode hnode)
     return unit;
 }
 
-bool SetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode, float playback_rate)
+bool SetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode, float playback_rate, int32_t track)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    if (!node->m_AnimationInstance)
+    
+    int trackIndex = track - 1;
+    GuiSpineAnimationTrack* targetTrack = GetTrackFromIndex(node, trackIndex);
+    if (!targetTrack || !targetTrack->m_AnimationInstance)
         return false;
-    node->m_AnimationInstance->timeScale = playback_rate;
+    
+    targetTrack->m_AnimationInstance->timeScale = playback_rate;
     return true;
 }
 
-float GetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode)
+float GetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode, int32_t track)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    if (!node->m_AnimationInstance)
+    
+    int trackIndex = track - 1;
+    GuiSpineAnimationTrack* targetTrack = GetTrackFromIndex(node, trackIndex);
+    if (!targetTrack || !targetTrack->m_AnimationInstance)
         return 1.0f;
-    return node->m_AnimationInstance->timeScale;
+    
+    return targetTrack->m_AnimationInstance->timeScale;
 }
 
 bool SetAttachment(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t slot_id, dmhash_t attachment_id)
@@ -771,6 +867,13 @@ static void DestroyNode(InternalGuiNode* node)
 {
     DeleteBones(node);
 
+    // Clean up all track callbacks
+    for (int32_t i = 0; i < node->m_AnimationTracks.Size(); i++)
+    {
+        ClearTrackCallback(&node->m_AnimationTracks[i]);
+    }
+    node->m_AnimationTracks.SetCapacity(0);
+
     if (node->m_AnimationStateInstance)
         spAnimationState_dispose(node->m_AnimationStateInstance);
     if (node->m_SkeletonInstance)
@@ -794,15 +897,13 @@ static void GuiDestroy(const dmGameSystem::CompGuiNodeContext* ctx, const dmGame
 {
     InternalGuiNode* node = (InternalGuiNode*)nodectx->m_NodeData;
 
-    // Always beware of deleting a callback to make sure it isn't done within the actual callback
-    if (node->m_Callback)
+    // Clean up all track callbacks
+    for (int32_t i = 0; i < node->m_AnimationTracks.Size(); i++)
     {
-        dmScript::DestroyCallback(node->m_Callback);
+        ClearTrackCallback(&node->m_AnimationTracks[i]);
     }
-    if (node->m_NextCallback)
-    {
-        dmScript::DestroyCallback(node->m_NextCallback);
-    }
+
+    // Track callbacks are already cleaned up above
 
     delete node;
     dmSpine::GuiSpineSceneRelease(nodectx->m_Scene);
@@ -835,6 +936,9 @@ static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNo
     node->m_AnimationStateInstance->userData = node;
     node->m_AnimationStateInstance->listener = SpineEventListener;
 
+    // Initialize animation tracks array
+    node->m_AnimationTracks.SetCapacity(8); // Start with capacity for 8 tracks
+
     spSkeleton_setToSetupPose(node->m_SkeletonInstance);
     spSkeleton_updateWorldTransform(node->m_SkeletonInstance, SP_PHYSICS_NONE);
 
@@ -864,7 +968,6 @@ static void* GuiClone(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameS
     // We don't get a GuiSetNodeDesc call when cloning, as we should already have the data we need in the node itself
     dst->m_Id = src->m_Id;
     dst->m_AdjustMode = src->m_AdjustMode;
-    dst->m_AnimationId = src->m_AnimationId;
     dst->m_SkinId = src->m_SkinId;
 
     // Setup the spine structures
@@ -888,42 +991,51 @@ static void* GuiClone(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameS
     memcpy(dst->m_BonesNames.Begin(), src->m_BonesNames.Begin(), sizeof(dmhash_t) * num_bones);
 
 
-    // Now set the correct animation
+    // Copy transform
     dst->m_Transform    = src->m_Transform;
-    dst->m_Playback     = src->m_Playback;
-    dst->m_Playing      = src->m_Playing;
-    dst->m_UseCursor    = src->m_UseCursor;
 
-    if (dst->m_AnimationId)
+    // Copy all tracks from source
+    uint32_t num_tracks = src->m_AnimationTracks.Size();
+    if (num_tracks > 0)
     {
-        uint32_t index = FindAnimationIndex(dst, dst->m_AnimationId);
-        if (index == INVALID_ANIMATION_INDEX)
-        {
-            dmLogError("No animation '%s' found", dmHashReverseSafe64(dst->m_AnimationId));
-        }
-        else if (index >= dst->m_SpineScene->m_Skeleton->animationsCount)
-        {
-            dmLogError("Animation index %u is too large. Number of animations are %u", index, dst->m_SpineScene->m_Skeleton->animationsCount);
-            index = INVALID_ANIMATION_INDEX;
-        }
+        dst->m_AnimationTracks.SetCapacity(num_tracks);
+        dst->m_AnimationTracks.SetSize(num_tracks);
 
-        if (index != INVALID_ANIMATION_INDEX)
+        for (uint32_t i = 0; i < num_tracks; i++)
         {
-            spAnimation* animation = dst->m_SpineScene->m_Skeleton->animations[index];
-            if (animation)
+            const GuiSpineAnimationTrack& srcTrack = src->m_AnimationTracks[i];
+            GuiSpineAnimationTrack& dstTrack = dst->m_AnimationTracks[i];
+
+            dstTrack.m_AnimationId = srcTrack.m_AnimationId;
+            dstTrack.m_Playback = srcTrack.m_Playback;
+            dstTrack.m_CallbackInfo = nullptr; // Don't copy callbacks
+            dstTrack.m_CallbackId = 0;
+            dstTrack.m_AnimationInstance = nullptr;
+
+            if (srcTrack.m_AnimationId && srcTrack.m_AnimationInstance)
             {
-                int trackIndex = 0;
-                int loop = IsLooping(dst->m_Playback);
-                dst->m_AnimationId = src->m_AnimationId;
-                dst->m_AnimationInstance = spAnimationState_setAnimation(dst->m_AnimationStateInstance, trackIndex, animation, loop);
+                uint32_t index = FindAnimationIndex(dst, srcTrack.m_AnimationId);
+                if (index != INVALID_ANIMATION_INDEX && index < dst->m_SpineScene->m_Skeleton->animationsCount)
+                {
+                    spAnimation* animation = dst->m_SpineScene->m_Skeleton->animations[index];
+                    if (animation)
+                    {
+                        int loop = IsLooping(srcTrack.m_Playback);
+                        dstTrack.m_AnimationInstance = spAnimationState_setAnimation(dst->m_AnimationStateInstance, i, animation, loop);
 
-                // Now copy the state of the animation
-                dst->m_AnimationInstance->trackTime = src->m_AnimationInstance->trackTime;
-                dst->m_AnimationInstance->reverse = src->m_AnimationInstance->reverse;
-                dst->m_AnimationInstance->timeScale = src->m_AnimationInstance->timeScale;
+                        // Copy the state of the animation
+                        if (dstTrack.m_AnimationInstance)
+                        {
+                            dstTrack.m_AnimationInstance->trackTime = srcTrack.m_AnimationInstance->trackTime;
+                            dstTrack.m_AnimationInstance->reverse = srcTrack.m_AnimationInstance->reverse;
+                            dstTrack.m_AnimationInstance->timeScale = srcTrack.m_AnimationInstance->timeScale;
+                        }
+                    }
+                }
             }
         }
     }
+
 
     return dst;
 }
@@ -941,7 +1053,7 @@ static void GuiSetNodeDesc(const dmGameSystem::CompGuiNodeContext* ctx, const dm
 
     node->m_Id = node_desc->m_Id;
     node->m_AdjustMode = (dmGui::AdjustMode)node_desc->m_AdjustMode;
-    node->m_AnimationId = dmHashString64(node_desc->m_SpineDefaultAnimation); // TODO: Q: Is the default playmode specified anywhere?
+    dmhash_t default_animation_id = dmHashString64(node_desc->m_SpineDefaultAnimation); // TODO: Q: Is the default playmode specified anywhere?
     node->m_SkinId = dmHashString64(node_desc->m_SpineSkin);
 
     SetupNode(name_hash, resource, node, true);
@@ -950,8 +1062,8 @@ static void GuiSetNodeDesc(const dmGameSystem::CompGuiNodeContext* ctx, const dm
         SetSkin(node->m_GuiScene, node->m_GuiNode, node->m_SkinId);
     }
 
-    if (node->m_AnimationId) {
-        PlayAnimation(node, node->m_AnimationId, dmGui::PLAYBACK_LOOP_FORWARD, 0.0f, 0.0f, 1.0f, 1, 0);
+    if (default_animation_id) {
+        PlayAnimation(node, default_animation_id, dmGui::PLAYBACK_LOOP_FORWARD, 0.0f, 0.0f, 1.0f, 1, 0);
     }
 }
 
@@ -1031,20 +1143,20 @@ static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
 
     if (!node->m_AnimationStateInstance)
         return;
+    float anim_dt = dt;
 
-    if (node->m_HasNextCallback)
+    // Check if any track is playing
+    bool anyTrackPlaying = false;
+    for (int32_t i = 0; i < node->m_AnimationTracks.Size(); i++)
     {
-        if (node->m_Callback)
-            dmScript::DestroyCallback(node->m_Callback);
-        node->m_Callback = node->m_NextCallback;
-        node->m_HasNextCallback = 0;
-        node->m_NextCallback = 0;
+        if (node->m_AnimationTracks[i].m_AnimationInstance)
+        {
+            anyTrackPlaying = true;
+            break;
+        }
     }
 
-    float anim_dt = node->m_UseCursor ? 0.0f : dt;
-    node->m_UseCursor = 0;
-
-    if (node->m_Playing)
+    if (anyTrackPlaying)
     {
         spAnimationState_update(node->m_AnimationStateInstance, anim_dt);
         spAnimationState_apply(node->m_AnimationStateInstance, node->m_SkeletonInstance);
