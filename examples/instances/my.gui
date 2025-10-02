@@ -1,0 +1,34 @@
+nodes {
+  position {
+    x: 97.0
+    y: 300.0
+  }
+  type: TYPE_CUSTOM
+  id: "person_1"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+  spine_scene: "person_1"
+  custom_type: 405028931
+}
+nodes {
+  position {
+    x: 295.0
+    y: 300.0
+  }
+  type: TYPE_CUSTOM
+  id: "person_2"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+  spine_scene: "person_2"
+  custom_type: 405028931
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT
+resources {
+  name: "person_1"
+  path: "/examples/instances/person_1/person_1.spinescene"
+}
+resources {
+  name: "person_2"
+  path: "/examples/instances/person_2/person_2.spinescene"
+}

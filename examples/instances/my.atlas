@@ -1,0 +1,7 @@
+images {
+  image: "/examples/instances/assets/order_person_1.png"
+}
+images {
+  image: "/examples/instances/assets/order_person_2.png"
+}
+extrude_borders: 2

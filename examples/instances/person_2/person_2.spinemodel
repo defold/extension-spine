@@ -1,0 +1,4 @@
+spine_scene: "/examples/instances/person_2/person_2.spinescene"
+default_animation: "animation"
+skin: ""
+material: "/defold-spine/assets/spine.material"

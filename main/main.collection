@@ -170,3 +170,13 @@ embedded_instances {
   "}\n"
   ""
 }
+embedded_instances {
+  id: "instances"
+  data: "embedded_components {\n"
+  "  id: \"collection_proxy\"\n"
+  "  type: \"collectionproxy\"\n"
+  "  data: \"collection: \\\"/examples/instances/instances.collection\\\"\\n"
+  "\"\n"
+  "}\n"
+  ""
+}

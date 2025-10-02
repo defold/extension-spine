@@ -1,0 +1,1 @@
+{"skeleton":{"hash":"VawJeEU4B2M","spine":"4.2.37"},"bones":[{"name":"root"}],"slots":[{"name":"order_person_2","bone":"root","attachment":"order_person_2"}],"skins":[{"name":"default","attachments":{"order_person_2":{"order_person_2":{"y":106,"width":151,"height":212}}}}],"animations":{"animation":{}}}

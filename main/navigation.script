@@ -11,7 +11,8 @@ local examples = {
 	{ name = "Physics", proxy_id = "physics_proxy", description = "Demonstrates physics integration" },
 	{ name = "GUI Spine Demo", proxy_id = "gui_spine_demo_proxy", description = "Shows GUI-based spine rendering" },
 	{ name = "MixBlend 'Add' Demo", proxy_id = "owl_mix_blend_add_proxy", description = "Demonstrates additive mix blend" },
-	{ name = "Swap Spine Scenes", proxy_id = "swap_spinescene_proxy", description = "Two models swap their spine_scene after 1 second" }
+	{ name = "Swap Spine Scenes", proxy_id = "swap_spinescene_proxy", description = "Two models swap their spine_scene after 1 second" },
+	{ name = "Instances", proxy_id = "instances", description = "Two models drawn using components and GUIs" }
 }
 
 local current_example = 1
