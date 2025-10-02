@@ -443,7 +443,9 @@
     (assoc {:node-id _node-id :aabb aabb}
       :renderable {:render-fn render-spine-scenes
                    :tags #{:spine}
-                   :batch-key [gpu-texture material-shader]
+                   ;; batching is broken for now so spine components are rendered separately at right places
+                   ;; it should be properly fixed in the future
+                   :batch-key _node-id                           ;;[gpu-texture material-shader]
                    :select-batch-key _node-id
                    :user-data {:aabb aabb
                                :spine-scene-pb spine-scene-pb
