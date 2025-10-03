@@ -137,6 +137,11 @@
         aabb (geom/coords->aabb [(.-minX paabb) (.-minY paabb) 0] [(.-maxX paabb) (.-maxY paabb) 0])]
     aabb))
 
+;; Public helper for other editor namespaces (e.g. GUI) to fetch the
+;; AABB for a Spine handle using the same implementation as above.
+(defn handle->aabb [handle]
+  (get-aabb handle))
+
 (set! *warn-on-reflection* true)
 
 (def ^:private ^TextureSetGenerator$UVTransform uv-identity (TextureSetGenerator$UVTransform.))

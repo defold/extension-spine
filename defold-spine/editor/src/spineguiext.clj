@@ -22,6 +22,7 @@
             [editor.gl.texture]
             [editor.graph-util :as gu]
             [editor.gui :as gui]
+            [editor.types :as types]
             [editor.outline :as outline]
             [editor.properties :as properties]
             [editor.protobuf :as protobuf]
@@ -95,6 +96,16 @@
   (let [vertices (mapcat (fn [renderable] (renderable->vertices renderable)) renderables)
         vb-out (spineext/generate-vertex-buffer vertices)]
     vb-out))
+
+(defn- aabb->rect-lines [aabb]
+  (let [minp (types/min-p aabb)
+        maxp (types/max-p aabb)
+        [x0 y0 _] (types/Point3d->Vec3 minp)
+        [x1 y1 _] (types/Point3d->Vec3 maxp)]
+    [[x0 y0 0] [x1 y0 0]
+     [x1 y0 0] [x1 y1 0]
+     [x1 y1 0] [x0 y1 0]
+     [x0 y1 0] [x0 y0 0]]))
 
 (g/defnk produce-spine-node-msg [visual-base-node-msg ^:raw spine-scene ^:raw spine-default-animation ^:raw spine-skin ^:raw clipping-mode ^:raw clipping-visible ^:raw clipping-inverted]
   (merge visual-base-node-msg
@@ -190,20 +201,21 @@
                                                    (produce-local-vertices spine-data-handle spine-skin spine-default-animation 0.0)))
 
   (output aabb g/Any
-          (g/fnk [costly-gui-scene-info spine-scene spine-skin]
-            (let [spine-scene-infos (:spine-scene-infos costly-gui-scene-info)
-                  spine-skin-name (if (= spine-skin "") "default" spine-skin)]
-              (or (get-in spine-scene-infos [spine-scene :spine-skin-aabbs spine-skin-name])
-                  geom/empty-bounding-box))))
+          (g/fnk [spine-data-handle]
+            (if spine-data-handle
+              (spineext/handle->aabb spine-data-handle)
+              geom/empty-bounding-box)))
 
   ; Overloaded outputs from VisualNode
   (output gpu-texture TextureLifecycle (g/constantly nil))
-  (output scene-renderable-user-data g/Any :cached (g/fnk [spine-scene-scene spine-vertex-buffer color+alpha clipping-mode clipping-inverted clipping-visible]
-                                                          (let [user-data (assoc (get-in spine-scene-scene [:renderable :user-data])
+  (output scene-renderable-user-data g/Any :cached (g/fnk [aabb spine-scene-scene spine-vertex-buffer color+alpha clipping-mode clipping-inverted clipping-visible]
+                                                          (let [lines (aabb->rect-lines aabb)
+                                                                user-data (assoc (get-in spine-scene-scene [:renderable :user-data])
                                                                                  :color color+alpha
                                                                                  :renderable-tags #{:gui-spine}
                                                                                  :gen-vb gen-vb
-                                                                                 :spine-vertex-buffer spine-vertex-buffer)]
+                                                                                 :spine-vertex-buffer spine-vertex-buffer
+                                                                                 :line-data lines)]
                                                             (cond-> user-data
                                                               (not= :clipping-mode-none clipping-mode)
                                                               (assoc :clipping {:mode clipping-mode :inverted clipping-inverted :visible clipping-visible})))))
