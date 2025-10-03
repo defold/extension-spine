@@ -82,16 +82,17 @@
       vb-data-vec)
     []))
 
-(defn- renderable->vertices [user-data renderable]
+(defn- renderable->vertices [renderable]
   (let [handle (spineext/renderable->handle renderable)
         world-transform (:world-transform renderable)
-        vertex-buffer (:spine-vertex-buffer user-data)
-        color (:color user-data)
+        per-node-user-data (:user-data renderable)
+        vertex-buffer (:spine-vertex-buffer per-node-user-data)
+        color (:color per-node-user-data)
         vb-data-transformed (map (fn [vtx] (transform-vtx world-transform color vtx)) vertex-buffer)]
     vb-data-transformed))
 
 (defn- gen-vb [user-data renderables]
-  (let [vertices (mapcat (fn [renderable] (renderable->vertices user-data renderable)) renderables)
+  (let [vertices (mapcat (fn [renderable] (renderable->vertices renderable)) renderables)
         vb-out (spineext/generate-vertex-buffer vertices)]
     vb-out))
 
