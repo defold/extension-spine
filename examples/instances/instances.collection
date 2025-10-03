@@ -4,7 +4,7 @@ embedded_instances {
   id: "go"
   data: "components {\n"
   "  id: \"my\"\n"
-  "  component: \"/examples/instances/my.gui\"\n"
+  "  component: \"/examples/instances/instance.gui\"\n"
   "}\n"
   ""
 }
