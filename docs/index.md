@@ -384,6 +384,13 @@ Spine Default Animation
 Skin
 : The skin to use for the animation when the scene is initialized.
 
+Create Bones
+: When enabled, creates individual GUI nodes for each Spine bone under the Spine node. This allows parenting other GUI nodes to bones and using functions such as [`gui.get_spine_bone()`](/extension-spine/gui_api#gui.get_spine_bone).
+
+- Default for new nodes: Off. Keeps node count low and improves performance.
+- Existing projects: Maintained as On by default for backwards compatibility.
+- Note: If disabled, functions that require per-bone GUI nodes (e.g. `gui.get_spine_bone`, addressing nodes as `spine_node_id/bone_name`) will not work.
+
 
 ### Runtime animation control
 
@@ -446,6 +453,8 @@ Notes:
 ### GUI node bone hierarchy
 
 The individual bones in the Spine skeleton can be accessed as GUI nodes. The nodes are named according to their names in the Spine setup.
+
+Note: Access to per-bone GUI nodes requires the Spine node’s Create Bones option to be enabled.
 
 ![Spine bone names](bone.png)
 

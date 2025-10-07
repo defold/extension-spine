@@ -110,6 +110,11 @@ function init(self)
         gui.set_parent(bone_sprite_clone, bone)
     end
 
+
+    timer.delay(0, false, function()
+        print("NODE:", gui.get_spine_bone(gui.get_node("spine1"), "aim-constraint-target"))
+    end)
+
     --get bone from clone
     self.n1 = gui.get_node("box")
     gui.set_enabled(self.n1, false)

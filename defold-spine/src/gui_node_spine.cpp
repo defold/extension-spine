@@ -976,7 +976,9 @@ static void* GuiClone(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameS
     // But, since the cloned nodes doesn't have any id's, we can't fetch them via id
     // So, we instead create specific gui node type for the bones, and let them register themselves to this cloned node
     SetupNode(src->m_SpinePath, src->m_SpineScene, dst, false);
-    dst->m_FindBones = 1;
+    // Only attempt to find bones on the cloned node if the source node had bones.
+    // Avoids unnecessary scanning and array growth when the original had no bones created.
+    dst->m_FindBones = src->m_BonesNodes.Size() > 0 ? 1 : 0;
 
     uint32_t num_bones = src->m_BonesNodes.Size();
     dst->m_BonesNodes.SetCapacity(num_bones);
@@ -1056,7 +1058,7 @@ static void GuiSetNodeDesc(const dmGameSystem::CompGuiNodeContext* ctx, const dm
     dmhash_t default_animation_id = dmHashString64(node_desc->m_SpineDefaultAnimation); // TODO: Q: Is the default playmode specified anywhere?
     node->m_SkinId = dmHashString64(node_desc->m_SpineSkin);
 
-    SetupNode(name_hash, resource, node, true);
+    SetupNode(name_hash, resource, node, node_desc->m_SpineCreateBones);
 
     if (node->m_SkinId) {
         SetSkin(node->m_GuiScene, node->m_GuiNode, node->m_SkinId);
