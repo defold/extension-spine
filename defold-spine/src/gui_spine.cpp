@@ -46,6 +46,9 @@ static dmGameObject::PropertyResult CompSpineGuiSetProperty(dmGui::HScene scene,
         SceneOverrides* ov = new SceneOverrides();
         ov->m_AliasToResource.SetCapacity(4, 8);
         ov->m_Keys.SetCapacity(8);
+        if (g_SceneOverrides.Full()) {
+            g_SceneOverrides.OffsetCapacity(8);
+        }
         g_SceneOverrides.Put(skey, ov);
         scene_bucket_ptr = g_SceneOverrides.Get(skey);
     }
@@ -168,6 +171,9 @@ void GuiSpineSceneRetain(dmGui::HScene scene)
     uint64_t skey = SceneKey(scene);
     uint32_t* cnt = g_SceneRefcounts.Get(skey);
     if (!cnt) {
+        if (g_SceneRefcounts.Full()) {
+            g_SceneRefcounts.OffsetCapacity(8);
+        }
         g_SceneRefcounts.Put(skey, 1);
     } else {
         (*cnt)++;
@@ -205,11 +211,14 @@ void GuiSpineRegisterNode(dmGui::HScene scene, dmGui::HNode node)
     if (!nodes_ptr) {
         dmArray<dmGui::HNode>* list = new dmArray<dmGui::HNode>();
         list->SetCapacity(8);
+        if (g_SceneNodes.Full()) {
+            g_SceneNodes.OffsetCapacity(8);
+        }
         g_SceneNodes.Put(skey, list);
         nodes_ptr = g_SceneNodes.Get(skey);
     }
     dmArray<dmGui::HNode>* nodes = *nodes_ptr;
-    if (nodes->Full()) nodes->OffsetCapacity(8);
+    if (nodes->Full()) nodes->OffsetCapacity(16);
     nodes->Push(node);
 }
 
