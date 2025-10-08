@@ -388,7 +388,6 @@ Create Bones
 : When enabled, creates individual GUI nodes for each Spine bone under the Spine node. This allows parenting other GUI nodes to bones and using functions such as [`gui.get_spine_bone()`](/extension-spine/gui_api#gui.get_spine_bone).
 
 - Default for new nodes: Off. Keeps node count low and improves performance.
-- Existing projects: Maintained as On by default for backwards compatibility.
 - Note: If disabled, functions that require per-bone GUI nodes (e.g. `gui.get_spine_bone`, addressing nodes as `spine_node_id/bone_name`) will not work.
 
 
