@@ -159,8 +159,7 @@
             (dynamic edit-type (gui/layout-property-edit-type clipping-inverted {:type g/Bool}))
             (value (gui/layout-property-getter clipping-inverted))
             (set (gui/layout-property-setter clipping-inverted)))
-
-  (property spine-create-bones g/Bool (protobuf/default Gui$NodeDesc :spine-create-bones)
+  (property spine-create-bones g/Bool (default (protobuf/default Gui$NodeDesc :spine-create-bones))
             (dynamic label (g/constantly "Create Bones"))
             (dynamic edit-type (gui/layout-property-edit-type spine-create-bones {:type g/Bool}))
             (value (gui/layout-property-getter spine-create-bones))
