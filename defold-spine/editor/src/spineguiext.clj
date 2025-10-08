@@ -107,13 +107,14 @@
      [x1 y1 0] [x0 y1 0]
      [x0 y1 0] [x0 y0 0]]))
 
-(g/defnk produce-spine-node-msg [visual-base-node-msg ^:raw spine-scene ^:raw spine-default-animation ^:raw spine-skin ^:raw clipping-mode ^:raw clipping-visible ^:raw clipping-inverted]
+(g/defnk produce-spine-node-msg [visual-base-node-msg ^:raw spine-scene ^:raw spine-default-animation ^:raw spine-skin ^:raw spine-create-bones ^:raw clipping-mode ^:raw clipping-visible ^:raw clipping-inverted]
   (merge visual-base-node-msg
          (protobuf/make-map-without-defaults Gui$NodeDesc
            :size-mode :size-mode-auto
            :spine-scene spine-scene
            :spine-default-animation spine-default-animation
            :spine-skin spine-skin
+           :spine-create-bones spine-create-bones
            :clipping-mode clipping-mode
            :clipping-visible clipping-visible
            :clipping-inverted clipping-inverted)))
@@ -158,9 +159,14 @@
             (dynamic edit-type (gui/layout-property-edit-type clipping-inverted {:type g/Bool}))
             (value (gui/layout-property-getter clipping-inverted))
             (set (gui/layout-property-setter clipping-inverted)))
+  (property spine-create-bones g/Bool (default (protobuf/default Gui$NodeDesc :spine-create-bones))
+            (dynamic label (g/constantly "Create Bones"))
+            (dynamic edit-type (gui/layout-property-edit-type spine-create-bones {:type g/Bool}))
+            (value (gui/layout-property-getter spine-create-bones))
+            (set (gui/layout-property-setter spine-create-bones)))
 
   (display-order (into gui/base-display-order
-                       [:spine-scene :spine-default-animation :spine-skin :color :alpha :inherit-alpha :layer :blend-mode :pivot :x-anchor :y-anchor
+                       [:spine-scene :spine-default-animation :spine-skin :spine-create-bones :color :alpha :inherit-alpha :layer :blend-mode :pivot :x-anchor :y-anchor
                         :adjust-mode :clipping :visible-clipper :inverted-clipper]))
 
   (output node-msg g/Any :cached produce-spine-node-msg)
