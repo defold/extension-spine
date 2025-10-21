@@ -28,16 +28,16 @@
             [editor.outline :as outline]
             [editor.properties :as properties]
             [editor.protobuf :as protobuf]
-            [editor.render :as render]
+            [editor.render-util :as render-util]
             [editor.resource :as resource]
             [editor.resource-node :as resource-node]
             [editor.scene-picking :as scene-picking]
+            [editor.shaders :as shaders]
             [editor.types :as types]
             [editor.validation :as validation]
             [editor.workspace :as workspace]
             [util.murmur :as murmur])
   (:import [com.dynamo.bob.textureset TextureSetGenerator$UVTransform]
-           [com.dynamo.bob.pipeline ShaderUtil$Common ShaderUtil$VariantTextureArrayFallback]
            [com.jogamp.opengl GL GL2]
            [editor.gl.shader ShaderLifecycle]
            [editor.types AABB]
@@ -201,34 +201,6 @@
 ;;                                           (.transform transform p)
 ;;                                           [(.x p) (.y p) (.z p)])))))))
 
-
-(shader/defshader spine-id-vertex-shader
-  (uniform mat4 view_proj)
-  (attribute vec4 position)
-  (attribute vec2 texcoord0)
-  (attribute float page_index)
-  (varying vec2 var_texcoord0)
-  (varying float var_page_index)
-  (defn void main []
-    (setq gl_Position (* view_proj (vec4 position.xyz 1.0)))
-    (setq var_texcoord0 texcoord0)
-    (setq var_page_index page_index)))
-
-(shader/defshader spine-id-fragment-shader
-  (varying vec2 var_texcoord0)
-  (varying float var_page_index)
-  (uniform vec4 id)
-  (uniform sampler2DArray texture_sampler)
-  (defn void main []
-    (setq vec4 color (texture2DArray texture_sampler (vec3 var_texcoord0 var_page_index)))
-    (if (> color.a 0.05)
-      (setq gl_FragColor id)
-      (discard))))
-
-(def spine-id-shader
-  (let [augmented-fragment-shader-source (.source (ShaderUtil$VariantTextureArrayFallback/transform spine-id-fragment-shader ShaderUtil$Common/MAX_ARRAY_SAMPLERS))]
-    (shader/make-shader ::id-shader spine-id-vertex-shader augmented-fragment-shader-source {"view_proj" :view-proj "id" :id})))
-
 ; See SpineVertex
 (vtx/defvertex vtx-pos-tex-col-index
   (vec3 position)
@@ -347,7 +319,9 @@
         (shader/set-uniform shader gl (constant-hash->name name-hash) value)))))
 
 (defn- set-constants! [^GL2 gl shader ro]
-  (doall (map (fn [constant] (set-constant! gl shader constant)) (.m_Constants ro))))
+  (run! (fn [constant]
+          (set-constant! gl shader constant))
+        (.m_Constants ro)))
 
 (defn- blend-factor-value-to-blend-mode [blend-factor-value]
   (case blend-factor-value
@@ -360,7 +334,7 @@
 (defn- do-render-object! [^GL2 gl render-args shader renderable ro]
   (let [start (.m_VertexStart ro)                           ; the name is from the engine, but in this case refers to the index
         count (.m_VertexCount ro)
-        is-selection-pass? (= (:selection (:pass render-args)) true)
+        is-selection-pass (:selection (:pass render-args))
         renderable-user-data (:user-data renderable)
         renderable-blend-mode (:blend-mode renderable-user-data)
         blend-mode (if (= renderable-blend-mode :blend-mode-inherit)
@@ -380,18 +354,18 @@
                                                           (:view render-args)
                                                           (:projection render-args)
                                                           (:texture render-args)))]
-    (when-not is-selection-pass?
+    (when-not is-selection-pass
       (gl/set-blend-mode gl blend-mode))
-    (shader/set-uniform shader gl "world_view_proj" (:world-view-proj render-args))
-    (shader/set-uniform shader gl "view_proj" (:world-view-proj render-args))
+    (if is-selection-pass
+      (shader/set-uniform shader gl "mtx_world_view_proj" (:world-view-proj render-args))
+      (shader/set-uniform shader gl "world_view_proj" (:world-view-proj render-args)))
     (when (not= (.m_SetFaceWinding ro) 0)
       (gl/gl-front-face gl face-winding))
     (when (not= (.m_SetStencilTest ro) 0)
       (set-stencil-test-params! gl (.m_StencilTestParams ro)))
-    (when (not use-index-buffer)
+    (if use-index-buffer
+      (gl/gl-draw-elements gl triangle-mode GL/GL_UNSIGNED_INT start count)
       (gl/gl-draw-arrays gl triangle-mode start count))
-    (when use-index-buffer
-      (gl/gl-draw-elements gl triangle-mode start count))
     (gl/set-blend-mode gl :blend-mode-alpha)))
 
 (set! *warn-on-reflection* true)
@@ -410,32 +384,34 @@
   (let [renderable (:renderable group)
         user-data (:user-data renderable)
         gpu-texture (or (get user-data :gpu-texture) texture/white-pixel)
-        shader (if (not= override-shader nil) override-shader (:shader user-data))
+        shader (or override-shader (:shader user-data))
         vb (:vertex-buffer group)
         render-objects (:render-objects group)
         vertex-binding (vtx/use-with ::spine-trans vb shader)]
-    (gl/with-gl-bindings gl render-args [gpu-texture shader vertex-binding]
+    (gl/with-gl-bindings gl render-args [shader gpu-texture vertex-binding]
       (setup-gl gl)
-      (doall (map (fn [ro] (do-render-object! gl render-args shader renderable ro)) render-objects))
+      (run! (fn [ro]
+              (do-render-object! gl render-args shader renderable ro))
+            render-objects)
       (restore-gl gl))))
 
-(defn- render-spine-outlines [^GL2 gl render-args renderables rcount]
-  (assert (= (:pass render-args) pass/outline))
-  (render/render-aabb-outline gl render-args ::spine-outline renderables rcount))
-
-;; When debugging render using REPL, don't forget to run (g/clear-system-cache!)
+;; When debugging render using REPL, don't forget to run (dev/clear-caches!)
 ;; Also, it's possible to switch render modes in the Debug Editor using Cmd+T
 (defn- render-spine-scenes [^GL2 gl render-args renderables rcount]
   (let [pass (:pass render-args)]
     (condp = pass
       pass/transparent
       (when-let [groups (collect-render-groups renderables)]
-        (doall (map (fn [renderable] (render-group-transparent gl render-args nil renderable)) groups)))
+        (run! (fn [renderable]
+                (render-group-transparent gl render-args nil renderable))
+              groups))
 
       pass/selection
       (when-let [groups (collect-render-groups renderables)]
-        (let [new-args (assoc render-args :id (scene-picking/renderable-picking-id-uniform (first renderables)))]
-          (doall (map (fn [renderable] (render-group-transparent gl new-args spine-id-shader renderable)) groups)))))))
+        (let [new-args (assoc render-args :id-color (scene-picking/renderable-picking-id-uniform (first renderables)))]
+          (run! (fn [renderable]
+                  (render-group-transparent gl new-args shaders/selection-uniform-paged-world-space renderable))
+                groups))))))
 
 ;; (defn- render-spine-skeletons [^GL2 gl render-args renderables rcount]
 ;;   (assert (= (:pass render-args) pass/transparent))
@@ -465,10 +441,7 @@
 (defn- make-spine-outline-scene [_node-id aabb]
   {:aabb aabb
    :node-id _node-id
-   :renderable {:render-fn render-spine-outlines
-                :tags #{:spine :outline}
-                :batch-key ::outline
-                :passes [pass/outline]}})
+   :renderable (render-util/make-aabb-outline-renderable #{:spine})})
 
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1007,7 +980,7 @@
                                                               :icon spine-model-icon
                                                               :outline-error? (g/error-fatal? own-build-errors)}
 
-                                                             (resource/openable-resource? spine-scene)
+                                                             (resource/resource? spine-scene)
                                                              (assoc :link spine-scene :outline-reference? false))))
   (output model-pb g/Any produce-model-pb)
   (output save-value g/Any (gu/passthrough model-pb))

@@ -306,13 +306,15 @@
   (input spine-scene-pb g/Any :substitute (constantly nil))
 
   (output dep-build-targets g/Any (gu/passthrough dep-build-targets))
-  (output node-outline outline/OutlineData :cached (g/fnk [_node-id name spine-scene-resource build-errors spine-skins spine-anim-ids]
-                                                          (cond-> {:node-id _node-id
-                                                                   :node-outline-key name
-                                                                   :label name
-                                                                   :icon spineext/spine-scene-icon
-                                                                   :outline-error? (g/error-fatal? build-errors)}
-                                                            (resource/openable-resource? spine-scene-resource) (assoc :link spine-scene-resource :outline-show-link? true))))
+  (output node-outline outline/OutlineData :cached (g/fnk [_node-id name spine-scene-resource build-errors]
+                                                     (cond-> {:node-id _node-id
+                                                              :node-outline-key name
+                                                              :label name
+                                                              :icon spineext/spine-scene-icon
+                                                              :outline-error? (g/error-fatal? build-errors)}
+
+                                                             (resource/resource? spine-scene-resource)
+                                                             (assoc :link spine-scene-resource :outline-show-link? true))))
   (output pb-msg g/Any (g/fnk [name spine-scene]
                               {:name name
                                :path (resource/resource->proj-path spine-scene)}))
