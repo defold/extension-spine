@@ -57,6 +57,10 @@ static dmGameObject::PropertyResult CompSpineGuiSetProperty(dmGui::HScene scene,
     // Fetch or create alias storage
     void** slot = scene_bucket->m_AliasToResource.Get(name_hash);
     if (!slot) {
+        if (scene_bucket->m_AliasToResource.Full()) {
+            scene_bucket->m_AliasToResource.OffsetCapacity(8);
+            scene_bucket->m_Keys.OffsetCapacity(8);
+        }
         scene_bucket->m_AliasToResource.Put(name_hash, 0);
         scene_bucket->m_Keys.Push(name_hash);
         slot = scene_bucket->m_AliasToResource.Get(name_hash);
