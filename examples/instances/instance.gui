@@ -12,7 +12,19 @@ nodes {
 }
 nodes {
   position {
-    x: 295.0
+    x: 165.0
+    y: 402.0
+  }
+  type: TYPE_CUSTOM
+  id: "person_"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+  spine_scene: "person_1"
+  custom_type: 405028931
+}
+nodes {
+  position {
+    x: 218.0
     y: 300.0
   }
   type: TYPE_CUSTOM
@@ -20,6 +32,42 @@ nodes {
   inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
   spine_scene: "person_2"
+  custom_type: 405028931
+}
+nodes {
+  position {
+    x: 300.0
+    y: 416.0
+  }
+  type: TYPE_CUSTOM
+  id: "person_3"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+  spine_scene: "person_2"
+  custom_type: 405028931
+}
+nodes {
+  position {
+    x: 336.0
+    y: 300.0
+  }
+  type: TYPE_CUSTOM
+  id: "person_4"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+  spine_scene: "person_1"
+  custom_type: 405028931
+}
+nodes {
+  position {
+    x: 404.0
+    y: 402.0
+  }
+  type: TYPE_CUSTOM
+  id: "person_5"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+  spine_scene: "person_1"
   custom_type: 405028931
 }
 material: "/builtins/materials/gui.material"

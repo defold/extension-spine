@@ -382,6 +382,7 @@
                                                           (:texture render-args)))]
     (when-not is-selection-pass?
       (gl/set-blend-mode gl blend-mode))
+    (shader/set-uniform shader gl "world_view_proj" (:world-view-proj render-args))
     (shader/set-uniform shader gl "view_proj" (:world-view-proj render-args))
     (when (not= (.m_SetFaceWinding ro) 0)
       (gl/gl-front-face gl face-winding))
