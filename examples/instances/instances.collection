@@ -28,3 +28,51 @@ embedded_instances {
   "}\n"
   ""
 }
+embedded_instances {
+  id: "go2"
+  data: "components {\n"
+  "  id: \"person_1\"\n"
+  "  component: \"/examples/instances/person_1/person_1.spinemodel\"\n"
+  "  position {\n"
+  "    x: 99.0\n"
+  "    y: 21.0\n"
+  "  }\n"
+  "}\n"
+  "components {\n"
+  "  id: \"person_2\"\n"
+  "  component: \"/examples/instances/person_2/person_2.spinemodel\"\n"
+  "  position {\n"
+  "    x: 297.0\n"
+  "    y: 21.0\n"
+  "  }\n"
+  "}\n"
+  ""
+  position {
+    x: 55.0
+    y: 58.0
+  }
+}
+embedded_instances {
+  id: "go3"
+  data: "components {\n"
+  "  id: \"person_1\"\n"
+  "  component: \"/examples/instances/person_1/person_1.spinemodel\"\n"
+  "  position {\n"
+  "    x: 99.0\n"
+  "    y: 21.0\n"
+  "  }\n"
+  "}\n"
+  "components {\n"
+  "  id: \"person_2\"\n"
+  "  component: \"/examples/instances/person_2/person_2.spinemodel\"\n"
+  "  position {\n"
+  "    x: 171.0\n"
+  "    y: 81.0\n"
+  "  }\n"
+  "}\n"
+  ""
+  position {
+    x: 332.0
+    y: -2.0
+  }
+}
