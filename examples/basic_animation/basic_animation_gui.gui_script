@@ -29,8 +29,6 @@ function init(self)
 	self.ik_target = gui.get_node("ik_target")
 	self.title = gui.get_node("title")
 	
-	-- Basic animation setup - same as GO version
-	gui.play_spine_anim(self.spine_node, "idle", gui.PLAYBACK_LOOP_FORWARD)
 	gui.set_spine_skin(self.spine_node, hash("default"))
 	
 	-- Properties demonstration - same as GO version  
@@ -49,7 +47,10 @@ function init(self)
 	self.bone_node = bone_node
 	
 	-- Multi-track animation - same as GO version
-	gui.play_spine_anim(self.spine_node, "idle", gui.PLAYBACK_LOOP_FORWARD, { track = 1 })
+	gui.play_spine_anim(self.spine_node, "idle", gui.PLAYBACK_ONCE_FORWARD, { track = 1 }, function()
+		-- this construction used just to test this crash: https://github.com/defold/extension-spine/issues/240
+		gui.play_spine_anim(self.spine_node, "idle", gui.PLAYBACK_LOOP_FORWARD, { track = 1 })
+	end)
 	gui.play_spine_anim(self.spine_node, "aim", gui.PLAYBACK_LOOP_FORWARD, { track = 2 })
 	
 	-- Set IK target to follow the ik_target GUI node (equivalent to GO version)

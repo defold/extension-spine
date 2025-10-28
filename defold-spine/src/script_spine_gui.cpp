@@ -189,6 +189,11 @@ namespace dmSpine
 
         if (!result)
         {
+            // destroy callback immediately if error happened
+            if (cbk)
+            {
+                dmScript::DestroyCallback(cbk);
+            }
             dmLogError("Could not play spine animation '%s'.", dmHashReverseSafe64(anim_id));
         }
 
