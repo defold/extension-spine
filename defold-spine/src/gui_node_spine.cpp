@@ -143,7 +143,6 @@ static void ClearTrackCallback(GuiSpineAnimationTrack* track)
     }
 }
 
-
 static void SendAnimationDone(InternalGuiNode* node, const spAnimationState* state, const spTrackEntry* entry, const spEvent* event)
 {
     GuiSpineAnimationTrack* track = GetTrackFromIndex(node, entry->trackIndex);
@@ -158,22 +157,27 @@ static void SendAnimationDone(InternalGuiNode* node, const spAnimationState* sta
     // Send to track-specific callback if available
     if (track->m_CallbackInfo && dmScript::IsCallbackValid(track->m_CallbackInfo))
     {
+        // Take a local copy of the callback pointer to avoid using a potentially
+        // cleared/replaced pointer if the Lua callback calls gui.play_spine_anim()
+        // (which may clear the track callback immediately).
+        // Fix https://github.com/defold/extension-spine/issues/240
+        dmScript::LuaCallbackInfo* cbk = track->m_CallbackInfo;
         // Store callback ID to check if callback is still valid after execution
         uint32_t callbackId = track->m_CallbackId;
-        
-        lua_State* L = dmScript::GetCallbackLuaContext(track->m_CallbackInfo);
+
+        lua_State* L = dmScript::GetCallbackLuaContext(cbk);
         DM_LUA_STACK_CHECK(L, 0);
 
-        if (dmScript::SetupCallback(track->m_CallbackInfo))
+        if (dmScript::SetupCallback(cbk))
         {
             dmGui::LuaPushNode(L, node->m_GuiScene, node->m_GuiNode);
             dmScript::PushHash(L, dmGameSystemDDF::SpineAnimationDone::m_DDFDescriptor->m_NameHash);
             dmScript::PushDDF(L, dmGameSystemDDF::SpineAnimationDone::m_DDFDescriptor, (const char*)&message, true);
 
             dmScript::PCall(L, 4, 0); // instance + 3
-            dmScript::TeardownCallback(track->m_CallbackInfo);
+            dmScript::TeardownCallback(cbk);
         }
-        
+
         // Only clear callback if it hasn't been replaced during callback execution
         // (user might have called gui.play_spine_anim from within the callback)
         if (callbackId == track->m_CallbackId)
@@ -204,17 +208,21 @@ static void SendSpineEvent(InternalGuiNode* node, const spAnimationState* state,
     // Send to track-specific callback if available
     if (track->m_CallbackInfo && dmScript::IsCallbackValid(track->m_CallbackInfo))
     {
-        lua_State* L = dmScript::GetCallbackLuaContext(track->m_CallbackInfo);
+        // Take a local copy of the callback pointer in case it's cleared/replaced
+        // during the callback execution by gui.play_spine_anim().
+        // Fix https://github.com/defold/extension-spine/issues/240
+        dmScript::LuaCallbackInfo* cbk = track->m_CallbackInfo;
+        lua_State* L = dmScript::GetCallbackLuaContext(cbk);
         DM_LUA_STACK_CHECK(L, 0);
 
-        if (dmScript::SetupCallback(track->m_CallbackInfo))
+        if (dmScript::SetupCallback(cbk))
         {
             dmGui::LuaPushNode(L, node->m_GuiScene, node->m_GuiNode);
             dmScript::PushHash(L, dmGameSystemDDF::SpineEvent::m_DDFDescriptor->m_NameHash);
             dmScript::PushDDF(L, dmGameSystemDDF::SpineEvent::m_DDFDescriptor, (const char*)&message, true);
 
             dmScript::PCall(L, 4, 0); // instance + 3
-            dmScript::TeardownCallback(track->m_CallbackInfo);
+            dmScript::TeardownCallback(cbk);
         }
         
         // Note: For spine events, we don't clear the callback since events can occur multiple times
