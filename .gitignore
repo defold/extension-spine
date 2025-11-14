@@ -12,7 +12,8 @@ Thumbs.db
 .project
 .cproject
 builtins
-/utils/runtime/build
-/utils/runtime/*.zip
 bob.jar
 /.editor_settings
+/AGENTS.md
+/debug.keystore
+/debug.keystore.pass.txt
