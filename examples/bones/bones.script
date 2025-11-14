@@ -1,0 +1,86 @@
+local debugdraw = require("debug-draw.debug-draw")
+local spine_data = require("examples.bones.spine_data")
+
+local PROP_SPINE_SCENE = "spine_scene"
+
+local IDLE_ANIM_ID = hash("idle")
+local SPINE_PLAY_OPTIONS = { blend_duration = 0.2 }
+
+local BONE_DEBUG_SIZE = 5
+local BONE_DEBUG_COLOR = "red"
+
+-- Only required for drawing bones using debug-draw
+local function update_debug_spine_bones(self, url)
+    self.debug_bone_go_ids = {}
+    local unavailable_bones = {}
+
+    local spine_scene = go.get(url, PROP_SPINE_SCENE)
+    local spine_data = spine_data[spine_scene]
+    for index, bone_name in ipairs(spine_data.bones) do
+        local success = pcall(function()
+            self.debug_bone_go_ids[index] = spine.get_go(url, hash(bone_name))
+        end)
+
+        if not success then
+            table.insert(unavailable_bones, bone_name)
+        end
+    end
+
+    local unavailable_bone_count = #unavailable_bones
+    if unavailable_bone_count == 0 then
+        return
+    end
+
+    if unavailable_bone_count == #spine_data.bones then
+        return print("Failed to get bones: \"Create Go Bones\" is disabled")
+    end
+
+    print(("Failed to get bones (%s) of \"%s\". Bones: %s"):format(
+        unavailable_bone_count,
+        tostring(spine_scene),
+        table.concat(unavailable_bones, ", ")
+    ))
+end
+
+local function play_idle_animation(url)
+    spine.play_anim(url, IDLE_ANIM_ID, go.PLAYBACK_ONCE_FORWARD, SPINE_PLAY_OPTIONS)
+end
+
+local function swap_spine_scenes(url_a, url_b)
+    local spine_scene_a = go.get(url_a, PROP_SPINE_SCENE)
+    local spine_scene_b = go.get(url_b, PROP_SPINE_SCENE)
+
+    go.set(url_a, PROP_SPINE_SCENE, spine_scene_b)
+    play_idle_animation(url_a)
+
+    go.set(url_b, PROP_SPINE_SCENE, spine_scene_a)
+    play_idle_animation(url_b)
+end
+
+function init(self)
+    self.spine_a_url = msg.url("#spine_a")
+    self.spine_b_url = msg.url("#spine_b")
+
+    play_idle_animation(self.spine_a_url)
+    play_idle_animation(self.spine_b_url)
+    update_debug_spine_bones(self, self.spine_a_url)
+
+    timer.delay(1, true, function()
+        swap_spine_scenes(self.spine_a_url, self.spine_b_url)
+        update_debug_spine_bones(self, self.spine_a_url)
+    end)
+end
+
+function update(self, dt)
+    if not self.debug_bone_go_ids or #self.debug_bone_go_ids == 0 then
+        return
+    end
+
+    for _, bone_go_id in ipairs(self.debug_bone_go_ids) do
+        if go.exists(bone_go_id) then
+            local bone_position = go.get_position(bone_go_id)
+            debugdraw.circle(bone_position.x, bone_position.y, BONE_DEBUG_SIZE, BONE_DEBUG_COLOR)
+            debugdraw.cross(bone_position.x, bone_position.y, BONE_DEBUG_SIZE, BONE_DEBUG_SIZE, BONE_DEBUG_COLOR)
+        end
+    end
+end
