@@ -205,6 +205,10 @@ A spine model also has a number of different properties that can be manipulated 
 : The current skin on the component (`hash`).
 
 
+`spine_scene`
+: The current spine scene of the spine component. If it gets replaced via `go.set()`, the bones will be created one frame later.
+
+
 ### Material constants
 
 {% include shared/material-constants.md component='spine' variable='tint' %}
@@ -314,6 +318,7 @@ When the animation plays and events are encountered, `spine_event` callbacks are
 
 `event_id`
 : The event identifier, hashed.
+
 
 ```lua
 local function anim_done(self, message_id, message, sender)

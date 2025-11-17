@@ -67,7 +67,10 @@ function init(self)
 
     timer.delay(1, true, function()
         swap_spine_scenes(self.spine_a_url, self.spine_b_url)
-        update_debug_spine_bones(self, self.spine_a_url)
+        -- bones don't exist immidiatly after model replace, because we have to wait to remove old bones
+        timer.delay(0, false, function()
+            update_debug_spine_bones(self, self.spine_a_url)
+        end)
     end)
 end
 
