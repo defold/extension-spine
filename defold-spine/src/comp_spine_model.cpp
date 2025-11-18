@@ -255,7 +255,7 @@ namespace dmSpine
 
         component->m_Bones.SetCapacity(skeleton->bonesCount);
         component->m_BoneInstances.SetCapacity(skeleton->bonesCount);
-        component->m_BoneNameToNodeInstanceIndex.SetCapacity((skeleton->bonesCount+1)/2, skeleton->bonesCount);
+        component->m_BoneNameToNodeInstanceIndex.OffsetCapacity(skeleton->bonesCount);
         if (!CreateGOBone(component, dmGameObject::GetCollection(component->m_Instance), component->m_Instance, 0, skeleton->root, 0))
         {
             dmLogError("Failed to create bones");
@@ -264,6 +264,16 @@ namespace dmSpine
             return false;
         }
         return true;
+    }
+
+    static void ScheduleBoneRebuild(SpineModelComponent* component)
+    {
+        component->m_Bones.SetSize(0);
+        component->m_BoneInstances.SetSize(0);
+        component->m_BoneNameToNodeInstanceIndex.Clear();
+        dmGameObject::DeleteBones(component->m_Instance);
+        // Bones are created in CompSpineModelPostUpdate because the previous ones are removed there
+        component->m_RebuildBonesPending = component->m_Resource->m_CreateGoBones ? 1 : 0;
     }
 
     static inline SpineModelComponent* GetComponentFromIndex(SpineModelWorld* world, int index)
@@ -827,6 +837,29 @@ namespace dmSpine
         return dmGameObject::UPDATE_RESULT_OK;
     }
 
+    dmGameObject::UpdateResult CompSpineModelPostUpdate(const dmGameObject::ComponentsPostUpdateParams& params)
+    {
+        SpineModelWorld* world = (SpineModelWorld*)params.m_World;
+        dmArray<SpineModelComponent*>& components = world->m_Components.GetRawObjects();
+        const uint32_t count = components.Size();
+        for (uint32_t i = 0; i < count; ++i)
+        {
+            SpineModelComponent* component = components[i];
+            if (!component || !component->m_RebuildBonesPending)
+                continue;
+
+            component->m_RebuildBonesPending = 0;
+            if (component->m_Resource->m_CreateGoBones)
+            {
+                if (!CreateGOBones(world, component))
+                {
+                    dmLogError("Failed to create game objects for bones in spine model. Consider increasing collection max instances (collection.max_instances).");
+                }
+            }
+        }
+        return dmGameObject::UPDATE_RESULT_OK;
+    }
+
     static inline dmGameSystemDDF::SpineModelDesc::BlendMode SpineBlendModeToRenderBlendMode(spBlendMode sp_blend_mode)
     {
         switch(sp_blend_mode)
@@ -1173,19 +1206,8 @@ namespace dmSpine
     {
         // Delete old bones, then recreate with new data.
         // We need to make sure that bone GOs are created before we start the default animation.
-        dmGameObject::DeleteBones(component->m_Instance);
-        if (component->m_Resource->m_CreateGoBones)
-        {
-            if (!CreateGOBones(world, component))
-            {
-                dmLogError("Failed to create game objects for bones in spine model. Consider increasing collection max instances (collection.max_instances).");
-                DestroyComponent(world, index);
-                return false;
-            }
-        }
-
+        ScheduleBoneRebuild(component);
         component->m_ReHash = 1;
-
         return true;
     }
 
@@ -1359,17 +1381,21 @@ namespace dmSpine
             if (res == dmGameObject::PROPERTY_RESULT_OK)
             {
                 if (component->m_AnimationStateInstance)
+                {
                     spAnimationState_dispose(component->m_AnimationStateInstance);
+                }
                 component->m_AnimationStateInstance = 0;
                 if (component->m_SkeletonInstance)
+                {
                     spSkeleton_dispose(component->m_SkeletonInstance);
+                }
                 component->m_SkeletonInstance = 0;
                 component->m_AnimationTracks.SetSize(0);
-
-                dmGameObject::DeleteBones(component->m_Instance);
+                ScheduleBoneRebuild(component);
 
                 SpineSceneResource* spine_scene_new = GetSpineScene(component);
-                if (!SetupComponentFromScene(world, component, spine_scene_new, component->m_Resource->m_CreateGoBones, false))
+                bool create_bones_now = component->m_Resource->m_CreateGoBones && !component->m_RebuildBonesPending;
+                if (!SetupComponentFromScene(world, component, spine_scene_new, create_bones_now, false))
                 {
                     return dmGameObject::PROPERTY_RESULT_UNSUPPORTED_VALUE;
                 }
@@ -1426,6 +1452,7 @@ namespace dmSpine
             // ComponentTypeSetFinalFn(type, CompSpineModelFinal);
         ComponentTypeSetAddToUpdateFn(type, CompSpineModelAddToUpdate);
         ComponentTypeSetUpdateFn(type, CompSpineModelUpdate);
+        ComponentTypeSetPostUpdateFn(type, CompSpineModelPostUpdate);
         ComponentTypeSetRenderFn(type, CompSpineModelRender);
         ComponentTypeSetOnMessageFn(type, CompSpineModelOnMessage);
             // ComponentTypeSetOnInputFn(type, CompSpineModelOnInput);

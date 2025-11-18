@@ -180,3 +180,13 @@ embedded_instances {
   "}\n"
   ""
 }
+embedded_instances {
+  id: "bones"
+  data: "embedded_components {\n"
+  "  id: \"collection_proxy\"\n"
+  "  type: \"collectionproxy\"\n"
+  "  data: \"collection: \\\"/examples/bones/bones.collection\\\"\\n"
+  "\"\n"
+  "}\n"
+  ""
+}

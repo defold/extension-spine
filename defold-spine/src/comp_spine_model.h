@@ -83,6 +83,7 @@ namespace dmSpine
         uint8_t                                 m_DoRender : 1;
         uint8_t                                 m_AddedToUpdate : 1;
         uint8_t                                 m_ReHash : 1;
+        uint8_t                                 m_RebuildBonesPending : 1;
     };
 
     // For scripting
