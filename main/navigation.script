@@ -207,6 +207,9 @@ function on_message(self, message_id, message, sender)
 end
 
 function on_input(self, action_id, action)
+	if action_id == hash("key_q") and action.pressed then
+		sys.reboot()
+	end
 end
 
 function on_reload(self)

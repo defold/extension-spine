@@ -127,9 +127,18 @@ static dmGameObject::PropertyResult CompSpineGuiGetProperty(dmGui::HScene scene,
 void GuiSpineInitialize(dmResource::HFactory resource_factory)
 {
     g_ResourceFactory = resource_factory;
-    g_SceneOverrides.SetCapacity(4, 8);
-    g_SceneRefcounts.SetCapacity(4, 8);
-    g_SceneNodes.SetCapacity(4, 8);
+    if (g_SceneOverrides.Capacity() == 0)
+    {
+        g_SceneOverrides.SetCapacity(4, 8);
+    }
+    if (g_SceneRefcounts.Capacity() == 0)
+    {
+        g_SceneRefcounts.SetCapacity(4, 8);
+    }
+    if (g_SceneNodes.Capacity() == 0)
+    {
+        g_SceneNodes.SetCapacity(4, 8);
+    }
 
     // Register per-property handlers for GUI spine_scene property
     dmGameSystem::CompGuiRegisterSetPropertyFn(SPINE_SCENE, CompSpineGuiSetProperty);
@@ -206,6 +215,10 @@ void GuiSpineFinalize()
     dmGameSystem::CompGuiUnregisterSetPropertyFn(SPINE_SCENE);
     dmGameSystem::CompGuiUnregisterGetPropertyFn(SPINE_SCENE);
     g_ResourceFactory = 0x0;
+
+    g_SceneOverrides.Clear();
+    g_SceneRefcounts.Clear();
+    g_SceneNodes.Clear();
 }
 
 void GuiSpineRegisterNode(dmGui::HScene scene, dmGui::HNode node)
