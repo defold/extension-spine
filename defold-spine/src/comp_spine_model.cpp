@@ -997,7 +997,12 @@ namespace dmSpine
 
                 uint32_t merged_size = scratch_draw_descs.Size();
                 uint32_t ro_count_begin = world->m_RenderObjects.Size();
-                world->m_RenderObjects.SetSize(world->m_RenderObjects.Size() + merged_size);
+                uint32_t expected_size = world->m_RenderObjects.Size() + merged_size;
+                if (world->m_RenderObjects.Capacity() < expected_size)
+                {
+                    world->m_RenderObjects.OffsetCapacity(expected_size - world->m_RenderObjects.Capacity());
+                }
+                world->m_RenderObjects.SetSize(expected_size);
 
                 for (int i = 0; i < merged_size; ++i)
                 {
