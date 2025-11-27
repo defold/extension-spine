@@ -108,7 +108,7 @@
 
 (defn plugin-set-animation [handle ^String animation]
   (let [valid-anims (vec (plugin-get-animations handle))]
-    (when (contains? valid-anims animation)
+    (when (some #(= % animation) valid-anims)
       (plugin-invoke-static spine-plugin-cls "SPINE_SetAnimation" (into-array Class [spine-plugin-pointer-cls String]) [handle animation]))))
 
 (defn plugin-update-vertices [handle dt]
