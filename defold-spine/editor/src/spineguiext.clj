@@ -225,8 +225,7 @@
               geom/empty-bounding-box)))
 
   ; Overloaded outputs from VisualNode
-  (output scene-updatable g/Any :cached (g/fnk [_node-id spine-data-handle spine-default-animation spine-skin spine-vertex-buffer]
-                                            (produce-spine-updatable _node-id spine-data-handle spine-default-animation spine-skin spine-vertex-buffer)))
+  (output scene-updatable g/Any :cached produce-spine-updatable)
   (output gpu-texture TextureLifecycle (g/constantly nil))
   (output scene-renderable-user-data g/Any :cached (g/fnk [aabb spine-scene-scene spine-vertex-buffer color+alpha clipping-mode clipping-inverted clipping-visible]
                                                           (let [lines (aabb->rect-lines aabb)
