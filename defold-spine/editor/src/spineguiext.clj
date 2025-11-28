@@ -83,7 +83,7 @@
       vb-data-vec)
     []))
 
-(defn- produce-spine-updatable [_node-id spine-data-handle spine-default-animation spine-skin spine-vertex-buffer]
+(g/defnk produce-spine-updatable [_node-id spine-data-handle spine-default-animation spine-skin spine-vertex-buffer]
   (when (and (some? spine-data-handle)
              spine-default-animation
              spine-skin)
