@@ -21,7 +21,7 @@ nodes {
   inherit_alpha: true
   size_mode: SIZE_MODE_AUTO
   spine_scene: "spineboy"
-  spine_default_animation: "idle"
+  spine_default_animation: "death"
   custom_type: 405028931
   spine_create_bones: true
 }
@@ -77,6 +77,24 @@ nodes {
   font: "default"
   id: "title"
   inherit_alpha: true
+}
+nodes {
+  position {
+    x: 68.0
+    y: 420.0
+  }
+  scale {
+    x: 0.1
+    y: 0.1
+  }
+  type: TYPE_CUSTOM
+  id: "spine_node1"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+  spine_scene: "spineboy"
+  spine_default_animation: "hoverboard"
+  custom_type: 405028931
+  spine_create_bones: true
 }
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT

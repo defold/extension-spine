@@ -83,11 +83,23 @@
       vb-data-vec)
     []))
 
+(g/defnk produce-spine-updatable [_node-id spine-data-handle spine-default-animation spine-skin spine-vertex-buffer]
+  (when (and (some? spine-data-handle)
+             spine-default-animation
+             spine-skin)
+    {:node-id _node-id
+     :name "Spine GUI Updater"
+     :update-fn (fn [state {:keys [dt]}]
+                  (let [vb (produce-local-vertices spine-data-handle spine-skin spine-default-animation dt)]
+                    (assoc state :spine-vertex-buffer vb)))
+     :initial-state {:spine-vertex-buffer spine-vertex-buffer}}))
+
 (defn- renderable->vertices [renderable]
   (let [handle (spineext/renderable->handle renderable)
         world-transform (:world-transform renderable)
         per-node-user-data (:user-data renderable)
-        vertex-buffer (:spine-vertex-buffer per-node-user-data)
+        vertex-buffer (or (get-in renderable [:updatable :state :spine-vertex-buffer])
+                          (:spine-vertex-buffer per-node-user-data))
         color (:color per-node-user-data)
         vb-data-transformed (map (fn [vtx] (transform-vtx world-transform color vtx)) vertex-buffer)]
     vb-data-transformed))
@@ -213,6 +225,7 @@
               geom/empty-bounding-box)))
 
   ; Overloaded outputs from VisualNode
+  (output scene-updatable g/Any :cached produce-spine-updatable)
   (output gpu-texture TextureLifecycle (g/constantly nil))
   (output scene-renderable-user-data g/Any :cached (g/fnk [aabb spine-scene-scene spine-vertex-buffer color+alpha clipping-mode clipping-inverted clipping-visible]
                                                           (let [lines (aabb->rect-lines aabb)
