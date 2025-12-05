@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #ifdef __MACH__
-    #include <malloc/malloc.h>
+    #include <malloc/_malloc.h>
 #else
     #include <malloc.h>
 #endif
