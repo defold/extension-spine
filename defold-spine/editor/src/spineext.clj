@@ -332,7 +332,7 @@
     :blend-mode-alpha))
 
 (defn- do-render-object! [^GL2 gl render-args shader renderable ro]
-  (let [start (.m_VertexStart ro)                           ; the name is from the engine, but in this case refers to the index
+  (let [start (.m_VertexStart ro) ; the name is from the engine, but in this case refers to the index
         count (.m_VertexCount ro)
         is-selection-pass (:selection (:pass render-args))
         renderable-user-data (:user-data renderable)
@@ -499,12 +499,9 @@
                        (g/connect bone :bone parent-id :child-bones))]
     bone-tx-data))
 
-(defn- tx-first-created [tx-data]
-  (get-in (first tx-data) [:node :_node-id]))
-
 (defn- create-bone-hierarchy [parent-id bones bone]
   (let [bone-tx-data (create-bone parent-id bone)
-        bone-id (tx-first-created bone-tx-data)
+        bone-id (first (g/tx-data-added-node-ids bone-tx-data))
         child-bones (map (fn [index] (get bones index)) (.-children bone))
         children-tx-data (mapcat (fn [child] (create-bone-hierarchy bone-id bones child)) child-bones)]
     (concat bone-tx-data children-tx-data)))
@@ -575,7 +572,7 @@
        all-tx-data)
      (catch Exception error
        (let [error-value (handle-read-error error node-id resource)]
-         (throw (ex-info (:message error-value) error-value)))))))
+         (throw (ex-info (:message error-value) error-value error)))))))
 
 (defn- build-spine-json [resource dep-resources user-data]
   {:resource resource :content (resource->bytes (:resource resource))})
@@ -619,11 +616,11 @@
       (handle-read-error error _node-id spine-json-resource))))
 
 (defn- sanitize-spine-scene [spine-scene-desc]
-  {:pre [(map? spine-scene-desc)]}                          ; Spine$SpineSceneDesc in map format.
-  (dissoc spine-scene-desc :sample-rate))                   ; Deprecated field.
+  {:pre [(map? spine-scene-desc)]} ; Spine$SpineSceneDesc in map format.
+  (dissoc spine-scene-desc :sample-rate)) ; Deprecated field.
 
 (defn- load-spine-scene [project self resource spine-scene-desc]
-  {:pre [(map? spine-scene-desc)]}                          ; Spine$SpineSceneDesc in map format.
+  {:pre [(map? spine-scene-desc)]} ; Spine$SpineSceneDesc in map format.
   (let [resolve-resource #(workspace/resolve-resource resource %)
         default-material-resource (resolve-resource spine-material-path)]
     (concat
@@ -737,7 +734,7 @@
 
   (input material-shader ShaderLifecycle)
   (input material-samplers g/Any)
-  (input material-resource resource/Resource)               ; Just for being able to preview the asset
+  (input material-resource resource/Resource) ; Just for being able to preview the asset
 
   (input default-tex-params g/Any)
   (input gpu-texture g/Any)
@@ -844,7 +841,7 @@
           :deps dep-build-targets})])))
 
 (defn load-spine-model [project self resource spine-model-desc]
-  {:pre [(map? spine-model-desc)]}                          ; Spine$SpineModelDesc in map format.
+  {:pre [(map? spine-model-desc)]} ; Spine$SpineModelDesc in map format.
   (let [resolve-resource #(workspace/resolve-resource resource %)]
     (concat
       (g/connect project :default-tex-params self :default-tex-params)
