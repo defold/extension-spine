@@ -329,7 +329,7 @@ public class Spine {
     public static SpineVertex[] SPINE_GetVertexBuffer(SpinePointer spine) {
         IntByReference pcount = new IntByReference();
         SpineVertex first = SPINE_GetVertexBufferData(spine, pcount);
-        if (first == null)
+        if (first == null || pcount.getValue() == 0)
         {
             SpineVertex[] arr = new SpineVertex[1];
             SpineVertex v = new SpineVertex();
