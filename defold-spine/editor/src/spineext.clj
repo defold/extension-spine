@@ -23,6 +23,7 @@
             [editor.gl.texture :as texture]
             [editor.gl.vertex :as vtx]
             [editor.graph-util :as gu]
+            [editor.localization :as localization]
             [editor.material :as material]
             [editor.math :as math]
             [editor.outline :as outline]
@@ -997,6 +998,7 @@
       :sanitize-fn sanitize-spine-scene
       :load-fn load-spine-scene
       :icon spine-scene-icon
+      :category (localization/message "resource.category.resources")
       :view-types [:scene :text]
       :view-opts {:scene {:grid true}}
       :template "/defold-spine/editor/resources/templates/template.spinescene")
@@ -1007,6 +1009,7 @@
       :ddf-type spine-plugin-spinemodel-cls
       :load-fn load-spine-model
       :icon spine-model-icon
+      :category (localization/message "resource.category.components")
       :view-types [:scene :text]
       :view-opts {:scene {:grid true}}
       :tags #{:component}
