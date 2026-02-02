@@ -563,12 +563,32 @@ extern "C" DM_DLLEXPORT AABB SPINE_GetAABB(void* _file)
         return aabb;
     }
 
+    uint32_t size = file->m_VertexBuffer.Size();
+    if (size == 0 && file->m_SkeletonInstance)
+    {
+        dmSpine::SpineModelBounds bounds;
+        dmSpine::GetSkeletonBounds(file->m_SkeletonInstance, bounds);
+        if (bounds.minX <= bounds.maxX && bounds.minY <= bounds.maxY)
+        {
+            aabb.minX = bounds.minX;
+            aabb.minY = bounds.minY;
+            aabb.maxX = bounds.maxX;
+            aabb.maxY = bounds.maxY;
+            return aabb;
+        }
+
+        aabb.minX = 0.0f;
+        aabb.minY = 0.0f;
+        aabb.maxX = 0.0f;
+        aabb.maxY = 0.0f;
+        return aabb;
+    }
+
     float minx = 100000.0f;
     float maxx = -100000.0f;
     float miny = 100000.0f;
     float maxy = -100000.0f;
 
-    uint32_t size = file->m_VertexBuffer.Size();
     for (uint32_t i = 0; i < size; ++i)
     {
         const dmSpine::SpineVertex& vtx = file->m_VertexBuffer[i];
