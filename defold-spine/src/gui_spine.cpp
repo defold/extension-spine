@@ -36,7 +36,8 @@ static dmGameObject::PropertyResult CompSpineGuiSetProperty(dmGui::HScene scene,
     if (params.m_Value.m_Type != dmGameObject::PROPERTY_TYPE_HASH)
         return dmGameObject::PROPERTY_RESULT_TYPE_MISMATCH;
 
-    dmhash_t name_hash = params.m_Options.m_HasKey ? params.m_Options.m_Key : params.m_Value.m_Hash; // prefer keyed alias if provided
+    dmhash_t name_hash = params.m_Value.m_Hash;
+    dmGameObject::GetPropertyOptionsKey(params.m_Options, 0, &name_hash);
 
     // Fetch or create scene overrides bucket
     uint64_t skey = SceneKey(scene);
@@ -91,8 +92,8 @@ static dmGameObject::PropertyResult CompSpineGuiSetProperty(dmGui::HScene scene,
 
 static dmGameObject::PropertyResult CompSpineGuiGetProperty(dmGui::HScene scene, const dmGameObject::ComponentGetPropertyParams& params, dmGameObject::PropertyDesc& out_value)
 {
-    bool has_key = params.m_Options.m_HasKey;
-    dmhash_t key_hash = params.m_Options.m_Key;
+    dmhash_t key_hash;
+    bool has_key = dmGameObject::GetPropertyOptionsKey(params.m_Options, 0, &key_hash) == dmGameObject::PROPERTY_RESULT_OK;
 
     SceneOverrides** scene_bucket_ptr = g_SceneOverrides.Get(SceneKey(scene));
     // If we have overrides, try those first
