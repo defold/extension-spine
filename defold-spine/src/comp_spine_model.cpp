@@ -1238,12 +1238,16 @@ namespace dmSpine
         }
         else if (params.m_PropertyId == PROP_ANIMATION)
         {
-            dmhash_t value = 0;
-            int32_t value_index = 0;
-
-            if (dmGameObject::GetPropertyOptionsIndex(params.m_Options, 0, &value_index) != dmGameObject::PROPERTY_RESULT_OK)
+            dmhash_t tmp;
+            if (dmGameObject::GetPropertyOptionsKey(params.m_Options, 0, &tmp) == dmGameObject::PROPERTY_RESULT_OK)
+            {
                 return dmGameObject::PROPERTY_RESULT_INVALID_KEY;
+            }
 
+            int32_t value_index = 0;
+            dmGameObject::GetPropertyOptionsIndex(params.m_Options, 0, &value_index);
+
+            dmhash_t value = 0;
             SpineAnimationTrack* track = GetTrackFromIndex(component, value_index);
             if (track && track->m_AnimationInstance)
             {
@@ -1256,12 +1260,16 @@ namespace dmSpine
         }
         else if (params.m_PropertyId == PROP_CURSOR)
         {
-            float unit = 0.0f;
-            int32_t value_index = 0;
-
-            if (dmGameObject::GetPropertyOptionsIndex(params.m_Options, 0, &value_index) == dmGameObject::PROPERTY_RESULT_OK)
+            dmhash_t tmp;
+            if (dmGameObject::GetPropertyOptionsKey(params.m_Options, 0, &tmp) == dmGameObject::PROPERTY_RESULT_OK)
+            {
                 return dmGameObject::PROPERTY_RESULT_INVALID_KEY;
+            }
 
+            int32_t value_index = 0;
+            dmGameObject::GetPropertyOptionsIndex(params.m_Options, 0, &value_index);
+
+            float unit = 0.0f;
             SpineAnimationTrack* track = GetTrackFromIndex(component, value_index);
 
             if (track)
@@ -1283,12 +1291,16 @@ namespace dmSpine
         }
         else if (params.m_PropertyId == PROP_PLAYBACK_RATE)
         {
-            float value = 0.0f;
-            int32_t value_index = 0;
-
-            if (dmGameObject::GetPropertyOptionsIndex(params.m_Options, 0, &value_index) != dmGameObject::PROPERTY_RESULT_OK)
+            dmhash_t tmp;
+            if (dmGameObject::GetPropertyOptionsKey(params.m_Options, 0, &tmp) == dmGameObject::PROPERTY_RESULT_OK)
+            {
                 return dmGameObject::PROPERTY_RESULT_INVALID_KEY;
+            }
 
+            int32_t value_index = 0;
+            dmGameObject::GetPropertyOptionsIndex(params.m_Options, 0, &value_index);
+
+            float value = 0.0f;
             SpineAnimationTrack* track = GetTrackFromIndex(component, value_index);
 
             if (track && track->m_AnimationInstance)
@@ -1339,9 +1351,14 @@ namespace dmSpine
             if (params.m_Value.m_Type != dmGameObject::PROPERTY_TYPE_NUMBER)
                 return dmGameObject::PROPERTY_RESULT_TYPE_MISMATCH;
 
-            int32_t value_index = 0;
-            if (dmGameObject::GetPropertyOptionsIndex(params.m_Options, 0, &value_index) != dmGameObject::PROPERTY_RESULT_OK)
+            dmhash_t tmp;
+            if (dmGameObject::GetPropertyOptionsKey(params.m_Options, 0, &tmp) == dmGameObject::PROPERTY_RESULT_OK)
+            {
                 return dmGameObject::PROPERTY_RESULT_INVALID_KEY;
+            }
+
+            int32_t value_index = 0;
+            dmGameObject::GetPropertyOptionsIndex(params.m_Options, 0, &value_index);
 
             SpineAnimationTrack* track = GetTrackFromIndex(component, value_index);
             if (!track)
@@ -1366,9 +1383,14 @@ namespace dmSpine
             if (params.m_Value.m_Type != dmGameObject::PROPERTY_TYPE_NUMBER)
                 return dmGameObject::PROPERTY_RESULT_TYPE_MISMATCH;
 
-            int32_t value_index = 0;
-            if (dmGameObject::GetPropertyOptionsIndex(params.m_Options, 0, &value_index) != dmGameObject::PROPERTY_RESULT_OK)
+            dmhash_t tmp;
+            if (dmGameObject::GetPropertyOptionsKey(params.m_Options, 0, &tmp) == dmGameObject::PROPERTY_RESULT_OK)
+            {
                 return dmGameObject::PROPERTY_RESULT_INVALID_KEY;
+            }
+
+            int32_t value_index = 0;
+            dmGameObject::GetPropertyOptionsIndex(params.m_Options, 0, &value_index);
 
             SpineAnimationTrack* track = GetTrackFromIndex(component, value_index);
             if (!track)
