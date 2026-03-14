@@ -2,6 +2,8 @@
 
 # Spine animations for Defold
 
+> ### **Current Spine Runtime Version Supported: 4.2.xx**
+
 Defold [native extension](https://www.defold.com/manuals/extensions/) for interacting with Spine animations.
 
 [Manual, API and setup instructions](https://www.defold.com/extension-spine/) is available on the official Defold site.
