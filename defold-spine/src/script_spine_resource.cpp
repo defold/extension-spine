@@ -140,9 +140,11 @@ namespace dmSpine
         lua_pop(L, 1); // options
 
         // Create child spinejsonc resource path
+        char json_path[2048];
         size_t scene_path_len = strlen(scene_path);
         size_t json_path_len = scene_path_len + strlen(SPINEJSON_EXT) + 1;
-        char json_path[json_path_len];
+        if (json_path_len > sizeof(json_path))
+            json_path_len = sizeof(json_path);
         snprintf(json_path, json_path_len, "%s%s", scene_path, SPINEJSON_EXT);
         // Ensure any stale intermediate file is cleared first
         dmResource::RemoveFile(g_Factory, json_path);
