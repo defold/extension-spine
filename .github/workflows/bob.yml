@@ -17,4 +17,11 @@ jobs:
 
   build:
     needs: check_shared_dependencies
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [debug, release, headless]
+    name: Build (${{ matrix.variant }})
     uses: defold/github-actions-common/.github/workflows/bob.yml@master
+    with:
+      additonal_build_options: --archive --variant=${{ matrix.variant }}
