@@ -51,6 +51,8 @@ function init(self)
     end
 
     update_label(self)
+    profiler.enable_ui(true)
+    profiler.set_ui_mode(profiler.MODE_SHOW_PEAK_FRAME)
 end
 
 function update(self, dt)
