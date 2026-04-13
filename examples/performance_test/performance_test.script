@@ -1,0 +1,65 @@
+local GRID_COLUMNS = 40
+local GRID_ROWS = 20
+local MODEL_COUNT = GRID_COLUMNS * GRID_ROWS
+
+local START_X = 28
+local START_Y = 0
+local STEP_X = 46/2
+local STEP_Y = 54/2
+
+local LABEL_UPDATE_INTERVAL = 0.25
+
+local function update_label(self)
+    local fps = 0
+    local ms_per_frame = 0
+    if self.dt_sum > 0 then
+        fps = self.frame_count / self.dt_sum
+        ms_per_frame = (self.dt_sum / self.frame_count) * 1000
+    end
+
+    label.set_text(
+        "#label",
+        string.format(
+            "Performance Test\nSpineboy models: %d\nFPS: %.1f\nMS/frame: %.2f\n%s",
+            MODEL_COUNT,
+            fps,
+            ms_per_frame,
+            self.animation_status
+        )
+    )
+    self.dt_sum = 0
+    self.frame_count = 0
+end
+
+function init(self)
+    self.dt_sum = 0
+    self.frame_count = 0
+    self.label_timer = 0
+
+    for row = 0, GRID_ROWS - 1 do
+        for column = 0, GRID_COLUMNS - 1 do
+            local position = vmath.vector3(
+                START_X + column * STEP_X,
+                START_Y + row * STEP_Y,
+                0
+            )
+            local instance_id = factory.create("#spine_factory", position)
+            local spine_url = msg.url(nil, instance_id, "spinemodel")
+            local phase = ((row * GRID_COLUMNS) + column) / MODEL_COUNT
+            spine.play_anim(spine_url, "jump", go.PLAYBACK_LOOP_FORWARD, {offset = 1/row*column}, function()end)
+        end
+    end
+
+    update_label(self)
+end
+
+function update(self, dt)
+    self.dt_sum = self.dt_sum + dt
+    self.frame_count = self.frame_count + 1
+    self.label_timer = self.label_timer + dt
+
+    if self.label_timer >= LABEL_UPDATE_INTERVAL then
+        update_label(self)
+        self.label_timer = 0
+    end
+end

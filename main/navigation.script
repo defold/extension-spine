@@ -13,7 +13,8 @@ local examples = {
 	{ name = "MixBlend 'Add' Demo", proxy_id = "owl_mix_blend_add_proxy", description = "Demonstrates additive mix blend" },
 	{ name = "Swap Spine Scenes", proxy_id = "swap_spinescene_proxy", description = "Two models swap their spine_scene after 1 second" },
 	{ name = "Instances", proxy_id = "instances", description = "Two models drawn using components and GUIs" },
-	{ name = "Bones", proxy_id = "bones", description = "Objects with bones and without bones switches" }
+	{ name = "Bones", proxy_id = "bones", description = "Objects with bones and without bones switches" },
+	{ name = "Performance Test", proxy_id = "performance_test_proxy", description = "Spawns a 20x10 grid of Spineboy instances and reports FPS" }
 }
 
 local current_example = 1
@@ -285,4 +286,4 @@ function unload_all_examples()
 	all_loaded = false
 	current_proxy_id = nil
 	print("Unloading all examples...")
-end 
+end

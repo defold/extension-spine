@@ -190,3 +190,13 @@ embedded_instances {
   "}\n"
   ""
 }
+embedded_instances {
+  id: "performance_test_proxy"
+  data: "embedded_components {\n"
+  "  id: \"collection_proxy\"\n"
+  "  type: \"collectionproxy\"\n"
+  "  data: \"collection: \\\"/examples/performance_test/performance_test.collection\\\"\\n"
+  "\"\n"
+  "}\n"
+  ""
+}
