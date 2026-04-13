@@ -55,6 +55,9 @@ extern "C" {
 DM_PROPERTY_GROUP(rmtp_Spine, "Spine", 0);
 DM_PROPERTY_U32(rmtp_SpineBones, 0, PROFILE_PROPERTY_FRAME_RESET, "# spine bones", &rmtp_Spine);
 DM_PROPERTY_U32(rmtp_SpineComponents, 0, PROFILE_PROPERTY_FRAME_RESET, "# spine components", &rmtp_Spine);
+DM_PROPERTY_U32(rmtp_SpineVertexCount, 0, PROFILE_PROPERTY_FRAME_RESET, "# vertices", &rmtp_Spine);
+DM_PROPERTY_U32(rmtp_SpineVertexSize, 0, PROFILE_PROPERTY_FRAME_RESET, "size of vertices in bytes", &rmtp_Spine);
+DM_PROPERTY_U32(rmtp_SpineIndexSize, 0, PROFILE_PROPERTY_FRAME_RESET, "size of indices in bytes", &rmtp_Spine);
 
 namespace dmSpine
 {
@@ -1080,9 +1083,11 @@ namespace dmSpine
             }
             case dmRender::RENDER_LIST_OPERATION_END:
             {
-                dmGraphics::SetVertexBufferData(world->m_VertexBuffer, sizeof(dmSpine::SpineVertex) * world->m_VertexBufferData.Size(),
+                uint32_t vertex_data_size = sizeof(dmSpine::SpineVertex) * world->m_VertexBufferData.Size();
+                dmGraphics::SetVertexBufferData(world->m_VertexBuffer, vertex_data_size,
                                                 world->m_VertexBufferData.Begin(), dmGraphics::BUFFER_USAGE_DYNAMIC_DRAW);
-                //DM_COUNTER("SpineVertexBuffer", world->m_VertexBufferData.Size() * sizeof(dmSpine::SpineVertex));
+                    DM_PROPERTY_ADD_U32(rmtp_SpineVertexCount, world->m_VertexBufferData.Size());
+                    DM_PROPERTY_ADD_U32(rmtp_SpineVertexSize, vertex_data_size);
                 break;
             }
             default:
