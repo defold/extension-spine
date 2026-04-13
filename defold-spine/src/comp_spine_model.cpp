@@ -733,10 +733,6 @@ namespace dmSpine
             return;
 
         uint32_t size = component->m_Bones.Size();
-        dmArray<dmTransform::Transform> transforms;
-        transforms.SetCapacity(size);
-        transforms.SetSize(size);
-
         DM_PROPERTY_ADD_U32(rmtp_SpineBones, size);
         for (uint32_t n = 0; n < size; ++n)
         {
@@ -759,23 +755,28 @@ namespace dmSpine
     static void ApplyIKTargets(SpineModelComponent* component)
     {
         uint32_t count = component->m_IKTargetPositions.Size();
+        uint32_t instance_count = component->m_IKTargets.Size();
+        if (count == 0 && instance_count == 0)
+            return;
+
+        const dmTransform::Transform world_to_model =
+            dmTransform::Inv(dmTransform::Mul(dmGameObject::GetWorldTransform(component->m_Instance), component->m_Transform));
+
         for (uint32_t i = 0; i < count; ++i)
         {
             const IKTarget& target = component->m_IKTargetPositions[i];
-            dmVMath::Vector3 model_pos = (dmVMath::Vector3)dmTransform::Apply(dmTransform::Inv(dmTransform::Mul(dmGameObject::GetWorldTransform(component->m_Instance), component->m_Transform)), target.m_Position);
+            dmVMath::Vector3 model_pos = (dmVMath::Vector3)dmTransform::Apply(world_to_model, target.m_Position);
 
             target.m_Constraint->target->x = model_pos.getX();
             target.m_Constraint->target->y = model_pos.getY();
         }
         component->m_IKTargetPositions.SetSize(0);
 
-        count = component->m_IKTargets.Size();
-        for (uint32_t i = 0; i < count; ++i)
+        for (uint32_t i = 0; i < instance_count; ++i)
         {
             const IKTarget& target = component->m_IKTargets[i];
 
-            dmVMath::Vector3 model_pos = (dmVMath::Vector3)dmTransform::Apply(dmTransform::Inv(dmTransform::Mul(dmGameObject::GetWorldTransform(component->m_Instance), component->m_Transform)),
-                                                                              dmGameObject::GetWorldPosition(target.m_Target));
+            dmVMath::Vector3 model_pos = (dmVMath::Vector3)dmTransform::Apply(world_to_model, dmGameObject::GetWorldPosition(target.m_Target));
 
             target.m_Constraint->target->x = model_pos.getX();
             target.m_Constraint->target->y = model_pos.getY();
