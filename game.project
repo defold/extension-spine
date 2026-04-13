@@ -35,4 +35,5 @@ app_manifest = /imgui.appmanifest
 max_count = 24
 
 [collection]
+max_instances = 8192
 
