@@ -46,7 +46,7 @@ function init(self)
             local instance_id = factory.create("#spine_factory", position)
             local spine_url = msg.url(nil, instance_id, "spinemodel")
             local phase = ((row * GRID_COLUMNS) + column) / MODEL_COUNT
-            spine.play_anim(spine_url, "jump", go.PLAYBACK_LOOP_FORWARD, {offset = 1/row*column}, function()end)
+            spine.play_anim(spine_url, "jump", go.PLAYBACK_LOOP_FORWARD, {offset = (row / (GRID_ROWS - 1) + column / (GRID_COLUMNS - 1))/2}, function()end)
         end
     end
 

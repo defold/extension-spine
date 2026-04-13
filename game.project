@@ -10,6 +10,7 @@ max_count = 8196
 [display]
 width = 960
 height = 640
+vsync = 0
 
 [android]
 input_method = HiddenInputField
