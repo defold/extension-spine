@@ -65,3 +65,9 @@ function update(self, dt)
         self.label_timer = 0
     end
 end
+
+function final(self)
+    profiler.enable_ui(false)
+    profiler.set_ui_mode(profiler.MODE_RUN)
+end
+
