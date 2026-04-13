@@ -1,11 +1,11 @@
-local GRID_COLUMNS = 40
-local GRID_ROWS = 20
+local GRID_COLUMNS = 40*1.5
+local GRID_ROWS = 20*1.5
 local MODEL_COUNT = GRID_COLUMNS * GRID_ROWS
 
 local START_X = 28
 local START_Y = 0
-local STEP_X = 46/2
-local STEP_Y = 54/2
+local STEP_X = 46/4
+local STEP_Y = 54/4
 
 local LABEL_UPDATE_INTERVAL = 0.25
 
