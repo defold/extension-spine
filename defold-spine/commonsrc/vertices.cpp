@@ -379,11 +379,18 @@ uint32_t CalcDrawDescCount(const spSkeleton* skeleton)
     return count;
 }
 
-void CalcIndexedBufferSize(const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, uint32_t* out_vertex_count, uint32_t* out_index_count)
+void CalcIndexedBufferSizeAndBounds(const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, uint32_t* out_vertex_count, uint32_t* out_index_count, SpineModelBounds* out_bounds)
 {
     dmArray<float> scratch_attachment;
     uint32_t vertex_count = 0;
     uint32_t index_count = 0;
+    if (out_bounds)
+    {
+        out_bounds->minX = FLT_MAX;
+        out_bounds->minY = FLT_MAX;
+        out_bounds->maxX = -FLT_MAX;
+        out_bounds->maxY = -FLT_MAX;
+    }
 
     for (int s = 0; s < skeleton->slotsCount; ++s)
     {
@@ -410,15 +417,77 @@ void CalcIndexedBufferSize(const spSkeleton* skeleton, spSkeletonClipping* skele
             continue;
         }
 
-        if (type == SP_ATTACHMENT_REGION || type == SP_ATTACHMENT_MESH)
+        float* vertices = 0;
+        float* uvs = 0;
+        uint16_t* indices = 0;
+        uint32_t attachment_vertex_count = 0;
+        uint32_t attachment_index_count = 0;
+
+        if (type == SP_ATTACHMENT_REGION)
         {
-            if (spSkeletonClipping_isClipping(skeleton_clipper))
+            spRegionAttachment* region_attachment = (spRegionAttachment*)attachment;
+            if (SkipInvisibleClippedAttachment(skeleton_clipper, slot, region_attachment->color.a))
             {
-                CalcIndexedBufferAttachmentByClipper(scratch_attachment, slot, attachment, skeleton_clipper, &vertex_count, &index_count);
+                continue;
             }
-            else
+
+            EnsureArraySize(scratch_attachment, ATTACHMENT_REGION_NUM_FLOATS);
+            spRegionAttachment_computeWorldVertices(region_attachment, slot, scratch_attachment.Begin(), 0, 2);
+            vertices = scratch_attachment.Begin();
+            attachment_vertex_count = ATTACHMENT_REGION_VERTEX_COUNT;
+            attachment_index_count = ATTACHMENT_REGION_INDEX_COUNT;
+            uvs = region_attachment->uvs;
+            indices = (uint16_t*)QUAD_INDICES;
+        }
+        else if (type == SP_ATTACHMENT_MESH)
+        {
+            spMeshAttachment* mesh = (spMeshAttachment*)attachment;
+            if (SkipInvisibleClippedAttachment(skeleton_clipper, slot, mesh->color.a))
             {
-                CalcIndexedBufferAttachment(attachment, &vertex_count, &index_count);
+                continue;
+            }
+
+            EnsureArraySize(scratch_attachment, mesh->super.worldVerticesLength);
+            spVertexAttachment_computeWorldVertices(SUPER(mesh), slot, 0, mesh->super.worldVerticesLength, scratch_attachment.Begin(), 0, 2);
+            vertices = scratch_attachment.Begin();
+            attachment_vertex_count = mesh->super.worldVerticesLength / 2;
+            attachment_index_count = mesh->trianglesCount;
+            uvs = mesh->uvs;
+            indices = mesh->triangles;
+        }
+        else
+        {
+            spSkeletonClipping_clipEnd(skeleton_clipper, slot);
+            continue;
+        }
+
+        float* bounds_vertices = vertices;
+        uint32_t bounds_vertex_count = attachment_vertex_count;
+        if (spSkeletonClipping_isClipping(skeleton_clipper))
+        {
+            spSkeletonClipping_clipTriangles(skeleton_clipper, vertices, attachment_vertex_count << 1, indices, attachment_index_count, uvs, 2);
+            bounds_vertices = skeleton_clipper->clippedVertices->items;
+            bounds_vertex_count = skeleton_clipper->clippedVertices->size >> 1;
+            vertex_count += bounds_vertex_count;
+            index_count += skeleton_clipper->clippedTriangles->size;
+        }
+        else
+        {
+            vertex_count += attachment_vertex_count;
+            index_count += attachment_index_count;
+        }
+
+        if (out_bounds && bounds_vertex_count > 0)
+        {
+            float* coords = bounds_vertices;
+            for (uint32_t i = 0; i < bounds_vertex_count; ++i)
+            {
+                float x = *coords++;
+                float y = *coords++;
+                out_bounds->minX = dmMath::Min(x, out_bounds->minX);
+                out_bounds->minY = dmMath::Min(y, out_bounds->minY);
+                out_bounds->maxX = dmMath::Max(x, out_bounds->maxX);
+                out_bounds->maxY = dmMath::Max(y, out_bounds->maxY);
             }
         }
 
