@@ -746,10 +746,10 @@ namespace dmSpine
         return dmGameObject::CREATE_RESULT_OK;
     }
 
-    static void UpdateBones(SpineModelComponent* component)
+    static bool UpdateBones(SpineModelComponent* component)
     {
         if (component->m_BoneInstances.Empty())
-            return;
+            return false;
 
         uint32_t size = component->m_Bones.Size();
         DM_PROPERTY_ADD_U32(rmtp_SpineBones, size);
@@ -760,6 +760,8 @@ namespace dmSpine
             dmGameObject::HInstance bone_instance = component->m_BoneInstances[n];
             SetTransformFromBone(bone_instance, component->m_Transform, bone);
         }
+
+        return true;
     }
 
     dmGameObject::CreateResult CompSpineModelAddToUpdate(const dmGameObject::ComponentAddToUpdateParams& params)
@@ -812,7 +814,7 @@ namespace dmSpine
         dmArray<SpineModelComponent*>& components = world->m_Components.GetRawObjects();
         const uint32_t count = components.Size();
         DM_PROPERTY_ADD_U32(rmtp_SpineComponents, count);
-        uint32_t num_active = 0;
+        bool transforms_updated = false;
         for (uint32_t i = 0; i < count; ++i)
         {
             SpineModelComponent& component = *components[i];
@@ -830,8 +832,6 @@ namespace dmSpine
             const Matrix4 local = dmTransform::ToMatrix4(component.m_Transform);
             component.m_World = go_world * local;
 
-            ++num_active;
-
             // docs: http://esotericsoftware.com/spine-runtime-skeletons
             spAnimationState_update(component.m_AnimationStateInstance, dt);
             spAnimationState_apply(component.m_AnimationStateInstance, component.m_SkeletonInstance);
@@ -842,7 +842,7 @@ namespace dmSpine
             spSkeleton_updateWorldTransform(component.m_SkeletonInstance, SP_PHYSICS_UPDATE);
 
             // Update the game world objects
-            UpdateBones(&component);
+            transforms_updated |= UpdateBones(&component);
 
             if (component.m_ReHash || (component.m_RenderConstants && dmGameSystem::AreRenderConstantsUpdated(component.m_RenderConstants)))
             {
@@ -853,7 +853,7 @@ namespace dmSpine
         }
 
         // Since we've moved the child game objects (bones), we need to sync back the transforms
-        update_result.m_TransformsUpdated = num_active > 0;
+        update_result.m_TransformsUpdated = transforms_updated;
         return dmGameObject::UPDATE_RESULT_OK;
     }
 
