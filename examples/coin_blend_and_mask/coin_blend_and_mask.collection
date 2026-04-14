@@ -42,3 +42,24 @@ embedded_instances {
     y: 450.0
   }
 }
+embedded_instances {
+  id: "spineboy"
+  data: "embedded_components {\n"
+  "  id: \"spinemodel\"\n"
+  "  type: \"spinemodel\"\n"
+  "  data: \"spine_scene: \\\"/assets/spineboy/spineboy.spinescene\\\"\\n"
+  "default_animation: \\\"portal\\\"\\n"
+  "skin: \\\"\\\"\\n"
+  "material: \\\"/defold-spine/assets/spine.material\\\"\\n"
+  "\"\n"
+  "  position {\n"
+  "    x: 249.0\n"
+  "    y: 365.0\n"
+  "  }\n"
+  "  scale {\n"
+  "    x: 0.4\n"
+  "    y: 0.4\n"
+  "  }\n"
+  "}\n"
+  ""
+}

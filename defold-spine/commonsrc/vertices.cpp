@@ -586,19 +586,16 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
     return vcount;
 }
 
-uint32_t GenerateIndexedVertexData(dmArray<SpineVertex>& vertex_buffer, dmArray<uint32_t>& index_buffer, const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, const dmVMath::Matrix4& world, dmArray<SpineIndexedDrawDesc>* draw_descs_out)
+uint32_t GenerateIndexedVertexData(dmArray<SpineVertex>& vertex_buffer, dmArray<uint32_t>& index_buffer, const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, uint32_t expected_vertex_count, uint32_t expected_index_count, const dmVMath::Matrix4& world, dmArray<SpineIndexedDrawDesc>* draw_descs_out)
 {
     dmArray<float> scratch_vertex_floats;
     uint32_t vindex_start = vertex_buffer.Size();
     uint32_t iindex_start = index_buffer.Size();
     uint32_t vindex = vindex_start;
     uint32_t iindex = iindex_start;
-    uint32_t estimated_vertex_count = 0;
-    uint32_t estimated_index_count = 0;
-    CalcIndexedBufferSize(skeleton, skeleton_clipper, &estimated_vertex_count, &estimated_index_count);
 
-    EnsureArrayFitsNumber(vertex_buffer, estimated_vertex_count);
-    EnsureArrayFitsNumber(index_buffer, estimated_index_count);
+    EnsureArrayFitsNumber(vertex_buffer, expected_vertex_count);
+    EnsureArrayFitsNumber(index_buffer, expected_index_count);
 
     for (int s = 0; s < skeleton->slotsCount; ++s)
     {
@@ -728,8 +725,8 @@ uint32_t GenerateIndexedVertexData(dmArray<SpineVertex>& vertex_buffer, dmArray<
     spSkeletonClipping_clipEnd2(skeleton_clipper);
 
     uint32_t vcount = vindex - vindex_start;
-    assert(iindex - iindex_start == estimated_index_count);
-    assert(vcount == estimated_vertex_count);
+    assert(iindex - iindex_start == expected_index_count);
+    assert(vcount == expected_vertex_count);
     return vcount;
 }
 

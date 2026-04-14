@@ -1032,7 +1032,7 @@ namespace dmSpine
             const SpineModelComponent* component = (const SpineModelComponent*) components[component_index];
             const SpineGeometryCounts& geometry_counts = world->m_GeometryCounts[component_index];
             uint32_t component_index_start = world->m_IndexBufferData.Size();
-            uint32_t generated_vertices = dmSpine::GenerateIndexedVertexData(world->m_VertexBufferData, world->m_IndexBufferData, component->m_SkeletonInstance, world->m_SkeletonClipper, component->m_World, use_inherit_blend ? &world->m_DrawDescBuffer : 0);
+            uint32_t generated_vertices = dmSpine::GenerateIndexedVertexData(world->m_VertexBufferData, world->m_IndexBufferData, component->m_SkeletonInstance, world->m_SkeletonClipper, geometry_counts.m_VertexCount, geometry_counts.m_IndexCount, component->m_World, use_inherit_blend ? &world->m_DrawDescBuffer : 0);
             uint32_t generated_indices = world->m_IndexBufferData.Size() - component_index_start;
             assert(generated_vertices == geometry_counts.m_VertexCount);
             assert(generated_indices == geometry_counts.m_IndexCount);
