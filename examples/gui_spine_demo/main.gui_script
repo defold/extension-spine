@@ -106,6 +106,12 @@ local function set_markers_to_bones(spine_node, marker_node)
     end
 end
 
+local function resolve_spine_bones(spine_node)
+    for i, bone_id in ipairs(bone_names) do
+        gui.get_spine_bone(spine_node, string.sub(bone_id, 7))
+    end
+end
+
 function init(self)
     print("HELLO FROM GUI!")
     self.n = gui.get_node("spine")
@@ -126,12 +132,16 @@ function init(self)
 
     local bone_sprite = gui.get_node("bone")
     self.spine_before_markers = clone_spine(self.n, 100, "walk", 0.5)
+    -- clone of the clone don't see bones without this step
+    resolve_spine_bones(self.spine_before_markers)
     self.spine_clone_before_markers = clone_spine(self.spine_before_markers, 200)
     set_markers_to_bones(self.spine_before_markers, bone_sprite)
     set_markers_to_bones(self.spine_clone_before_markers, bone_sprite)
 
     self.template_spine = gui.get_node("spine_template/t_spine")
     self.template_spine_before_markers = clone_spine(self.template_spine, 100)
+    -- clone of the clone don't see bones without this step
+    resolve_spine_bones(self.template_spine_before_markers)
     self.template_spine_clone_before_markers = clone_spine(self.template_spine_before_markers, 200)
     set_markers_to_bones(self.template_spine_before_markers, bone_sprite)
     set_markers_to_bones(self.template_spine_clone_before_markers, bone_sprite)
