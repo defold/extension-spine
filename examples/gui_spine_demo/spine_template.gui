@@ -1,0 +1,16 @@
+nodes {
+  type: TYPE_CUSTOM
+  id: "t_spine"
+  inherit_alpha: true
+  size_mode: SIZE_MODE_AUTO
+  spine_scene: "spineboy"
+  spine_default_animation: "idle"
+  custom_type: 405028931
+  spine_create_bones: true
+}
+material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT
+resources {
+  name: "spineboy"
+  path: "/assets/spineboy/spineboy.spinescene"
+}

@@ -9,12 +9,12 @@ textures {
 }
 nodes {
   position {
-    x: 225.0
-    y: 284.0
+    x: 83.0
+    y: 439.0
   }
   scale {
-    x: 0.5
-    y: 0.5
+    x: 0.3
+    y: 0.3
   }
   type: TYPE_CUSTOM
   id: "spine"
@@ -123,8 +123,29 @@ nodes {
   spine_default_animation: "idle"
   custom_type: 405028931
 }
+nodes {
+  position {
+    x: 292.0
+  }
+  scale {
+    x: 0.2
+    y: 0.2
+  }
+  type: TYPE_TEMPLATE
+  id: "spine_template"
+  inherit_alpha: true
+  template: "/examples/gui_spine_demo/spine_template.gui"
+}
+nodes {
+  type: TYPE_CUSTOM
+  id: "spine_template/t_spine"
+  parent: "spine_template"
+  template_node_child: true
+  custom_type: 405028931
+}
 material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT
+max_nodes: 4096
 resources {
   name: "spineboy"
   path: "/assets/spineboy/spineboy.spinescene"

@@ -81,6 +81,31 @@ local function clone_node(node)
     return nodes
 end
 
+local function clone_spine(node, x_offset, animation_id, playback_rate)
+    local clone = gui.clone_tree(node)[gui.get_id(node)]
+    local position = gui.get_position(clone)
+    position.x = position.x + x_offset
+    gui.set_position(clone, position)
+
+    if animation_id then
+        gui.play_spine_anim(clone, animation_id, gui.PLAYBACK_LOOP_FORWARD, {}, spine_callback)
+    end
+
+    if playback_rate then
+        gui.set_spine_playback_rate(clone, playback_rate)
+    end
+
+    return clone
+end
+
+local function set_markers_to_bones(spine_node, marker_node)
+    for i, bone_id in ipairs(bone_names) do
+        local bone = gui.get_spine_bone(spine_node, string.sub(bone_id, 7))
+        local marker_clone = gui.clone(marker_node)
+        gui.set_parent(marker_clone, bone)
+    end
+end
+
 function init(self)
     print("HELLO FROM GUI!")
     self.n = gui.get_node("spine")
@@ -98,17 +123,25 @@ function init(self)
     print("gui.get_spine_scene", gui.get_spine_scene(self.n))
 
     gui.set_spine_attachment(self.n, "mouth", "mouth-grind")
+
+    local bone_sprite = gui.get_node("bone")
+    self.spine_before_markers = clone_spine(self.n, 100, "walk", 0.5)
+    self.spine_clone_before_markers = clone_spine(self.spine_before_markers, 200)
+    set_markers_to_bones(self.spine_before_markers, bone_sprite)
+    set_markers_to_bones(self.spine_clone_before_markers, bone_sprite)
+
+    self.template_spine = gui.get_node("spine_template/t_spine")
+    self.template_spine_before_markers = clone_spine(self.template_spine, 100)
+    self.template_spine_clone_before_markers = clone_spine(self.template_spine_before_markers, 200)
+    set_markers_to_bones(self.template_spine_before_markers, bone_sprite)
+    set_markers_to_bones(self.template_spine_clone_before_markers, bone_sprite)
+    set_markers_to_bones(self.template_spine, bone_sprite)
+    self.template_spine_after_markers = clone_spine(self.template_spine, 200)
     
     -- bones
-    local bone_sprite = gui.get_node("bone")
+    set_markers_to_bones(self.n, bone_sprite)
 
-    for i, bone_id in ipairs(bone_names) do
-
-        local bone = gui.get_spine_bone(self.n, string.sub(bone_id,7))
-        local bone_sprite_clone = gui.clone(bone_sprite)
-
-        gui.set_parent(bone_sprite_clone, bone)
-    end
+    self.spine_after_markers = clone_spine(self.n, 200, "walk", 0.5)
 
 
     timer.delay(0, false, function()
@@ -148,5 +181,3 @@ end
 
 function on_input(self, action_id, action)
 end
-
-
