@@ -1100,6 +1100,11 @@ namespace dmSpine
             SpineModelComponent* component_p = components[component_index];
 
             const SpineModelBounds& bounds = world->m_BoundingBoxes[component_index];
+            if (bounds.minX > bounds.maxX || bounds.minY > bounds.maxY)
+            {
+                entry->m_Visibility = dmRender::VISIBILITY_NONE;
+                continue;
+            }
 
             // get center of bounding box in local coords
             float center_x = (bounds.maxX + bounds.minX)/2;
@@ -1184,7 +1189,8 @@ namespace dmSpine
             if (!component.m_DoRender || !component.m_Enabled)
                 continue;
 
-            dmSpine::CalcIndexedBufferSize(component.m_SkeletonInstance, world->m_SkeletonClipper, &geometry_counts.m_VertexCount, &geometry_counts.m_IndexCount);
+            SpineModelBounds& bounds = world->m_BoundingBoxes[i];
+            dmSpine::CalcIndexedBufferSizeAndBounds(component.m_SkeletonInstance, world->m_SkeletonClipper, &geometry_counts.m_VertexCount, &geometry_counts.m_IndexCount, &bounds);
             total_vertex_count += geometry_counts.m_VertexCount;
             total_index_count += geometry_counts.m_IndexCount;
         }
@@ -1215,10 +1221,6 @@ namespace dmSpine
             SpineModelComponent& component = *components[i];
             if (!component.m_DoRender || !component.m_Enabled)
                 continue;
-
-            // Update bounding boxes
-            SpineModelBounds& bounds = world->m_BoundingBoxes[i];
-            GetSkeletonBounds(component.m_SkeletonInstance,bounds);
 
             const Vector4 trans = component.m_World.getCol(3);
             write_ptr->m_WorldPosition = Point3(trans.getX(), trans.getY(), trans.getZ());
