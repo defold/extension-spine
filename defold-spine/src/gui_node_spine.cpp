@@ -814,7 +814,6 @@ static void UpdateBones(InternalGuiNode* node)
     dmGui::HScene scene = node->m_GuiScene;
     uint32_t num_bones = node->m_BonesNodes.Size();
 
-    dmVMath::Vector4 scale = dmGui::GetNodeProperty(scene, node->m_GuiNode, dmGui::PROPERTY_SCALE);
     DM_PROPERTY_ADD_U32(rmtp_SpineBones, num_bones);
     for (uint32_t i = 0; i < num_bones; ++i)
     {

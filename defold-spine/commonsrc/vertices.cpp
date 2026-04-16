@@ -13,8 +13,29 @@
 
 namespace dmSpine
 {
-    static const uint32_t ATTACHMENT_REGION_NUM_FLOATS = 4*2;
-    static const uint16_t QUAD_INDICES[]               = {0, 1, 2, 2, 3, 0};
+    static const uint32_t ATTACHMENT_REGION_VERTEX_COUNT = 4; // Region attachments render as quads.
+    static const uint16_t QUAD_INDICES[]                 = {0, 1, 2, 2, 3, 0};
+    static const uint32_t ATTACHMENT_REGION_INDEX_COUNT  = sizeof(QUAD_INDICES) / sizeof(QUAD_INDICES[0]);
+    static const uint32_t ATTACHMENT_REGION_NUM_FLOATS   = ATTACHMENT_REGION_VERTEX_COUNT * 2;
+    static const float COLOR_ALPHA_EPSILON               = 1e-6f;
+
+    static inline bool HasRenderableAlpha(float alpha)
+    {
+        // Spine color channels are floats, so treat near-zero alpha as invisible.
+        return alpha > COLOR_ALPHA_EPSILON;
+    }
+
+    static inline bool SkipInvisibleClippedAttachment(spSkeletonClipping* skeleton_clipper, spSlot* slot, float alpha)
+    {
+        if (HasRenderableAlpha(alpha))
+        {
+            return false;
+        }
+
+        // Invisible attachments still need to advance the clipper state for the slot.
+        spSkeletonClipping_clipEnd(skeleton_clipper, slot);
+        return true;
+    }
 
 static inline void addVertex(dmSpine::SpineVertex* vertex, float x, float y, float u, float v, float r, float g, float b, float a, float page_index)
 {
@@ -133,16 +154,16 @@ static void CalcAndAddVertexBufferAttachment(spAttachment* attachment, uint32_t*
     if (type == SP_ATTACHMENT_REGION)
     {
         spRegionAttachment* regionAttachment = (spRegionAttachment*)attachment;
-        if (regionAttachment->color.a == 0)
+        if (!HasRenderableAlpha(regionAttachment->color.a))
         {
             return;
         }
-        *out_indices += 6;
+        *out_indices += ATTACHMENT_REGION_INDEX_COUNT;
     }
     else if (type == SP_ATTACHMENT_MESH)
     {
         spMeshAttachment* mesh     = (spMeshAttachment*)attachment;
-        if (mesh->color.a == 0)
+        if (!HasRenderableAlpha(mesh->color.a))
         {
             return;
         }
@@ -169,25 +190,23 @@ static void CalcAndAddVertexBufferAttachmentByClipper(dmArray<float>& scratch, s
     {
         EnsureArraySize(scratch, ATTACHMENT_REGION_NUM_FLOATS);
         spRegionAttachment* regionAttachment = (spRegionAttachment*)attachment;
-        if (regionAttachment->color.a == 0)
+        if (SkipInvisibleClippedAttachment(skeleton_clipper, slot, regionAttachment->color.a))
         {
-            spSkeletonClipping_clipEnd(skeleton_clipper, slot);
             return;
         }
         spRegionAttachment_computeWorldVertices(regionAttachment, slot, scratch.Begin(), 0, 2);
 
-        vertex_count  = 4;
+        vertex_count  = ATTACHMENT_REGION_VERTEX_COUNT;
         uvs           = regionAttachment->uvs;
         indices       = (uint16_t*) QUAD_INDICES;
-        indices_count = 6;
+        indices_count = ATTACHMENT_REGION_INDEX_COUNT;
         vertices      = scratch.Begin();
     }
     else if (type == SP_ATTACHMENT_MESH)
     {
         spMeshAttachment *mesh = (spMeshAttachment *) attachment;
-        if (mesh->color.a == 0)
+        if (SkipInvisibleClippedAttachment(skeleton_clipper, slot, mesh->color.a))
         {
-            spSkeletonClipping_clipEnd(skeleton_clipper, slot);
             return;
         }
         EnsureArraySize(scratch, mesh->super.worldVerticesLength);
@@ -205,6 +224,81 @@ static void CalcAndAddVertexBufferAttachmentByClipper(dmArray<float>& scratch, s
 
     *out_indices             += indices_count;
     *out_vertices = dmMath::Max(*out_vertices, vertex_count);
+}
+
+static void CalcIndexedBufferAttachment(spAttachment* attachment, uint32_t* out_vertex_count, uint32_t* out_index_count)
+{
+    spAttachmentType type = attachment->type;
+    if (type == SP_ATTACHMENT_REGION)
+    {
+        spRegionAttachment* regionAttachment = (spRegionAttachment*)attachment;
+        if (!HasRenderableAlpha(regionAttachment->color.a))
+        {
+            return;
+        }
+        *out_vertex_count += ATTACHMENT_REGION_VERTEX_COUNT;
+        *out_index_count += ATTACHMENT_REGION_INDEX_COUNT;
+    }
+    else if (type == SP_ATTACHMENT_MESH)
+    {
+        spMeshAttachment* mesh = (spMeshAttachment*)attachment;
+        if (!HasRenderableAlpha(mesh->color.a))
+        {
+            return;
+        }
+        *out_vertex_count += SUPER(mesh)->worldVerticesLength / 2;
+        *out_index_count += (uint32_t)mesh->trianglesCount;
+    }
+}
+
+static void CalcIndexedBufferAttachmentByClipper(dmArray<float>& scratch, spSlot* slot, spAttachment* attachment, spSkeletonClipping* skeleton_clipper, uint32_t* out_vertex_count, uint32_t* out_index_count)
+{
+    uint16_t* indices = 0;
+    uint32_t vertex_count = 0;
+    uint32_t indices_count = 0;
+    float* uvs = 0;
+    float* vertices = 0;
+    spAttachmentType type = attachment->type;
+
+    if (type == SP_ATTACHMENT_REGION)
+    {
+        EnsureArraySize(scratch, ATTACHMENT_REGION_NUM_FLOATS);
+        spRegionAttachment* regionAttachment = (spRegionAttachment*)attachment;
+        if (SkipInvisibleClippedAttachment(skeleton_clipper, slot, regionAttachment->color.a))
+        {
+            return;
+        }
+
+        spRegionAttachment_computeWorldVertices(regionAttachment, slot, scratch.Begin(), 0, 2);
+
+        vertex_count = ATTACHMENT_REGION_VERTEX_COUNT;
+        uvs = regionAttachment->uvs;
+        indices = (uint16_t*)QUAD_INDICES;
+        indices_count = ATTACHMENT_REGION_INDEX_COUNT;
+        vertices = scratch.Begin();
+    }
+    else if (type == SP_ATTACHMENT_MESH)
+    {
+        spMeshAttachment* mesh = (spMeshAttachment*)attachment;
+        if (SkipInvisibleClippedAttachment(skeleton_clipper, slot, mesh->color.a))
+        {
+            return;
+        }
+
+        EnsureArraySize(scratch, mesh->super.worldVerticesLength);
+        spVertexAttachment_computeWorldVertices(SUPER(mesh), slot, 0, mesh->super.worldVerticesLength, scratch.Begin(), 0, 2);
+
+        vertex_count = mesh->super.worldVerticesLength / 2;
+        uvs = mesh->uvs;
+        indices = mesh->triangles;
+        indices_count = mesh->trianglesCount;
+        vertices = scratch.Begin();
+    }
+
+    spSkeletonClipping_clipTriangles(skeleton_clipper, vertices, vertex_count << 1, indices, indices_count, uvs, 2);
+
+    *out_vertex_count += skeleton_clipper->clippedVertices->size >> 1;
+    *out_index_count += skeleton_clipper->clippedTriangles->size;
 }
 
 uint32_t CalcVertexBufferSize(const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, uint32_t* out_vertices)
@@ -226,7 +320,7 @@ uint32_t CalcVertexBufferSize(const spSkeleton* skeleton, spSkeletonClipping* sk
             continue;
         }
 
-        if (slot->color.a == 0 || !slot->bone->active)
+        if (!HasRenderableAlpha(slot->color.a) || !slot->bone->active)
         {
             spSkeletonClipping_clipEnd(skeleton_clipper, slot);
             continue;
@@ -271,13 +365,76 @@ uint32_t CalcDrawDescCount(const spSkeleton* skeleton)
     {
         spSlot* slot = skeleton->drawOrder[s];
         spAttachment* attachment = slot->attachment;
+        if (!attachment)
+        {
+            continue;
+        }
+
         spAttachmentType type = attachment->type;
-        if (attachment && (type == SP_ATTACHMENT_REGION || type == SP_ATTACHMENT_MESH))
+        if (type == SP_ATTACHMENT_REGION || type == SP_ATTACHMENT_MESH)
         {
             count++;
         }
     }
     return count;
+}
+
+void CalcIndexedBufferSize(const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, uint32_t* out_vertex_count, uint32_t* out_index_count)
+{
+    dmArray<float> scratch_attachment;
+    uint32_t vertex_count = 0;
+    uint32_t index_count = 0;
+
+    for (int s = 0; s < skeleton->slotsCount; ++s)
+    {
+        spSlot* slot = skeleton->drawOrder[s];
+        spAttachment* attachment = slot->attachment;
+        if (!attachment)
+        {
+            spSkeletonClipping_clipEnd(skeleton_clipper, slot);
+            continue;
+        }
+
+        if (!HasRenderableAlpha(slot->color.a) || !slot->bone->active)
+        {
+            spSkeletonClipping_clipEnd(skeleton_clipper, slot);
+            continue;
+        }
+
+        spAttachmentType type = attachment->type;
+
+        if (type == SP_ATTACHMENT_CLIPPING)
+        {
+            spClippingAttachment* clip = (spClippingAttachment*)attachment;
+            spSkeletonClipping_clipStart(skeleton_clipper, slot, clip);
+            continue;
+        }
+
+        if (type == SP_ATTACHMENT_REGION || type == SP_ATTACHMENT_MESH)
+        {
+            if (spSkeletonClipping_isClipping(skeleton_clipper))
+            {
+                CalcIndexedBufferAttachmentByClipper(scratch_attachment, slot, attachment, skeleton_clipper, &vertex_count, &index_count);
+            }
+            else
+            {
+                CalcIndexedBufferAttachment(attachment, &vertex_count, &index_count);
+            }
+        }
+
+        spSkeletonClipping_clipEnd(skeleton_clipper, slot);
+    }
+
+    spSkeletonClipping_clipEnd2(skeleton_clipper);
+
+    if (out_vertex_count)
+    {
+        *out_vertex_count = vertex_count;
+    }
+    if (out_index_count)
+    {
+        *out_index_count = index_count;
+    }
 }
 
 uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, const dmVMath::Matrix4& world, dmArray<SpineDrawDesc>* draw_descs_out)
@@ -307,7 +464,7 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
         }
 
         spColor* slot_color = &slot->color;
-        if (slot_color->a == 0 || !slot->bone->active)
+        if (!HasRenderableAlpha(slot_color->a) || !slot->bone->active)
         {
             spSkeletonClipping_clipEnd(skeleton_clipper, slot);
             continue;
@@ -340,8 +497,8 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
             // and compute the world vertices
             spRegionAttachment* regionAttachment = (spRegionAttachment*)attachment;
             spColor* attachment_color = &regionAttachment->color;
-            if (attachment_color->a == 0) {
-                spSkeletonClipping_clipEnd(skeleton_clipper, slot);
+            if (SkipInvisibleClippedAttachment(skeleton_clipper, slot, attachment_color->a))
+            {
                 continue;
             }
 
@@ -351,10 +508,10 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
             // before rendering via spSkeleton_updateWorldTransform
             spRegionAttachment_computeWorldVertices(regionAttachment, slot, scratch_vertex_floats.Begin(), 0, 2);
 
-            vertex_count  = 4;
+            vertex_count  = ATTACHMENT_REGION_VERTEX_COUNT;
             uvs           = regionAttachment->uvs;
             indices       = (uint16_t*) QUAD_INDICES;
-            indices_count = 6;
+            indices_count = ATTACHMENT_REGION_INDEX_COUNT;
             color         = attachment_color;
             vertices      = scratch_vertex_floats.Begin();
         }
@@ -365,8 +522,8 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
             spMeshAttachment* mesh = (spMeshAttachment*) attachment;
             spColor* attachment_color = &mesh->color;
 
-            if (attachment_color->a == 0) {
-                spSkeletonClipping_clipEnd(skeleton_clipper, slot);
+            if (SkipInvisibleClippedAttachment(skeleton_clipper, slot, attachment_color->a))
+            {
                 continue;
             }
             
@@ -448,6 +605,148 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
     return vcount;
 }
 
+uint32_t GenerateIndexedVertexData(dmArray<SpineVertex>& vertex_buffer, dmArray<uint32_t>& index_buffer, const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, uint32_t expected_vertex_count, uint32_t expected_index_count, const dmVMath::Matrix4& world, dmArray<SpineIndexedDrawDesc>* draw_descs_out)
+{
+    dmArray<float> scratch_vertex_floats;
+    uint32_t vindex_start = vertex_buffer.Size();
+    uint32_t iindex_start = index_buffer.Size();
+    uint32_t vindex = vindex_start;
+    uint32_t iindex = iindex_start;
+
+    EnsureArrayFitsNumber(vertex_buffer, expected_vertex_count);
+    EnsureArrayFitsNumber(index_buffer, expected_index_count);
+
+    for (int s = 0; s < skeleton->slotsCount; ++s)
+    {
+        spSlot* slot = skeleton->drawOrder[s];
+        spAttachment* attachment = slot->attachment;
+        if (!attachment)
+        {
+            spSkeletonClipping_clipEnd(skeleton_clipper, slot);
+            continue;
+        }
+
+        spColor* slot_color = &slot->color;
+        if (!HasRenderableAlpha(slot_color->a) || !slot->bone->active)
+        {
+            spSkeletonClipping_clipEnd(skeleton_clipper, slot);
+            continue;
+        }
+
+        const spColor* skeleton_color = &skeleton->color;
+        float tintR = skeleton_color->r * slot_color->r;
+        float tintG = skeleton_color->g * slot_color->g;
+        float tintB = skeleton_color->b * slot_color->b;
+        float tintA = skeleton_color->a * slot_color->a;
+
+        float page_index = 0;
+        spColor* color = 0;
+        uint16_t* indices = 0;
+        uint32_t vertex_count = 0;
+        uint32_t indices_count = 0;
+        float* uvs = 0;
+        float* vertices = 0;
+        spAttachmentType type = attachment->type;
+
+        if (type == SP_ATTACHMENT_REGION)
+        {
+            spRegionAttachment* regionAttachment = (spRegionAttachment*)attachment;
+            spColor* attachment_color = &regionAttachment->color;
+            if (SkipInvisibleClippedAttachment(skeleton_clipper, slot, attachment_color->a))
+            {
+                continue;
+            }
+
+            EnsureArraySize(scratch_vertex_floats, ATTACHMENT_REGION_NUM_FLOATS);
+            spRegionAttachment_computeWorldVertices(regionAttachment, slot, scratch_vertex_floats.Begin(), 0, 2);
+
+            vertex_count = ATTACHMENT_REGION_VERTEX_COUNT;
+            uvs = regionAttachment->uvs;
+            indices = (uint16_t*)QUAD_INDICES;
+            indices_count = ATTACHMENT_REGION_INDEX_COUNT;
+            color = attachment_color;
+            vertices = scratch_vertex_floats.Begin();
+        }
+        else if (type == SP_ATTACHMENT_MESH)
+        {
+            spMeshAttachment* mesh = (spMeshAttachment*)attachment;
+            spColor* attachment_color = &mesh->color;
+            if (SkipInvisibleClippedAttachment(skeleton_clipper, slot, attachment_color->a))
+            {
+                continue;
+            }
+
+            EnsureArraySize(scratch_vertex_floats, mesh->super.worldVerticesLength);
+            spVertexAttachment_computeWorldVertices(SUPER(mesh), slot, 0, mesh->super.worldVerticesLength, scratch_vertex_floats.Begin(), 0, 2);
+
+            vertex_count = SUPER(mesh)->worldVerticesLength / 2;
+            uvs = mesh->uvs;
+            indices = mesh->triangles;
+            indices_count = mesh->trianglesCount;
+            color = attachment_color;
+            vertices = scratch_vertex_floats.Begin();
+        }
+        else if (type == SP_ATTACHMENT_CLIPPING)
+        {
+            spClippingAttachment* clip = (spClippingAttachment*)attachment;
+            spSkeletonClipping_clipStart(skeleton_clipper, slot, clip);
+            continue;
+        }
+        else
+        {
+            continue;
+        }
+
+        if (spSkeletonClipping_isClipping(skeleton_clipper))
+        {
+            spSkeletonClipping_clipTriangles(skeleton_clipper, vertices, vertex_count << 1, indices, indices_count, uvs, 2);
+
+            vertices = skeleton_clipper->clippedVertices->items;
+            vertex_count = skeleton_clipper->clippedVertices->size >> 1;
+            uvs = skeleton_clipper->clippedUVs->items;
+            indices = skeleton_clipper->clippedTriangles->items;
+            indices_count = skeleton_clipper->clippedTriangles->size;
+        }
+
+        const float colorR = tintR * color->r;
+        const float colorG = tintG * color->g;
+        const float colorB = tintB * color->b;
+        const float colorA = tintA * color->a;
+
+        uint32_t batch_index_start = iindex;
+        uint32_t vertex_base = vindex;
+        for (uint32_t i = 0; i < vertex_count; ++i)
+        {
+            uint32_t index = i << 1;
+            const dmVMath::Vector4 p = world * dmVMath::Point3(vertices[index], vertices[index + 1], 0.0f);
+            addVertex(&vertex_buffer[vindex++], p.getX(), p.getY(), uvs[index], uvs[index + 1], colorR, colorG, colorB, colorA, page_index);
+        }
+
+        for (uint32_t i = 0; i < indices_count; ++i)
+        {
+            index_buffer[iindex++] = vertex_base + indices[i];
+        }
+
+        if (draw_descs_out)
+        {
+            SpineIndexedDrawDesc desc = {};
+            desc.m_IndexStart = batch_index_start;
+            desc.m_IndexCount = indices_count;
+            desc.m_BlendMode = (uint32_t)slot->data->blendMode;
+            draw_descs_out->Push(desc);
+        }
+
+        spSkeletonClipping_clipEnd(skeleton_clipper, slot);
+    }
+
+    spSkeletonClipping_clipEnd2(skeleton_clipper);
+
+    uint32_t vcount = vindex - vindex_start;
+    assert(iindex - iindex_start == expected_index_count);
+    assert(vcount == expected_vertex_count);
+    return vcount;
+}
+
 void MergeDrawDescs(const dmArray<SpineDrawDesc>& src, dmArray<SpineDrawDesc>& dst)
 {
     dst.SetCapacity(src.Size());
@@ -475,6 +774,36 @@ void MergeDrawDescs(const dmArray<SpineDrawDesc>& src, dmArray<SpineDrawDesc>& d
             *current_draw_desc = src[i];
         }
     }
+    uint32_t trimmed_size = current_draw_desc - dst.Begin() + 1;
+    dst.SetSize(trimmed_size);
+}
+
+void MergeIndexedDrawDescs(const dmArray<SpineIndexedDrawDesc>& src, dmArray<SpineIndexedDrawDesc>& dst)
+{
+    dst.SetCapacity(src.Size());
+    dst.SetSize(src.Size());
+
+    if (src.Size() == 0)
+    {
+        return;
+    }
+
+    SpineIndexedDrawDesc* current_draw_desc = dst.Begin();
+    *current_draw_desc = src[0];
+
+    for (int i = 1; i < src.Size(); ++i)
+    {
+        if (current_draw_desc->m_BlendMode == src[i].m_BlendMode)
+        {
+            current_draw_desc->m_IndexCount += src[i].m_IndexCount;
+        }
+        else
+        {
+            current_draw_desc++;
+            *current_draw_desc = src[i];
+        }
+    }
+
     uint32_t trimmed_size = current_draw_desc - dst.Begin() + 1;
     dst.SetSize(trimmed_size);
 }
