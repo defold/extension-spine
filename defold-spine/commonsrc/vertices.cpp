@@ -37,11 +37,11 @@ namespace dmSpine
         return true;
     }
 
-static inline void addVertex(dmSpine::SpineVertex* vertex, float x, float y, float u, float v, float r, float g, float b, float a, float page_index)
+static inline void addVertex(dmSpine::SpineVertex* vertex, float x, float y, float z, float u, float v, float r, float g, float b, float a, float page_index)
 {
    vertex->x = x;
    vertex->y = y;
-   vertex->z = 0;
+   vertex->z = z;
    vertex->u = u;
    vertex->v = v;
    vertex->r = r;
@@ -637,7 +637,7 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
         for (int i = 0; i < indices_count; ++i)
         {
             int index = indices[i] << 1;
-            addVertex(&vertex_buffer[vindex++], vertices[index], vertices[index + 1], uvs[index], uvs[index + 1], colorR, colorG, colorB, colorA, page_index);
+            addVertex(&vertex_buffer[vindex++], vertices[index], vertices[index + 1], 0.0f, uvs[index], uvs[index + 1], colorR, colorG, colorB, colorA, page_index);
         }
 
         if (draw_descs_out)
@@ -788,7 +788,7 @@ uint32_t GenerateIndexedVertexData(dmArray<SpineVertex>& vertex_buffer, dmArray<
         {
             uint32_t index = i << 1;
             const dmVMath::Vector4 p = world * dmVMath::Point3(vertices[index], vertices[index + 1], 0.0f);
-            addVertex(&vertex_buffer[vindex++], p.getX(), p.getY(), uvs[index], uvs[index + 1], colorR, colorG, colorB, colorA, page_index);
+            addVertex(&vertex_buffer[vindex++], p.getX(), p.getY(), p.getZ(), uvs[index], uvs[index + 1], colorR, colorG, colorB, colorA, page_index);
         }
 
         for (uint32_t i = 0; i < indices_count; ++i)

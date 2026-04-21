@@ -1,0 +1,97 @@
+name: Build and commit artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      defold_version:
+        description: Defold release tag, or latest for the latest stable version.
+        required: false
+        default: latest
+        type: string
+  workflow_call:
+    inputs:
+      defold_version:
+        description: Defold release tag, or latest for the latest stable version.
+        required: false
+        default: latest
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-and-commit-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  setup-defoldsdk:
+    name: Set up Defold SDK
+    uses: defold/github-actions-common/.github/workflows/defoldsdk.yml@master
+    with:
+      runner: ubuntu-latest
+      defold_channel: stable
+      defold_version: ${{ inputs.defold_version || 'latest' }}
+      sdk_output_path: build/defoldsdk
+      bob_output_path: bob.jar
+
+  build-and-commit:
+    name: Build and commit artifacts
+    needs: setup-defoldsdk
+    if: github.ref_type == 'branch'
+    runs-on: ubuntu-latest
+    env:
+      DEFOLD_VERSION: ${{ needs.setup-defoldsdk.outputs.defold_version }}
+      DEFOLDSDK_CACHE_KEY: ${{ needs.setup-defoldsdk.outputs.defoldsdk_cache_key }}
+    steps:
+      - name: Checkout calling branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: temurin
+          java-version: '25'
+          architecture: x64
+
+      - name: Restore Defold SDK and bob.jar
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            bob.jar
+            build/defoldsdk
+          key: ${{ env.DEFOLDSDK_CACHE_KEY }}
+          fail-on-cache-miss: true
+          enableCrossOsArchive: true
+
+      - name: Verify tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f bob.jar
+          test -d build/defoldsdk/defoldsdk
+          java -version
+          java -jar bob.jar --version
+
+      - name: Run build.sh
+        env:
+          BOB: ${{ github.workspace }}/bob.jar
+          DEFOLDSDK: ${{ env.DEFOLD_VERSION }}
+          DYNAMO_HOME: ${{ github.workspace }}/build/defoldsdk/defoldsdk
+        run: ./build.sh
+
+      - name: Commit generated artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add defold-spine/lib defold-spine/plugins
+          if git diff --cached --quiet; then
+            echo "No generated artifact changes to commit."
+            exit 0
+          fi
+          git commit -m "Build Defold artifacts (${DEFOLD_VERSION})"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
