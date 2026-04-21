@@ -75,6 +75,9 @@ jobs:
           java -version
           java -jar bob.jar --version
 
+      - name: Resolve libraries
+        run: java -jar bob.jar resolve
+
       - name: Run build.sh
         env:
           BOB: ${{ github.workspace }}/bob.jar
