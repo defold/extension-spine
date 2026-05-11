@@ -351,7 +351,7 @@ namespace dmSpine
     }
 
     static bool PlayAnimation(SpineModelComponent* component, dmhash_t animation_id, dmGameObject::Playback playback,
-        float blend_duration, float offset, float playback_rate, int track_index, dmGameSystemDDF::MixBlend mix_blend)
+        float blend_duration, float offset, float playback_rate, int track_index, dmGameSystemDDF::MixBlend mix_blend, float alpha)
     {
         uint32_t index = FindAnimationIndex(component, animation_id);
         if (index == INVALID_ANIMATION_INDEX)
@@ -422,6 +422,7 @@ namespace dmSpine
         track.m_AnimationInstance->mixDuration = blend_duration;
         track.m_AnimationInstance->trackTime = dmMath::Clamp(offset, track.m_AnimationInstance->animationStart, track.m_AnimationInstance->animationEnd);
         track.m_AnimationInstance->mixBlend = mixBlend;
+        track.m_AnimationInstance->alpha = alpha;
 
         track.m_CallbackInfo = 0x0;
         dmMessage::ResetURL(&track.m_Listener);
@@ -475,7 +476,7 @@ namespace dmSpine
         {
             dmhash_t animation_id = dmHashString64(component->m_Resource->m_Ddf->m_DefaultAnimation);
             PlayAnimation(component, animation_id, dmGameObject::PLAYBACK_LOOP_FORWARD, 0.0f,
-                component->m_Resource->m_Ddf->m_Offset, component->m_Resource->m_Ddf->m_PlaybackRate, 0, dmGameSystemDDF::MixBlend::MIX_BLEND_FIRST);
+                component->m_Resource->m_Ddf->m_Offset, component->m_Resource->m_Ddf->m_PlaybackRate, 0, dmGameSystemDDF::MixBlend::MIX_BLEND_FIRST, 1.0f);
                 // TODO: Is the default playmode specified anywhere?
         }
 
@@ -1255,7 +1256,7 @@ namespace dmSpine
     bool CompSpineModelPlayAnimation(SpineModelComponent* component, dmGameSystemDDF::SpinePlayAnimation* message, dmMessage::URL* sender, dmScript::LuaCallbackInfo* callback_info, lua_State* L)
     {
         bool result = PlayAnimation(component, message->m_AnimationId, (dmGameObject::Playback)message->m_Playback, message->m_BlendDuration,
-                                                message->m_Offset, message->m_PlaybackRate, message->m_Track - 1, message->m_MixBlend);
+                                                message->m_Offset, message->m_PlaybackRate, message->m_Track - 1, message->m_MixBlend, message->m_Alpha);
         if (result)
         {
             SpineAnimationTrack& track = component->m_AnimationTracks[message->m_Track - 1];
