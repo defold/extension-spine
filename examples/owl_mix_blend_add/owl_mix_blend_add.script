@@ -12,8 +12,8 @@ function on_input(self, action_id, action)
 	if action_id == nil then
 	    local x = action.x - HALF_WIDTH
 	    local y = action.y - HALF_HEIGHT
-		local h_intensity = math.abs(x) / (math.abs(x) + math.abs(y))
-		local v_intensity = math.abs(y) / (math.abs(x) + math.abs(y))
+		local h_intensity = math.abs(x) / HALF_WIDTH
+		local v_intensity = math.abs(y) / HALF_HEIGHT
         spine.play_anim(self.url, "up", go.PLAYBACK_ONCE_FORWARD, {track = 3, mix_blend = spine.MIX_BLEND_ADD, alpha = y >= 0 and v_intensity or 0 })
         spine.play_anim(self.url, "down", go.PLAYBACK_ONCE_FORWARD, {track = 4, mix_blend = spine.MIX_BLEND_ADD, alpha = y < 0 and v_intensity or 0 })
         spine.play_anim(self.url, "left", go.PLAYBACK_ONCE_FORWARD, {track = 5, mix_blend = spine.MIX_BLEND_ADD, alpha = x >= 0 and h_intensity or 0 })
