@@ -34,6 +34,7 @@ spine.MIX_BLEND_ADD = 3     --- 'Add' mix blend mode.
 ---@field playback_rate? number The rate with which the animation will be played. Must be positive.
 ---@field track? number The track index of the animation. Defaults to 1. Animations on different tracks play in parallel.
 ---@field mix_blend? spine.MIX_BLEND The mix blend mode for the animation. Defaults to `spine.MIX_BLEND_REPLACE`. Ignored for animations on the first track.
+---@field alpha? number 0 applies the current or setup value (depending on mix_blend). 1 applies the timeline value. Between 0 and 1 applies a value between the current or setup value and the timeline value. Defaults to 1.
 
 ---@class spine.play_anim.callback_function.message
 ---@field animation_id string|hash The animation that was completed
