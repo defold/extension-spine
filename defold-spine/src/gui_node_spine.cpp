@@ -35,6 +35,7 @@ namespace dmSpine
 {
 static const dmhash_t SPINE_DEFAULT_ANIMATION   = dmHashString64("spine_default_animation");
 static const dmhash_t SPINE_SKIN                = dmHashString64("spine_skin");
+static const dmhash_t SPINE_CREATE_BONES        = dmHashString64("spine_create_bones");
 
 struct GuiNodeTypeContext
 {
@@ -85,6 +86,59 @@ struct InternalGuiNode
 };
 
 static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNode* node, bool create_bones);
+
+static bool GetCustomHashProperty(dmGui::HScene scene, dmGui::HNode node, dmhash_t property_id, dmhash_t* value)
+{
+    dmGui::CustomProperty property;
+    dmGui::Result result = dmGui::GetNodeCustomProperty(scene, node, property_id, &property);
+    if (result == dmGui::RESULT_RESOURCE_NOT_FOUND)
+    {
+        *value = 0;
+        return true;
+    }
+    if (result != dmGui::RESULT_OK)
+    {
+        dmLogError("Failed to get GUI custom property '%s'", dmHashReverseSafe64(property_id));
+        return false;
+    }
+
+    switch (property.m_Type)
+    {
+    case dmGui::CUSTOM_PROPERTY_TYPE_HASH:
+        *value = property.m_Hash;
+        return true;
+    case dmGui::CUSTOM_PROPERTY_TYPE_STRING:
+        *value = dmHashString64(property.m_String ? property.m_String : "");
+        return true;
+    default:
+        dmLogError("GUI custom property '%s' has unsupported type %d", dmHashReverseSafe64(property_id), property.m_Type);
+        return false;
+    }
+}
+
+static bool GetCustomBoolProperty(dmGui::HScene scene, dmGui::HNode node, dmhash_t property_id, bool* value)
+{
+    dmGui::CustomProperty property;
+    dmGui::Result result = dmGui::GetNodeCustomProperty(scene, node, property_id, &property);
+    if (result == dmGui::RESULT_RESOURCE_NOT_FOUND)
+    {
+        *value = false;
+        return true;
+    }
+    if (result != dmGui::RESULT_OK)
+    {
+        dmLogError("Failed to get GUI custom property '%s'", dmHashReverseSafe64(property_id));
+        return false;
+    }
+    if (property.m_Type != dmGui::CUSTOM_PROPERTY_TYPE_BOOLEAN)
+    {
+        dmLogError("GUI custom property '%s' has unsupported type %d", dmHashReverseSafe64(property_id), property.m_Type);
+        return false;
+    }
+
+    *value = property.m_Boolean;
+    return true;
+}
 
 static inline bool IsLooping(dmGui::Playback playback)
 {
@@ -1053,19 +1107,27 @@ static void GuiSetNodeDesc(const dmGameSystem::CompGuiNodeContext* ctx, const dm
 {
     InternalGuiNode* node = (InternalGuiNode*)(nodectx->m_NodeData);
 
-    dmhash_t name_hash = dmHashString64(node_desc->m_SpineScene);
+    dmhash_t name_hash = 0;
+    dmhash_t default_animation_id = 0;
+    bool create_bones = false;
+    if (!GetCustomHashProperty(nodectx->m_Scene, nodectx->m_Node, SPINE_SCENE, &name_hash) ||
+        !GetCustomHashProperty(nodectx->m_Scene, nodectx->m_Node, SPINE_DEFAULT_ANIMATION, &default_animation_id) ||
+        !GetCustomHashProperty(nodectx->m_Scene, nodectx->m_Node, SPINE_SKIN, &node->m_SkinId) ||
+        !GetCustomBoolProperty(nodectx->m_Scene, nodectx->m_Node, SPINE_CREATE_BONES, &create_bones))
+    {
+        return;
+    }
+
     SpineSceneResource* resource = (SpineSceneResource*)dmSpine::GetResource(nodectx->m_Scene, name_hash, dmSpine::SPINE_SCENE_SUFFIX);
     if (!resource) {
-        dmLogError("Failed to get resource: %s", node_desc->m_SpineScene);
+        dmLogError("Failed to get resource: %s", dmHashReverseSafe64(name_hash));
         return;
     }
 
     node->m_Id = node_desc->m_Id;
     node->m_AdjustMode = (dmGui::AdjustMode)node_desc->m_AdjustMode;
-    dmhash_t default_animation_id = dmHashString64(node_desc->m_SpineDefaultAnimation); // TODO: Q: Is the default playmode specified anywhere?
-    node->m_SkinId = dmHashString64(node_desc->m_SpineSkin);
 
-    SetupNode(name_hash, resource, node, node_desc->m_SpineCreateBones);
+    SetupNode(name_hash, resource, node, create_bones);
 
     if (node->m_SkinId) {
         SetSkin(node->m_GuiScene, node->m_GuiNode, node->m_SkinId);
