@@ -75,7 +75,7 @@ function build_plugin() {
 
     echo -e "\nBuild platform=${platform} platform_ne=${platform_ne}"
 
-    java -jar $BOB --platform=$platform build --build-artifacts=plugins --variant $VARIANT --build-server=$SERVER --defoldsdk=$DEFOLDSDK
+    java -jar $BOB --platform=$platform --architectures=$platform build --build-artifacts=plugins --variant $VARIANT --build-server=$SERVER --defoldsdk=$DEFOLDSDK
 
     copy_results $platform $platform_ne
 }
