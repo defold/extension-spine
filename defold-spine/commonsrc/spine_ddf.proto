@@ -52,6 +52,7 @@ message SpinePlayAnimation
     optional float playback_rate = 5 [default = 1.0];
     optional int32 track = 6 [default = 0];
     optional MixBlend mix_blend = 7 [default = MIX_BLEND_REPLACE];
+    optional float alpha = 8 [default = 1.0];
 }
 
 /*# Spine model API documentation

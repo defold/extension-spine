@@ -44,7 +44,7 @@
           - name: playback_rate
             type: constant
             desc: The rate with which the animation will be played. Must be positive.
-            
+
           - name: track
             type: number
             desc: The track index of the animation. Defaults to 1. Animations on different tracks play in parallel.
@@ -52,6 +52,10 @@
           - name: mix_blend
             type: constant
             desc: The mix blend mode for the animation (from spine.MIX_BLEND_*). Defaults to `spine.MIX_BLEND_REPLACE`. Ignored for animations on the first track.
+
+          - name: alpha
+            type: number
+            desc: 0 applies the current or setup value (depending on mix_blend). 1 applies the timeline value. Between 0 and 1 applies a value between the current or setup value and the timeline value. Defaults to 1.
 
       - name: callback_function
         type: function
@@ -84,19 +88,19 @@
               - name: event_id
                 type: hash
                 desc: (spine_event only!) the event that was triggered.
-                
+
               - name: t
                 type: float
                 desc: (spine_event only!) the time at which the event occurred (seconds)
-                
+
               - name: integer
                 type: int
                 desc: (spine_event only!) a custom integer associated with the event (0 by default).
-                
+
               - name: float
                 type: float
                 desc: (spine_event only!) a custom float associated with the event (0 by default)
-                
+
               - name: string
                 type: hash
                 desc: (spine_event only!) a custom string associated with the event (hash("") by default)
