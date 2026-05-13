@@ -8,7 +8,7 @@ PROJECT_LIB_DIR=${PROJECT_DIR}/lib
 
 PLATFORMS=$1
 if [ "" == "${PLATFORMS}" ]; then
-    PLATFORMS="x86_64-macos arm64-macos x86_64-linux x86_64-win32 x86-win32 arm64-ios x86_64-ios arm64-android armv7-android js-web wasm-web"
+    PLATFORMS="x86_64-macos arm64-macos x86_64-linux arm64-linux x86_64-win32 x86-win32 arm64-ios x86_64-ios arm64-android armv7-android js-web wasm-web"
 fi
 
 DEFAULT_SERVER_NAME=build.defold.com
