@@ -131,10 +131,6 @@
     :registration {:id "spine_scene"
                    :type g/Str
                    :default ""
-                   :edit-type-fnk (g/fnk [basic-gui-scene-info]
-                                    (gui/required-gui-resource-choicebox (spine-scene-names basic-gui-scene-info)))
-                   :error-fnk (g/fnk [_node-id basic-gui-scene-info spine-scene]
-                                (validate-spine-scene _node-id (spine-scene-names basic-gui-scene-info) spine-scene))
                    :resource-kind :spine-scene
                    :label "Spine Scene"}}
    {:legacy-field :spine-default-animation
@@ -143,10 +139,6 @@
     :registration {:id "spine_default_animation"
                    :type g/Str
                    :default ""
-                   :edit-type-fnk (g/fnk [spine-anim-ids]
-                                    (gui/optional-gui-resource-choicebox spine-anim-ids))
-                   :error-fnk (g/fnk [_node-id basic-gui-scene-info spine-anim-ids spine-default-animation spine-scene]
-                                (validate-spine-default-animation _node-id (spine-scene-names basic-gui-scene-info) spine-anim-ids spine-default-animation spine-scene))
                    :label "Default Animation"}}
    {:legacy-field :spine-skin
     :protobuf-type :type-string
@@ -154,10 +146,6 @@
     :registration {:id "spine_skin"
                    :type g/Str
                    :default ""
-                   :edit-type-fnk (g/fnk [spine-skin-ids]
-                                    (spineext/->skin-choicebox spine-skin-ids))
-                   :error-fnk (g/fnk [_node-id basic-gui-scene-info spine-scene spine-skin spine-skin-ids]
-                                (validate-spine-skin _node-id (spine-scene-names basic-gui-scene-info) spine-skin-ids spine-skin spine-scene))
                    :label "Skin"}}
    {:legacy-field :spine-create-bones
     :protobuf-type :type-boolean
@@ -221,6 +209,15 @@
            :clipping-visible clipping-visible
            :clipping-inverted clipping-inverted)))
 
+(g/defnk produce-custom-property-dynamics [_node-id basic-gui-scene-info spine-anim-ids spine-default-animation spine-scene spine-skin spine-skin-ids]
+  (let [spine-scene-names (spine-scene-names basic-gui-scene-info)]
+    {"spine_scene" {:edit-type (gui/required-gui-resource-choicebox spine-scene-names)
+                    :error (validate-spine-scene _node-id spine-scene-names spine-scene)}
+     "spine_default_animation" {:edit-type (gui/optional-gui-resource-choicebox spine-anim-ids)
+                                :error (validate-spine-default-animation _node-id spine-scene-names spine-anim-ids spine-default-animation spine-scene)}
+     "spine_skin" {:edit-type (spineext/->skin-choicebox spine-skin-ids)
+                   :error (validate-spine-skin _node-id spine-scene-names spine-skin-ids spine-skin spine-scene)}}))
+
 (g/defnode SpineNode
   (inherits gui/VisualNode)
 
@@ -241,6 +238,7 @@
                         :adjust-mode :clipping :visible-clipper :inverted-clipper]))
 
   (output node-msg g/Any :cached produce-spine-node-msg)
+  (output custom-property-dynamics g/Any :cached produce-custom-property-dynamics)
   (output spine-scene g/Str
           (g/fnk [prop->value]
             (get prop->value :__spine_scene "")))
