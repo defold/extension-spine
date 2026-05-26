@@ -83,7 +83,7 @@ function build_plugin() {
 
 PLATFORMS=$1
 if [ "" == "${PLATFORM}" ]; then
-    PLATFORMS="x86_64-macos arm64-macos x86_64-linux x86_64-win32"
+    PLATFORMS="x86_64-macos arm64-macos x86_64-linux arm64-linux x86_64-win32"
 fi
 
 if [[ $# -gt 0 ]] ; then

@@ -281,7 +281,7 @@ namespace dmSpine
         dmhash_t anim_id = dmScript::CheckHashOrString(L, 2);
         lua_Integer playback = luaL_checkinteger(L, 3);
         lua_Integer track = 1;
-        lua_Number blend_duration = 0.0, offset = 0.0, playback_rate = 1.0;
+        lua_Number blend_duration = 0.0, offset = 0.0, playback_rate = 1.0, alpha = 1.0;
         dmGameSystemDDF::MixBlend mix_blend = dmGameSystemDDF::MixBlend::MIX_BLEND_REPLACE;
 
         if (top > 3) // table with args
@@ -307,6 +307,10 @@ namespace dmSpine
 
             lua_getfield(L, -1, "mix_blend");
             mix_blend = lua_isnil(L, -1) ? dmGameSystemDDF::MixBlend::MIX_BLEND_REPLACE : static_cast<dmGameSystemDDF::MixBlend>(luaL_checkinteger(L, -1));
+            lua_pop(L, 1);
+
+            lua_getfield(L, -1, "alpha");
+            alpha = lua_isnil(L, -1) ? 1.0 : luaL_checknumber(L, -1);
             lua_pop(L, 1);
 
             lua_pop(L, 1);
@@ -335,6 +339,7 @@ namespace dmSpine
         msg.m_PlaybackRate = playback_rate;
         msg.m_Track = track;
         msg.m_MixBlend = mix_blend;
+        msg.m_Alpha = alpha;
 
         dmMessage::URL sender;
         dmScript::GetURL(L, &sender);
