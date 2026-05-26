@@ -13,8 +13,6 @@
 (ns editor.spineguiext
   (:require [clojure.string :as str]
             [dynamo.graph :as g]
-            [editor.attachment :as attachment]
-            [editor.core :as core]
             [editor.defold-project :as project]
             [editor.editor-extensions.graph :as ext-graph]
             [editor.editor-extensions.node-types :as node-types]
@@ -22,16 +20,14 @@
             [editor.gl.texture]
             [editor.graph-util :as gu]
             [editor.gui :as gui]
-            [editor.types :as types]
             [editor.outline :as outline]
             [editor.properties :as properties]
             [editor.protobuf :as protobuf]
             [editor.resource :as resource]
             [editor.spineext :as spineext]
+            [editor.types :as types]
             [editor.util :as util]
-            [editor.workspace :as workspace]
-            [internal.graph.types :as gt]
-            [util.coll :as coll :refer [pair]]
+            [util.coll :as coll]
             [util.murmur :as murmur])
   (:import [com.dynamo.gamesys.proto Gui$NodeDesc Gui$NodeDesc$ClippingMode]
            [editor.gl.texture TextureLifecycle]
@@ -55,15 +51,24 @@
 
 ;; Spine nodes
 
-(def ^:private validate-spine-scene (partial gui/validate-required-gui-resource "spine scene '%s' does not exist in the scene" :spine-scene))
+(def ^:private validate-spine-scene (partial gui/validate-required-gui-resource "spine scene '%s' does not exist in the scene" :__spine_scene))
+
+(defn- spine-scene-names [basic-gui-scene-info]
+  (get-in basic-gui-scene-info [:gui-resource-kind-names :spine-scene]))
+
+(defn- spine-scene-element-ids [basic-gui-scene-info]
+  (get-in basic-gui-scene-info [:gui-resource-kind-basic-info :spine-scene]))
+
+(defn- spine-scene-infos [costly-gui-scene-info]
+  (get-in costly-gui-scene-info [:gui-resource-kind-costly-info :spine-scene]))
 
 (defn- validate-spine-default-animation [node-id spine-scene-names spine-anim-ids spine-default-animation spine-scene]
   (when-not (g/error? (validate-spine-scene node-id spine-scene-names spine-scene))
-    (gui/validate-optional-gui-resource "animation '%s' could not be found in the specified spine scene" :spine-default-animation node-id spine-anim-ids spine-default-animation)))
+    (gui/validate-optional-gui-resource "animation '%s' could not be found in the specified spine scene" :__spine_default_animation node-id spine-anim-ids spine-default-animation)))
 
 (defn- validate-spine-skin [node-id spine-scene-names spine-skin-ids spine-skin spine-scene]
   (when-not (g/error? (validate-spine-scene node-id spine-scene-names spine-scene))
-    (spineext/validate-skin node-id :spine-skin spine-skin-ids spine-skin)))
+    (spineext/validate-skin node-id :__spine_skin spine-skin-ids spine-skin)))
 
 (defn- transform-vtx [^Matrix4d m4d color vtx]
   (let [[cr cg cb ca] color
@@ -119,14 +124,99 @@
      [x1 y1 0] [x0 y1 0]
      [x0 y1 0] [x0 y0 0]]))
 
-(g/defnk produce-spine-node-msg [visual-base-node-msg ^:raw spine-scene ^:raw spine-default-animation ^:raw spine-skin ^:raw spine-create-bones ^:raw clipping-mode ^:raw clipping-visible ^:raw clipping-inverted]
+(def ^:private spine-custom-property-infos
+  [{:legacy-field :spine-scene
+    :protobuf-type :type-string
+    :value-field :string-value
+    :registration {:id "spine_scene"
+                   :type g/Str
+                   :default ""
+                   :edit-type-fnk (g/fnk [basic-gui-scene-info]
+                                    (gui/required-gui-resource-choicebox (spine-scene-names basic-gui-scene-info)))
+                   :error-fnk (g/fnk [_node-id basic-gui-scene-info spine-scene]
+                                (validate-spine-scene _node-id (spine-scene-names basic-gui-scene-info) spine-scene))
+                   :resource-kind :spine-scene
+                   :label "Spine Scene"}}
+   {:legacy-field :spine-default-animation
+    :protobuf-type :type-string
+    :value-field :string-value
+    :registration {:id "spine_default_animation"
+                   :type g/Str
+                   :default ""
+                   :edit-type-fnk (g/fnk [spine-anim-ids]
+                                    (gui/optional-gui-resource-choicebox spine-anim-ids))
+                   :error-fnk (g/fnk [_node-id basic-gui-scene-info spine-anim-ids spine-default-animation spine-scene]
+                                (validate-spine-default-animation _node-id (spine-scene-names basic-gui-scene-info) spine-anim-ids spine-default-animation spine-scene))
+                   :label "Default Animation"}}
+   {:legacy-field :spine-skin
+    :protobuf-type :type-string
+    :value-field :string-value
+    :registration {:id "spine_skin"
+                   :type g/Str
+                   :default ""
+                   :edit-type-fnk (g/fnk [spine-skin-ids]
+                                    (spineext/->skin-choicebox spine-skin-ids))
+                   :error-fnk (g/fnk [_node-id basic-gui-scene-info spine-scene spine-skin spine-skin-ids]
+                                (validate-spine-skin _node-id (spine-scene-names basic-gui-scene-info) spine-skin-ids spine-skin spine-scene))
+                   :label "Skin"}}
+   {:legacy-field :spine-create-bones
+    :protobuf-type :type-boolean
+    :value-field :boolean
+    :registration {:id "spine_create_bones"
+                   :type g/Bool
+                   :default false
+                   :label "Create Bones"}}])
+
+(def ^:private spine-custom-property-id->info
+  (coll/pair-map-by (comp :id :registration) spine-custom-property-infos))
+
+(defn- spine-custom-property [custom-property-id value]
+  (let [{:keys [protobuf-type value-field]} (spine-custom-property-id->info custom-property-id)]
+    {:id custom-property-id
+     :type protobuf-type
+     value-field value}))
+
+(defn- custom-property-id [custom-property]
+  (:id custom-property))
+
+(def ^:private legacy-spine-node-desc-field->custom-property-id
+  (into {}
+        (map (fn [{:keys [legacy-field registration]}]
+               [legacy-field (:id registration)]))
+        spine-custom-property-infos))
+
+(def ^:private legacy-spine-node-desc-field->default
+  (into {}
+        (map (fn [{:keys [legacy-field registration]}]
+               [legacy-field (:default registration)]))
+        spine-custom-property-infos))
+
+(def ^:private node-desc-pb-field->index
+  (reduce-kv (fn [pb-field->index index pb-field]
+               (assoc pb-field->index pb-field index))
+             {}
+             (protobuf/fields-by-indices Gui$NodeDesc)))
+
+(def ^:private custom-properties-pb-field-index
+  (node-desc-pb-field->index :custom-properties))
+
+(def ^:private legacy-spine-pb-field-indices
+  (coll/pair-map-by node-desc-pb-field->index (keys legacy-spine-node-desc-field->custom-property-id)))
+
+(defn- migrate-legacy-spine-overridden-fields [overridden-fields]
+  (vec
+    (sort
+      (into #{}
+            (map (fn [overridden-field]
+                   (if (contains? legacy-spine-pb-field-indices overridden-field)
+                     custom-properties-pb-field-index
+                     overridden-field)))
+            overridden-fields))))
+
+(g/defnk produce-spine-node-msg [visual-base-node-msg ^:raw clipping-mode ^:raw clipping-visible ^:raw clipping-inverted]
   (merge visual-base-node-msg
          (protobuf/make-map-without-defaults Gui$NodeDesc
            :size-mode :size-mode-auto
-           :spine-scene spine-scene
-           :spine-default-animation spine-default-animation
-           :spine-skin spine-skin
-           :spine-create-bones spine-create-bones
            :clipping-mode clipping-mode
            :clipping-visible clipping-visible
            :clipping-inverted clipping-inverted)))
@@ -134,31 +224,6 @@
 (g/defnode SpineNode
   (inherits gui/VisualNode)
 
-  (property spine-scene g/Str (default (protobuf/default Gui$NodeDesc :spine-scene))
-            (dynamic edit-type (g/fnk [basic-gui-scene-info]
-                                 (let [spine-scene-names (:spine-scene-names basic-gui-scene-info)]
-                                   (gui/wrap-layout-property-edit-type spine-scene (gui/required-gui-resource-choicebox spine-scene-names)))))
-            (dynamic error (g/fnk [_node-id basic-gui-scene-info spine-scene]
-                             (let [spine-scene-names (:spine-scene-names basic-gui-scene-info)]
-                               (validate-spine-scene _node-id spine-scene-names spine-scene))))
-            (value (gui/layout-property-getter spine-scene))
-            (set (gui/layout-property-setter spine-scene)))
-  (property spine-default-animation g/Str (default (protobuf/default Gui$NodeDesc :spine-default-animation))
-            (dynamic label (g/constantly "Default Animation"))
-            (dynamic error (g/fnk [_node-id basic-gui-scene-info spine-anim-ids spine-default-animation spine-scene]
-                             (let [spine-scene-names (:spine-scene-names basic-gui-scene-info)]
-                               (validate-spine-default-animation _node-id spine-scene-names spine-anim-ids spine-default-animation spine-scene))))
-            (dynamic edit-type (g/fnk [spine-anim-ids] (gui/wrap-layout-property-edit-type spine-default-animation (gui/optional-gui-resource-choicebox spine-anim-ids))))
-            (value (gui/layout-property-getter spine-default-animation))
-            (set (gui/layout-property-setter spine-default-animation)))
-  (property spine-skin g/Str (default (protobuf/default Gui$NodeDesc :spine-skin))
-            (dynamic label (g/constantly "Skin"))
-            (dynamic error (g/fnk [_node-id basic-gui-scene-info spine-scene spine-skin spine-skin-ids]
-                             (let [spine-scene-names (:spine-scene-names basic-gui-scene-info)]
-                               (validate-spine-skin _node-id spine-scene-names spine-skin-ids spine-skin spine-scene))))
-            (dynamic edit-type (g/fnk [spine-skin-ids] (gui/wrap-layout-property-edit-type spine-skin (spineext/->skin-choicebox spine-skin-ids))))
-            (value (gui/layout-property-getter spine-skin))
-            (set (gui/layout-property-setter spine-skin)))
   (property clipping-mode g/Keyword (default (protobuf/default Gui$NodeDesc :clipping-mode))
             (dynamic edit-type (gui/layout-property-edit-type clipping-mode (properties/->pb-choicebox Gui$NodeDesc$ClippingMode)))
             (value (gui/layout-property-getter clipping-mode))
@@ -171,49 +236,55 @@
             (dynamic edit-type (gui/layout-property-edit-type clipping-inverted {:type g/Bool}))
             (value (gui/layout-property-getter clipping-inverted))
             (set (gui/layout-property-setter clipping-inverted)))
-  (property spine-create-bones g/Bool (default (protobuf/default Gui$NodeDesc :spine-create-bones))
-            (dynamic label (g/constantly "Create Bones"))
-            (dynamic edit-type (gui/layout-property-edit-type spine-create-bones {:type g/Bool}))
-            (value (gui/layout-property-getter spine-create-bones))
-            (set (gui/layout-property-setter spine-create-bones)))
-
   (display-order (into gui/base-display-order
-                       [:spine-scene :spine-default-animation :spine-skin :spine-create-bones :color :alpha :inherit-alpha :layer :blend-mode :pivot :x-anchor :y-anchor
+                       [:__spine_scene :__spine_default_animation :__spine_skin :__spine_create_bones :color :alpha :inherit-alpha :layer :blend-mode :pivot :x-anchor :y-anchor
                         :adjust-mode :clipping :visible-clipper :inverted-clipper]))
 
   (output node-msg g/Any :cached produce-spine-node-msg)
+  (output spine-scene g/Str
+          (g/fnk [prop->value]
+            (get prop->value :__spine_scene "")))
+  (output spine-default-animation g/Str
+          (g/fnk [prop->value]
+            (get prop->value :__spine_default_animation "")))
+  (output spine-skin g/Str
+          (g/fnk [prop->value]
+            (get prop->value :__spine_skin "")))
+  (output spine-create-bones g/Bool
+          (g/fnk [prop->value]
+            (get prop->value :__spine_create_bones false)))
   (output spine-anim-ids gui/GuiResourceNames
           (g/fnk [basic-gui-scene-info spine-scene]
-            (let [spine-scene-element-ids (:spine-scene-element-ids basic-gui-scene-info)]
-              (:spine-anim-ids (or (get spine-scene-element-ids spine-scene)
-                                   (get spine-scene-element-ids ""))))))
+            (let [element-ids (spine-scene-element-ids basic-gui-scene-info)]
+              (:spine-anim-ids (or (get element-ids spine-scene)
+                                   (get element-ids ""))))))
   (output spine-skin-ids gui/GuiResourceNames
           (g/fnk [basic-gui-scene-info spine-scene]
-            (let [spine-scene-element-ids (:spine-scene-element-ids basic-gui-scene-info)]
-              (:spine-skin-ids (or (get spine-scene-element-ids spine-scene)
-                                   (get spine-scene-element-ids ""))))))
+            (let [element-ids (spine-scene-element-ids basic-gui-scene-info)]
+              (:spine-skin-ids (or (get element-ids spine-scene)
+                                   (get element-ids ""))))))
   (output spine-scene-scene g/Any
           (g/fnk [costly-gui-scene-info spine-scene]
-            (let [spine-scene-infos (:spine-scene-infos costly-gui-scene-info)]
-              (:spine-scene-scene (or (get spine-scene-infos spine-scene)
-                                      (get spine-scene-infos ""))))))
+            (let [infos (spine-scene-infos costly-gui-scene-info)]
+              (:spine-scene-scene (or (get infos spine-scene)
+                                      (get infos ""))))))
   (output spine-scene-bones g/Any
           (g/fnk [costly-gui-scene-info spine-scene]
-            (let [spine-scene-infos (:spine-scene-infos costly-gui-scene-info)]
-              (:spine-bones (or (get spine-scene-infos spine-scene)
-                                (get spine-scene-infos ""))))))
+            (let [infos (spine-scene-infos costly-gui-scene-info)]
+              (:spine-bones (or (get infos spine-scene)
+                                (get infos ""))))))
   (output spine-scene-pb g/Any
           (g/fnk [costly-gui-scene-info spine-scene]
-            (let [spine-scene-infos (:spine-scene-infos costly-gui-scene-info)]
-              (:spine-scene-pb (or (get spine-scene-infos spine-scene)
-                                   (get spine-scene-infos ""))))))
+            (let [infos (spine-scene-infos costly-gui-scene-info)]
+              (:spine-scene-pb (or (get infos spine-scene)
+                                   (get infos ""))))))
 
   ;; The handle to the C++ resource
   (output spine-data-handle g/Any
           (g/fnk [costly-gui-scene-info spine-scene]
-            (let [spine-scene-infos (:spine-scene-infos costly-gui-scene-info)]
-              (:spine-data-handle (or (get spine-scene-infos spine-scene)
-                                      (get spine-scene-infos ""))))))
+            (let [infos (spine-scene-infos costly-gui-scene-info)]
+              (:spine-data-handle (or (get infos spine-scene)
+                                      (get infos ""))))))
 
   (output spine-vertex-buffer g/Any :cached (g/fnk [spine-scene spine-data-handle spine-skin spine-default-animation]
                                                    (produce-local-vertices spine-data-handle spine-skin spine-default-animation 0.0)))
@@ -241,17 +312,13 @@
 
   (output own-build-errors g/Any
           (g/fnk [_node-id basic-gui-scene-info build-errors-visual-node spine-anim-ids spine-default-animation spine-skin-ids spine-skin spine-scene]
-            (let [spine-scene-names (:spine-scene-names basic-gui-scene-info)]
+            (let [spine-scene-names (spine-scene-names basic-gui-scene-info)]
               (g/package-errors
                 _node-id
                 build-errors-visual-node
                 (validate-spine-scene _node-id spine-scene-names spine-scene)
                 (validate-spine-default-animation _node-id spine-scene-names spine-anim-ids spine-default-animation spine-scene)
                 (validate-spine-skin _node-id spine-scene-names spine-skin-ids spine-skin spine-scene))))))
-
-(defmethod gui/update-gui-resource-reference [::SpineNode :spine-scene]
-  [_ evaluation-context node-id old-name new-name]
-  (gui/update-basic-gui-resource-reference evaluation-context node-id :spine-scene old-name new-name))
 
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -331,8 +398,8 @@
   (output pb-msg g/Any (g/fnk [name spine-scene]
                               {:name name
                                :path (resource/resource->proj-path spine-scene)}))
-  (output spine-scene-element-ids gui/SpineSceneElementIds :cached produce-spine-scene-element-ids)
-  (output spine-scene-infos gui/SpineSceneInfos :cached produce-spine-scene-infos)
+  (output resource-kind-basic-info g/Any :cached produce-spine-scene-element-ids)
+  (output resource-kind-costly-info g/Any :cached produce-spine-scene-infos)
   (output build-errors g/Any (g/fnk [_node-id name name-counts spine-scene]
                                     (g/package-errors _node-id
                                                       (gui/prop-unique-id-error _node-id :name name name-counts "Name")
@@ -340,93 +407,49 @@
 
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
-(defn- attach-spine-scene
-  ;; self is the GuiSceneNode
-  [self spine-scenes-node spine-scene]
-  (concat
-    (g/connect spine-scene :_node-id spine-scenes-node :nodes)
-    (g/connect spine-scene :spine-scene-element-ids self :spine-scene-element-ids)
-    (g/connect spine-scene :spine-scene-infos self :spine-scene-infos)
-    (g/connect spine-scene :name self :spine-scene-names)
-    (g/connect spine-scene :dep-build-targets self :dep-build-targets)
-    (g/connect spine-scene :pb-msg self :resource-msgs)
-    (g/connect spine-scene :build-errors spine-scenes-node :build-errors)
-    (g/connect spine-scene :node-outline spine-scenes-node :child-outlines)
-    (g/connect spine-scene :name spine-scenes-node :names)
-    (g/connect spine-scenes-node :name-counts spine-scene :name-counts)))
-
-(defn- add-spine-scene [scene spine-scenes-node resource name]
-  (g/make-nodes (g/node-id->graph-id scene) [node [SpineSceneNode :name name :spine-scene resource]]
-                (attach-spine-scene scene spine-scenes-node node)))
-
-(defn- add-spine-scenes-handler [project {:keys [scene parent]} select-fn]
-  (gui/query-and-add-resources!
-   "Spine Scenes" [spineext/spine-scene-ext] (g/node-value parent :name-counts) project select-fn
-   (partial add-spine-scene scene parent)))
-
-(g/defnode SpineScenesNode
-  (inherits core/Scope)
-  (inherits outline/OutlineNode)
-  (input names g/Str :array)
-  (output name-counts gui/NameCounts :cached (g/fnk [names] (frequencies names)))
-  (input build-errors g/Any :array)
-  (output build-errors g/Any (gu/passthrough build-errors))
-  (output node-outline outline/OutlineData :cached
-          (gui/gen-outline-fnk
-            "Spine Scenes" "Spine Scenes" 6 false
-            [{:node-type SpineSceneNode
-              :tx-attach-fn (gui/gen-outline-node-tx-attach-fn attach-spine-scene)}]))
-  (output add-handler-info g/Any
-          (g/fnk [_node-id]
-                 [_node-id "Spine Scenes..." spineext/spine-scene-icon add-spine-scenes-handler {}])))
-
-;;//////////////////////////////////////////////////////////////////////////////////////////////
-
-
-;; Loading a gui scene
-
-(defn- load-gui-scene-spine [_project self scene graph-id resource]
-  (g/make-nodes graph-id [spine-scenes-node SpineScenesNode]
-    (g/connect spine-scenes-node :_node-id self :nodes)
-    (g/connect spine-scenes-node :build-errors self :build-errors)
-    (g/connect spine-scenes-node :node-outline self :child-outlines)
-    (g/connect spine-scenes-node :add-handler-info self :handler-infos) 
-    (let [spine-scene-name+paths
-          (concat
-            (->> (:spine-scenes scene)
-                 (map (juxt :name :spine-scene)))
-            (->> (:resources scene)
-                 (keep (fn [{:keys [name path]}]
-                         (when (str/ends-with? path spineext/spine-scene-ext)
-                           (pair name path))))))]
-      (for [[name path] spine-scene-name+paths]
-        (let [spine-scene-resource (workspace/resolve-resource resource path)]
-          (g/make-nodes graph-id [spine-scene [SpineSceneNode :name name :spine-scene spine-scene-resource]]
-            (attach-spine-scene self spine-scenes-node spine-scene)))))))
-
-;;//////////////////////////////////////////////////////////////////////////////////////////////
-
-(defn- gui-scene-node->spine-scenes-node [basis gui-scene-node]
-  (coll/some
-    (fn [arc]
-      (let [id (gt/source-id arc)]
-        (when (= SpineScenesNode (g/node-type* basis id))
-          id)))
-    (g/explicit-arcs-by-target basis gui-scene-node :nodes)))
-
-(defn- attach-spine-scene-to-gui-scene [{:keys [basis]} gui-scene-node spine-scene-node]
-  (attach-spine-scene gui-scene-node (gui-scene-node->spine-scenes-node basis gui-scene-node) spine-scene-node))
+(defn- gui-scene-node->spine-resource-kind-node [basis gui-scene-node]
+  (gui/gui-resource-kind-node basis gui-scene-node :spine-scene))
 
 (defmethod ext-graph/init-attachment ::SpineSceneNode [evaluation-context rt project parent-node-id _ child-node-id attachment]
   (-> attachment
       (util/provide-defaults
-        "name" (ext-graph/gen-gui-component-name attachment "spine_scene" gui-scene-node->spine-scenes-node rt parent-node-id evaluation-context))
+        "name" (ext-graph/gen-gui-component-name attachment "spine_scene" gui-scene-node->spine-resource-kind-node rt parent-node-id evaluation-context))
       (ext-graph/attachment->set-tx-steps child-node-id rt project evaluation-context)))
 
 (defn- fixup-spine-node [node-type-info node-desc]
-  (let [node-type (:type node-desc)]
-    (cond-> (assoc node-desc
-              :size-mode :size-mode-auto)
+  (let [node-type (:type node-desc)
+        legacy-spine-node (identical? :type-spine node-type)
+        overridden-fields (set (:overridden-fields node-desc))
+        custom-property-ids (into #{} (keep custom-property-id) (:custom-properties node-desc))
+        custom-properties
+        (reduce
+          (fn [custom-properties [node-desc-field custom-property-id]]
+            (let [pb-field-index (node-desc-pb-field->index node-desc-field)
+                  overridden-field? (contains? overridden-fields pb-field-index)
+                  default-value (legacy-spine-node-desc-field->default node-desc-field)
+                  value (get node-desc node-desc-field default-value)]
+              (if (or (contains? custom-property-ids custom-property-id)
+                      (not (or overridden-field?
+                               (contains? node-desc node-desc-field)
+                               (and legacy-spine-node (= :spine-scene node-desc-field))
+                               (not= default-value value))))
+                custom-properties
+                (conj custom-properties (spine-custom-property custom-property-id value)))))
+          (vec (:custom-properties node-desc))
+          legacy-spine-node-desc-field->custom-property-id)
+        migrate-overridden-fields? (some #(contains? legacy-spine-pb-field-indices %) overridden-fields)]
+    (cond-> (cond-> (-> node-desc
+                        (assoc :size-mode :size-mode-auto)
+                        (dissoc
+                          :spine-scene
+                          :spine-default-animation
+                          :spine-skin
+                          :spine-create-bones
+                          :spine-node-child))
+                    (seq custom-properties)
+                    (assoc :custom-properties custom-properties)
+                    migrate-overridden-fields?
+                    (update :overridden-fields migrate-legacy-spine-overridden-fields))
 
             (= :type-spine node-type)
             (assoc
@@ -436,30 +459,34 @@
 (node-types/register-node-type-name! SpineNode "gui-node-type-spine")
 
 (defn- register-gui-resource-types! [workspace]
-  (gui/register-gui-scene-loader! load-gui-scene-spine)
   (let [info {:node-type :type-custom
               :node-cls SpineNode
               :display-name "Spine"
-              :custom-type (murmur/hash32 "Spine")
+              :custom-type-name "Spine"
               :icon spineext/spine-scene-icon
               :convert-fn fixup-spine-node
-              :defaults gui/visual-base-node-defaults}
+              :defaults gui/visual-base-node-defaults
+              :custom-properties (mapv :registration spine-custom-property-infos)}
         info-depr (merge info {:node-type :type-spine
                                :custom-type 0
                                :output-node-type (:node-type info)
-                               :output-custom-type (:custom-type info)
+                               :output-custom-type (murmur/hash32 "Spine")
                                :deprecated true})]
-    (gui/register-node-type-info! info)
-    ; Register :type-spine with custom type 0 in order to be able to read old files
-    (gui/register-node-type-info! info-depr))
-  (g/transact
-    (concat
-      (gui/register-node-tree-attachment-node-type workspace SpineNode)
-      (attachment/register
-        workspace gui/GuiSceneNode :spine-scenes
-        :add {SpineSceneNode (partial g/expand-ec attach-spine-scene-to-gui-scene)}
-        :get (fn get-spine-scenes [gui-scene-node {:keys [basis] :as evaluation-context}]
-               (attachment/nodes-getter (gui-scene-node->spine-scenes-node basis gui-scene-node) evaluation-context))))))
+    (g/transact
+      (concat
+        (gui/register-node-type-info workspace info)
+        ;; Register :type-spine with custom type 0 in order to be able to read old files.
+        (gui/register-node-type-info workspace info-depr)
+        (gui/register-node-tree-attachment-node-type workspace SpineNode)
+        (gui/register-gui-resource-kind
+          workspace :spine-scene
+          {:label "Spine Scenes"
+           :icon spineext/spine-scene-icon
+           :exts [spineext/spine-scene-ext]
+           :node-type SpineSceneNode
+           :resource-property :spine-scene
+           :attachment-property :spine-scenes
+           :attach-fn gui/connect-gui-resource-kind-entry})))))
 
 ; The plugin
 (defn load-plugin-spine-gui [workspace]
