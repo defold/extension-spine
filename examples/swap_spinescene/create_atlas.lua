@@ -41,10 +41,10 @@ function M.create_atlas()
     
     local texture_path = "/dyn/squirrel_texture.texturec"
     local texture_resource = resource.create_texture(texture_path, {
-        type = resource.TEXTURE_TYPE_2D,
+        type = graphics.TEXTURE_TYPE_2D,
         width = max_x + 1,
         height = max_y + 1,
-        format = resource.TEXTURE_FORMAT_RGBA
+        format = graphics.TEXTURE_FORMAT_RGBA
     })
     
     -- Place images at their original atlas positions
@@ -93,10 +93,10 @@ function M.create_atlas()
         end
         
         resource.set_texture(texture_resource, {
-            type = resource.TEXTURE_TYPE_2D,
+            type = graphics.TEXTURE_TYPE_2D,
             width = final_width,
             height = final_height,
-            format = resource.TEXTURE_FORMAT_RGBA,
+            format = graphics.TEXTURE_FORMAT_RGBA,
             x = x,
             y = y
         }, final_buffer)
