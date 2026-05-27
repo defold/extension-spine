@@ -1279,13 +1279,6 @@ namespace dmSpine
         return true;
     }
 
-    bool CompSpineModelSetConstant(SpineModelComponent* component, dmGameSystemDDF::SetConstant* message)
-    {
-        dmGameObject::PropertyResult result = dmGameSystem::SetMaterialConstant(GetMaterial(component), message->m_NameHash,
-                                                                dmGameObject::PropertyVar(message->m_Value), message->m_Index, CompSpineModelSetConstantCallback, component);
-        return result == dmGameObject::PROPERTY_RESULT_OK;
-    }
-
     bool CompSpineModelResetConstant(SpineModelComponent* component, dmGameSystemDDF::ResetConstant* message)
     {
         if (component->m_RenderConstants)

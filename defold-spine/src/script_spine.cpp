@@ -925,54 +925,6 @@ namespace dmSpine
         return 0;
     }
 
-    /** Deprecated: set a shader constant for a spine model
-     * Sets a shader constant for a spine model component.
-     * The constant must be defined in the material assigned to the spine model.
-     * Setting a constant through this function will override the value set for that constant in the material.
-     * The value will be overridden until spine.reset_constant is called.
-     * Which spine model to set a constant for is identified by the URL.
-     *
-     * @name spine.set_constant
-     * @param url [type:string|hash|url] the spine model that should have a constant set
-     * @param constant [type:string|hash] name of the constant
-     * @param value [type:vector4] value of the constant
-     * @examples
-     *
-     * The following examples assumes that the spine model has id "spinemodel" and that the default-material in builtins is used, which defines the constant "tint".
-     * If you assign a custom material to the sprite, you can reset the constants defined there in the same manner.
-     *
-     * How to tint a spine model to red:
-     *
-     * ```lua
-     * function init(self)
-     *   spine.set_constant("#spinemodel", "tint", vmath.vector4(1, 0, 0, 1))
-     * end
-     * ```
-     */
-    static int SpineComp_SetConstant(lua_State* L)
-    {
-        DM_LUA_STACK_CHECK(L, 0);
-
-        SpineModelComponent* component = 0;
-        dmMessage::URL receiver;
-        dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
-
-        dmhash_t name_hash = dmScript::CheckHashOrString(L, 2);
-        Vectormath::Aos::Vector4* value = dmScript::CheckVector4(L, 3);
-
-        dmGameSystemDDF::SetConstant msg;
-        msg.m_NameHash = name_hash;
-        msg.m_Value = *value;
-        msg.m_Index = 0; // TODO: Figure out new api to support this
-
-        if (!CompSpineModelSetConstant(component, &msg))
-        {
-            char str[128];
-            return DM_LUA_ERROR("the material constant '%s' could not be found in component '%s'", dmHashReverseSafe64(name_hash), dmScript::UrlToString(&receiver, str, sizeof(str)));
-        }
-        return 0;
-    }
-
     /*# reset a shader constant for a spine model
      * Resets a shader constant for a spine model component.
      * The constant must be defined in the material assigned to the spine model.
@@ -1098,7 +1050,6 @@ namespace dmSpine
             {"set_ik_target_position",  SpineComp_SetIKTargetPosition},
             {"set_ik_target",           SpineComp_SetIKTarget},
             {"reset_ik_target",         SpineComp_ResetIK},
-            {"set_constant",            SpineComp_SetConstant},
             {"reset_constant",          SpineComp_ResetConstant},
             {"physics_translate",       SpineComp_PhysicsTranslate},
             {"physics_rotate",          SpineComp_PhysicsRotate},
