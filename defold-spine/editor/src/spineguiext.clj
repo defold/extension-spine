@@ -457,24 +457,23 @@
 (node-types/register-node-type-name! SpineNode "gui-node-type-spine")
 
 (defn- register-gui-resource-types! [workspace]
-  (let [info {:node-type :type-custom
-              :node-cls SpineNode
+  (let [info {:node-cls SpineNode
               :display-name "Spine"
               :custom-type-name "Spine"
               :icon spineext/spine-scene-icon
               :convert-fn fixup-spine-node
               :defaults gui/visual-base-node-defaults
               :custom-properties (mapv :registration spine-custom-property-infos)}
-        info-depr (merge info {:node-type :type-spine
-                               :custom-type 0
-                               :output-node-type (:node-type info)
-                               :output-custom-type (murmur/hash32 "Spine")
-                               :deprecated true})]
+        legacy-info (merge info {:node-type :type-spine
+                                 :custom-type 0
+                                 :output-node-type :type-custom
+                                 :output-custom-type (murmur/hash32 "Spine")
+                                 :deprecated true})]
     (g/transact
       (concat
-        (gui/register-node-type-info workspace info)
+        (gui/register-custom-node-type-info workspace info)
         ;; Register :type-spine with custom type 0 in order to be able to read old files.
-        (gui/register-node-type-info workspace info-depr)
+        (gui/register-node-type-info workspace legacy-info)
         (gui/register-node-tree-attachment-node-type workspace SpineNode)
         (gui/register-gui-resource-kind
           workspace :spine-scene
