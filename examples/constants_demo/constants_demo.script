@@ -12,7 +12,7 @@ function init(self)
 	spine.reset_constant(self.url, "tint")
 	
 	print("setting constants")
-	spine.set_constant(self.url, "tint", vmath.vector4(1,0,0,1))
+	go.set(self.url, "tint", vmath.vector4(1,0,0,1))
 	timer.delay(1, false, function()
 		spine.reset_constant(self.url, "tint")
 	end)
