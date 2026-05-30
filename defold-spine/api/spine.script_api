@@ -59,7 +59,7 @@
 
       - name: callback_function
         type: function
-        desc: function to call when the animation has completed or a Spine event occured
+        desc: function to call when the animation has completed or a Spine event occurred
         parameters:
           - name: self
             type: object
@@ -88,6 +88,10 @@
               - name: event_id
                 type: hash
                 desc: (spine_event only!) the event that was triggered.
+
+              - name: blend_weight
+                type: float
+                desc: (spine_event only!) the current blend weight
 
               - name: t
                 type: float

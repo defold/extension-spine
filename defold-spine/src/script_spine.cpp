@@ -214,7 +214,7 @@ namespace dmSpine
      * `playback_rate`
      * : [type:number] the rate with which the animation will be played. Must be positive.
      *
-     * @param [callback_function] [type:function(self, message_id, message, sender))] function to call when the animation has completed or a Spine event occured.
+     * @param [callback_function] [type:function(self, message_id, message, sender)] function to call when the animation has completed or a Spine event occurred.
      *
      * `self`
      * : [type:object] The current object.
@@ -234,6 +234,7 @@ namespace dmSpine
      * - [type:hash]  `animation_id` - the animation that triggered the event.
      * - [type:hash]  `event_id`     - the event that was triggered.
      * - [type:int]   `track`        - the index of the track that issued the event.
+     * - [type:float] `blend_weight` - the current blend weight.
      * - [type:float] `t`            - the time at which the event occurred (seconds)
      * - [type:int]   `integer`      - a custom integer associated with the event (0 by default).
      * - [type:float] `float`        - a custom float associated with the event (0 by default)

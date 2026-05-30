@@ -80,7 +80,7 @@ message SpinePlayAnimation
  * @name spine_animation_done
  * @param animation_id [type:hash] the id of the completed animation
  * @param playback [type:constant] the playback mode of the completed animation
- * @param track [type:number] the playback mode of the completed animation
+ * @param track [type:number] the track index of the completed animation
  * @examples
  *
  * ```lua
@@ -117,7 +117,7 @@ message SpineCancelAnimation
  * @param event_id [type:hash] the id of the event.
  * @param animation_id [type:hash] the id of the animation.
  * @param t [type:number] the time of the event in seconds, relative to the start of the animation.
- * @param blend_weight [type:number the blend weight (between 0.0-1.0) of the current animation at time t.
+ * @param blend_weight [type:number] the blend weight (between 0.0-1.0) of the current animation at time t.
  * @param integer [type:number] user defined integer value for the event
  * @param float [type:number] user defined floating point value for the event
  * @param string [type:hash] user defined string value (hashed) for the event
