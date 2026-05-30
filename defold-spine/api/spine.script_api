@@ -89,10 +89,6 @@
                 type: hash
                 desc: (spine_event only!) the event that was triggered.
 
-              - name: blend_weight
-                type: float
-                desc: (spine_event only!) the current blend weight
-
               - name: t
                 type: float
                 desc: (spine_event only!) the time at which the event occurred (seconds)
@@ -399,9 +395,9 @@
       type: hash
       desc: The animation that sent the event
 
-    - name: blend_weight
+    - name: track
       type: number
-      desc: The current blend weight
+      desc: The track index of the animation
 
     - name: t
       type: number
@@ -416,7 +412,7 @@
       desc: The event value. nil if not present
 
     - name: string
-      type: string
+      type: hash
       desc: The event value. nil if not present
 
 #*****************************************************************************************************

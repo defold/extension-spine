@@ -94,10 +94,6 @@
                   type: hash
                   desc: (spine_event only!) the event that was triggered.
 
-                - name: blend_weight
-                  type: float
-                  desc: (spine_event only!) the current blend weight
-
                 - name: t
                   type: float
                   desc: (spine_event only!) the time at which the event occurred (seconds)
