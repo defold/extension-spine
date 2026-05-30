@@ -117,6 +117,7 @@ message SpineCancelAnimation
  * @param event_id [type:hash] the id of the event.
  * @param animation_id [type:hash] the id of the animation.
  * @param track [type:number] the track index of the animation.
+ * @param blend_weight [type:number] Deprecated. Always 0.
  * @param t [type:number] the time of the event in seconds, relative to the start of the animation.
  * @param integer [type:number] user defined integer value for the event
  * @param float [type:number] user defined floating point value for the event

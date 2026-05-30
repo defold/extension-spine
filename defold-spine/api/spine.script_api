@@ -89,6 +89,10 @@
                 type: hash
                 desc: (spine_event only!) the event that was triggered.
 
+              - name: blend_weight
+                type: float
+                desc: (spine_event only!) Deprecated. Always 0.
+
               - name: t
                 type: float
                 desc: (spine_event only!) the time at which the event occurred (seconds)
@@ -398,6 +402,10 @@
     - name: track
       type: number
       desc: The track index of the animation
+
+    - name: blend_weight
+      type: number
+      desc: Deprecated. Always 0.
 
     - name: t
       type: number

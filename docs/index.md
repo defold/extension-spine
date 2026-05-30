@@ -312,6 +312,9 @@ When the animation plays and events are encountered, `spine_event` callbacks are
 `track`
 : The track index of the animation.
 
+`blend_weight`
+: Deprecated. Always 0.
+
 `string`
 : The provided string value, hashed.
 

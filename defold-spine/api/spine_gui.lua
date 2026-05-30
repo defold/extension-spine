@@ -27,6 +27,7 @@ function gui.new_spine_node(pos, spine_scene) end
 ---@field track number The track index of the animation
 ---@field playback? constant (spine_animation_done only!) The playback mode for the animation
 ---@field event_id? hash (spine_event only!) the event that was triggered.
+---@field blend_weight? number (spine_event only!) Deprecated. Always 0.
 ---@field t? number (spine_event only!) the time at which the event occurred (seconds)
 ---@field integer? number (spine_event only!) a custom integer associated with the event (0 by default).
 ---@field float? number (spine_event only!) a custom float associated with the event (0 by default)
