@@ -59,7 +59,7 @@
 
       - name: callback_function
         type: function
-        desc: function to call when the animation has completed or a Spine event occured
+        desc: function to call when the animation has completed or a Spine event occurred
         parameters:
           - name: self
             type: object
@@ -88,6 +88,10 @@
               - name: event_id
                 type: hash
                 desc: (spine_event only!) the event that was triggered.
+
+              - name: blend_weight
+                type: float
+                desc: (spine_event only!) Deprecated. Always 0.
 
               - name: t
                 type: float
@@ -395,9 +399,13 @@
       type: hash
       desc: The animation that sent the event
 
+    - name: track
+      type: number
+      desc: The track index of the animation
+
     - name: blend_weight
       type: number
-      desc: The current blend weight
+      desc: Deprecated. Always 0.
 
     - name: t
       type: number
@@ -412,7 +420,7 @@
       desc: The event value. nil if not present
 
     - name: string
-      type: string
+      type: hash
       desc: The event value. nil if not present
 
 #*****************************************************************************************************

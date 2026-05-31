@@ -71,12 +71,12 @@ Spine animations used to be part of the main Defold engine. Starting with Defold
 * The Lua callbacks have a new signature, to make them more consistent with the game object callbacks
 
 ```lua
-local function spine_callback(self, node, event, data)
-    pprint("SPINE CALLBACK", node, event, data)
+local function spine_callback(self, node, message_id, message)
+    pprint("SPINE CALLBACK", node, message_id, message)
 end
 ```
 
-* Currently the play anim requires a callback (i.e. the default handler is currently disabled)
+* GUI Spine completion and event notifications are delivered only through the callback passed to `gui.play_spine_anim()`. If no callback is supplied, the animation still plays, but no completion or event notification is sent.
 
 
 
@@ -301,13 +301,19 @@ Float
 String
 : A string value.
 
-When the animation plays and events are encountered, `spine_event` callbacks are sent back to the callback function provided with `spine.play_anim()`. The message data contains the custom numbers and strings embedded in the event, as well as a few additional fields that are sometimes useful:
+When the animation plays and events are encountered, `spine_event` callbacks are sent back to the callback function provided with `spine.play_anim()` or `gui.play_spine_anim()`. Game object callbacks use the signature `function(self, message_id, message, sender)`, while GUI callbacks use `function(self, node, message_id, message)`. The message data contains the custom numbers and strings embedded in the event, as well as a few additional fields that are sometimes useful:
 
 `t`
 : The number of seconds passed since the first frame of the animation.
 
 `animation_id`
 : The animation name, hashed.
+
+`track`
+: The track index of the animation.
+
+`blend_weight`
+: Deprecated. Always 0.
 
 `string`
 : The provided string value, hashed.
@@ -400,14 +406,20 @@ Create Bones
 
 ### Runtime animation control
 
-Spine nodes can be controlled in runtime through script. To start an animation on a node, simply call the [`gui.play_spine_anim()`](/extension-spine/gui_api/#gui.play_spine_anim:node-animation_id-playback-[play_properties]-[complete_function]) function:
+Spine nodes can be controlled in runtime through script. To start an animation on a node, simply call the [`gui.play_spine_anim()`](/extension-spine/gui_api/#gui.play_spine_anim:node-animation_id-playback-[play_properties]-[callback_function]) function:
 
 ```lua
-local catnode = gui.get_node("cat_note")
-local play_properties = { blend_time = 0.3, offset = 0, playback_rate = 1 }
-gui.play_spine_anim(catnode, hash("run"), gui.PLAYBACK_ONCE_FORWARD, play_properties, function(self, node)
-    print("Animation done!")
-end)
+local function spine_callback(self, node, message_id, message)
+    if message_id == hash("spine_animation_done") then
+        print("Animation done!")
+    elseif message_id == hash("spine_event") then
+        pprint("Spine event", message)
+    end
+end
+
+local catnode = gui.get_node("cat_node")
+local play_properties = { blend_duration = 0.3, offset = 0, playback_rate = 1 }
+gui.play_spine_anim(catnode, hash("run"), gui.PLAYBACK_ONCE_FORWARD, play_properties, spine_callback)
 ```
 
 Use one of the following playback modes to control animation playback:

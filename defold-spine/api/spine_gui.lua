@@ -22,6 +22,17 @@ function gui.new_spine_node(pos, spine_scene) end
 ---@field playback_rate? number The rate with which the animation will be played. Must be positive
 ---@field track? number The track to play the animation on (1-based indexing, defaults to 1)
 
+---@class gui.play_spine_anim.callback_function.message
+---@field animation_id hash The animation that was completed or triggered the event
+---@field track number The track index of the animation
+---@field playback? constant (spine_animation_done only!) The playback mode for the animation
+---@field event_id? hash (spine_event only!) the event that was triggered.
+---@field blend_weight? number (spine_event only!) Deprecated. Always 0.
+---@field t? number (spine_event only!) the time at which the event occurred (seconds)
+---@field integer? number (spine_event only!) a custom integer associated with the event (0 by default).
+---@field float? number (spine_event only!) a custom float associated with the event (0 by default)
+---@field string? hash (spine_event only!) a custom string associated with the event (hash("") by default)
+
 ---Starts a spine animation.
 ---@param node node spine node that should play the animation
 ---@param animation_id string|hash id of the animation to play
@@ -33,8 +44,8 @@ function gui.new_spine_node(pos, spine_scene) end
 --- - `gui.PLAYBACK_LOOP_BACKWARD`
 --- - `gui.PLAYBACK_LOOP_PINGPONG`
 ---@param play_properties? gui.play_spine_anim.play_properties optional table with properties
----@param complete_function? fun(self: userdata, node: node, message_id: hash, message: table) function to call when the animation has completed or when spine events occur
-function gui.play_spine_anim(node, animation_id, playback, play_properties, complete_function) end
+---@param callback_function? fun(self: userdata, node: node, message_id: hash, message: gui.play_spine_anim.callback_function.message) function to call when the animation has completed or when spine events occur
+function gui.play_spine_anim(node, animation_id, playback, play_properties, callback_function) end
 
 ---@class gui.cancel_spine.cancel_properties
 ---@field track? number The track to cancel (-1 for all tracks, defaults to all tracks)

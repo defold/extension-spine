@@ -1,5 +1,5 @@
-local function spine_callback(self, node, event, data)
-    --pprint("SPINE CALLBACK", node, event, data)
+local function spine_callback(self, node, message_id, message)
+    --pprint("SPINE CALLBACK", node, message_id, message)
 end
 
 local bone_names = {
