@@ -75,7 +75,7 @@
       (spineext/plugin-set-skin handle skin))
     (when-not (str/blank? anim)
       (spineext/plugin-set-animation handle anim))
-    (spineext/plugin-update-vertices handle dt world-transform color)))
+    (spineext/plugin-update-vertices handle dt world-transform color 0)))
 
 (defn- produce-vertices [handle skin anim dt world-transform color]
   (if (some? handle)

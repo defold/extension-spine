@@ -148,7 +148,7 @@ public class Spine {
 
     private static final float[] IDENTITY_COLOR = new float[] { 1.0f, 1.0f, 1.0f, 1.0f };
 
-    public static native void SPINE_UpdateVertices(SpinePointer spine, float dt, float[] worldTransform, float[] colorTint);
+    public static native void SPINE_UpdateVertices(SpinePointer spine, float dt, float[] worldTransform, float[] colorTint, int useIndexBuffer);
 
     public static native int SPINE_GetVertexSize(); // size in bytes per vertex
 
@@ -299,6 +299,7 @@ public class Spine {
 
     public static native String SPINE_GetLastError();
     public static native SpineVertex SPINE_GetVertexBufferData(SpinePointer spine, IntByReference objectCount);
+    public static native Pointer SPINE_GetIndexBufferData(SpinePointer spine, IntByReference objectCount);
     public static native RenderObject SPINE_GetRenderObjectData(SpinePointer spine, IntByReference objectCount);
     public static native NativeString SPINE_GetAnimationData(SpinePointer spine, IntByReference objectCount);
     public static native NativeString SPINE_GetSkinData(SpinePointer spine, IntByReference objectCount);
@@ -352,16 +353,15 @@ public class Spine {
         return (SpineVertex[])first.toArray(pcount.getValue());
     }
 
-    // public static int[] SPINE_GetIndexBuffer(SpinePointer spine) {
-    //     IntByReference pcount = new IntByReference();
-    //     IntByReference p = SPINE_GetIndexBufferData(spine, pcount);
-    //     if (pcount == null || p == null)
-    //     {
-    //         System.out.printf("Index buffer is empty!");
-    //         return new int[0];
-    //     }
-    //     return p.getPointer().getIntArray(0, pcount.getValue());
-    // }
+    public static int[] SPINE_GetIndexBuffer(SpinePointer spine) {
+        IntByReference pcount = new IntByReference();
+        Pointer first = SPINE_GetIndexBufferData(spine, pcount);
+        if (first == null || pcount.getValue() == 0)
+        {
+            return new int[0];
+        }
+        return first.getIntArray(0, pcount.getValue());
+    }
 
     public static RenderObject[] SPINE_GetRenderObjects(SpinePointer spine) {
         IntByReference pcount = new IntByReference();
@@ -483,12 +483,14 @@ public class Spine {
         Bone[] bones = SPINE_GetBones(p);
         DebugPrintBones(bones);
 
-        SPINE_UpdateVertices(p, 0.0f, IDENTITY_TRANSFORM, IDENTITY_COLOR);
+        SPINE_UpdateVertices(p, 0.0f, IDENTITY_TRANSFORM, IDENTITY_COLOR, 1);
 
         int count = 0;
         SpineVertex[] vertices = SPINE_GetVertexBuffer(p);
+        int[] indices = SPINE_GetIndexBuffer(p);
 
         System.out.printf("Vertices: count: %d  size: %d bytes\n", vertices.length, vertices.length>0 ? vertices.length * vertices[0].size() : 0);
+        System.out.printf("Indices: count: %d  size: %d bytes\n", indices.length, indices.length * Integer.BYTES);
 
         for (SpineVertex vertex : vertices) {
             if (count > 10) {

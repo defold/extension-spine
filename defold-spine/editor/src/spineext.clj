@@ -14,10 +14,12 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [dynamo.graph :as g]
+            [editor.buffers :as buffers]
             [editor.build-target :as bt]
             [editor.defold-project :as project]
             [editor.geom :as geom]
             [editor.gl :as gl]
+            [editor.gl.attribute :as attribute]
             [editor.gl.pass :as pass]
             [editor.gl.shader :as shader]
             [editor.gl.texture :as texture]
@@ -43,6 +45,7 @@
            [editor.gl.shader ShaderLifecycle]
            [editor.types AABB]
            [java.io IOException]
+           [java.nio IntBuffer]
            [javax.vecmath Matrix4d Vector3d Vector4d]
            [org.apache.commons.io IOUtils]))
 
@@ -120,10 +123,10 @@
 (defn- color->float-array [color]
   (float-array color))
 
-(defn plugin-update-vertices [handle dt ^Matrix4d world-transform color]
+(defn plugin-update-vertices [handle dt ^Matrix4d world-transform color use-index-buffer]
   (plugin-invoke-static spine-plugin-cls "SPINE_UpdateVertices"
-                        (into-array Class [spine-plugin-pointer-cls Float/TYPE float-array-cls float-array-cls])
-                        [handle (float dt) (matrix4d->float-array world-transform) (color->float-array color)]))
+                        (into-array Class [spine-plugin-pointer-cls Float/TYPE float-array-cls float-array-cls Integer/TYPE])
+                        [handle (float dt) (matrix4d->float-array world-transform) (color->float-array color) (int use-index-buffer)]))
 
 ;(defn- plugin-get-bones ^"[Lcom.dynamo.bob.pipeline.Spine$Bone;" [handle]
 (defn plugin-get-bones [handle]
@@ -135,6 +138,9 @@
 ;(defn- plugin-get-vertex-buffer-data ^"[Lcom.dynamo.bob.pipeline.Spine$RiveVertex;" [handle]
 (defn plugin-get-vertex-buffer-data [handle]
   (plugin-invoke-static spine-plugin-cls "SPINE_GetVertexBuffer" (into-array Class [spine-plugin-pointer-cls]) [handle]))
+
+(defn plugin-get-index-buffer-data [handle]
+  (plugin-invoke-static spine-plugin-cls "SPINE_GetIndexBuffer" (into-array Class [spine-plugin-pointer-cls]) [handle]))
 
 ;(defn- plugin-get-render-objects ^"[Lcom.dynamo.bob.pipeline.Spine$RenderObject;" [handle]
 (defn- plugin-get-render-objects [handle]
@@ -227,6 +233,12 @@
             vb-out (persistent! (reduce conj! vb verts))]
         vb-out))))
 
+(defn generate-index-buffer [request-id ^ints indices]
+  (when (pos? (alength indices))
+    (let [index-buffer (IntBuffer/wrap indices)
+          buffer-data (buffers/make-buffer-data index-buffer)]
+      (attribute/make-index-buffer request-id buffer-data :static))))
+
 (set! *warn-on-reflection* false)
 
 (defn transform-vertices-as-vec [vertices]
@@ -240,12 +252,19 @@
 
 (defn renderable->render-objects [renderable]
   (let [handle (renderable->handle renderable)
-        _ (plugin-update-vertices handle 0.0 (:world-transform renderable) identity-color)
+        _ (plugin-update-vertices handle 0.0 (:world-transform renderable) identity-color 1)
         vb-data (plugin-get-vertex-buffer-data handle)
+        ib-data (plugin-get-index-buffer-data handle)
         vb-data-transformed (transform-vertices-as-vec vb-data)
         vb (generate-vertex-buffer vb-data-transformed)
+        ib (generate-index-buffer [::spine-index-buffer handle] ib-data)
         render-objects (plugin-get-render-objects handle)]
-    {:vertex-buffer vb :render-objects render-objects :handle handle :renderable renderable}))
+    {:vertex-buffer vb
+     :index-buffer ib
+     :index-count (alength ^ints ib-data)
+     :render-objects render-objects
+     :handle handle
+     :renderable renderable}))
 
 
 (defn collect-render-groups [renderables]
@@ -344,7 +363,7 @@
     :blend-mode-alpha))
 
 (defn- do-render-object! [^GL2 gl render-args shader renderable ro]
-  (let [start (.m_VertexStart ro) ; the name is from the engine, but in this case refers to the index
+  (let [start (.m_VertexStart ro)
         count (.m_VertexCount ro)
         is-selection-pass (:selection (:pass render-args))
         renderable-user-data (:user-data renderable)
@@ -395,9 +414,12 @@
         gpu-texture (or (get user-data :gpu-texture) texture/white-pixel)
         shader (or override-shader (:shader user-data))
         vb (:vertex-buffer group)
+        ib (:index-buffer group)
         render-objects (:render-objects group)
-        vertex-binding (vtx/use-with ::spine-trans vb shader)]
-    (gl/with-gl-bindings gl render-args [shader gpu-texture vertex-binding]
+        vertex-binding (vtx/use-with ::spine-trans vb shader)
+        bindings (cond-> [shader gpu-texture vertex-binding]
+                   ib (conj ib))]
+    (gl/with-gl-bindings gl render-args bindings
       (setup-gl gl)
       (run! (fn [ro]
               (do-render-object! gl render-args shader renderable ro))
@@ -619,7 +641,7 @@
             spine-data-handle (plugin-load-file-from-buffer spine-json-content spine-json-path texture-set-pb atlas-path) ; it throws if it fails to load
             _ (if (not (str/blank? default-animation)) (plugin-set-animation spine-data-handle default-animation))
             _ (if (not (str/blank? skin)) (plugin-set-skin spine-data-handle skin))
-            _ (plugin-update-vertices spine-data-handle 0.0 geom/Identity4d identity-color)]
+            _ (plugin-update-vertices spine-data-handle 0.0 geom/Identity4d identity-color 0)]
         spine-data-handle))
     (catch Exception error
       (handle-read-error error _node-id spine-json-resource))))
@@ -869,7 +891,7 @@
   (when (not (nil? spine-data-handle))
     (plugin-set-skin spine-data-handle skin)
     (plugin-set-animation spine-data-handle animation)
-    (plugin-update-vertices spine-data-handle dt geom/Identity4d identity-color))
+    (plugin-update-vertices spine-data-handle dt geom/Identity4d identity-color 0))
   state)
 
 (g/defnk produce-spine-data-handle-updatable [_node-id spine-data-handle default-animation skin]
