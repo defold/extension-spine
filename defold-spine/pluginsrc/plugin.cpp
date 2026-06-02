@@ -69,6 +69,8 @@ struct SpineFile
     dmArray<dmSpine::SpineVertex>           m_VertexBuffer;
     dmArray<uint32_t>                       m_IndexBuffer;
     dmArray<dmSpinePlugin::RenderObject>    m_RenderObjects;
+    uint32_t                                m_VertexBufferVersion;
+    uint32_t                                m_IndexBufferVersion;
     dmhash_t                                m_CurrentSkin;
     dmhash_t                                m_CurrentAnimation;
 
@@ -82,6 +84,8 @@ struct SpineFile
     , m_AttachmentLoader(0)
     , m_SkeletonInstance(0)
     , m_AnimationStateInstance(0)
+    , m_VertexBufferVersion(0)
+    , m_IndexBufferVersion(0)
     , m_CurrentSkin(0)
     , m_CurrentAnimation(0)
     , m_Error(0)
@@ -519,12 +523,31 @@ extern "C" DM_DLLEXPORT dmSpine::SpineVertex* SPINE_GetVertexBufferData(void* _f
     return file->m_VertexBuffer.Begin();
 }
 
+extern "C" DM_DLLEXPORT void* SPINE_GetVertexBufferPointer(void* _file, int* pcount)
+{
+    return SPINE_GetVertexBufferData(_file, pcount);
+}
+
+extern "C" DM_DLLEXPORT uint32_t SPINE_GetVertexBufferVersion(void* _file)
+{
+    SpineFile* file = TO_SPINE_FILE(_file);
+    CHECK_FILE_RETURN(file);
+    return file->m_VertexBufferVersion;
+}
+
 extern "C" DM_DLLEXPORT uint32_t* SPINE_GetIndexBufferData(void* _file, int* pcount)
 {
     SpineFile* file = TO_SPINE_FILE(_file);
     CHECK_FILE_RETURN(file);
     *pcount = (int)file->m_IndexBuffer.Size();
     return file->m_IndexBuffer.Begin();
+}
+
+extern "C" DM_DLLEXPORT uint32_t SPINE_GetIndexBufferVersion(void* _file)
+{
+    SpineFile* file = TO_SPINE_FILE(_file);
+    CHECK_FILE_RETURN(file);
+    return file->m_IndexBufferVersion;
 }
 
 extern "C" DM_DLLEXPORT dmSpinePlugin::RenderObject* SPINE_GetRenderObjectData(void* _file, int* pcount)
@@ -643,6 +666,7 @@ static void CreateAABB(SpineFile* file)
     if (file->m_VertexBuffer.Capacity() < 6)
         file->m_VertexBuffer.SetCapacity(6);
     file->m_VertexBuffer.SetSize(6);
+    file->m_VertexBufferVersion++;
 
     float width = 200;
     float height = 200;
@@ -793,6 +817,9 @@ static void UpdateRenderData(SpineFile* file, const dmVMath::Matrix4& transform,
             ro.m_WorldTransform    = dmVMath::Matrix4::identity();
         }
     }
+
+    file->m_VertexBufferVersion++;
+    file->m_IndexBufferVersion++;
 
     spSkeletonClipping_dispose(clipper);
 }

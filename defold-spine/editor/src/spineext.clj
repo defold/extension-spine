@@ -24,6 +24,7 @@
             [editor.gl.shader :as shader]
             [editor.gl.texture :as texture]
             [editor.gl.vertex :as vtx]
+            [editor.gl.vertex2 :as vtx2]
             [editor.graph-util :as gu]
             [editor.localization :as localization]
             [editor.material :as material]
@@ -45,7 +46,7 @@
            [editor.gl.shader ShaderLifecycle]
            [editor.types AABB]
            [java.io IOException]
-           [java.nio IntBuffer]
+           [java.nio ByteBuffer ByteOrder]
            [javax.vecmath Matrix4d Vector3d Vector4d]
            [org.apache.commons.io IOUtils]))
 
@@ -139,8 +140,17 @@
 (defn plugin-get-vertex-buffer-data [handle]
   (plugin-invoke-static spine-plugin-cls "SPINE_GetVertexBuffer" (into-array Class [spine-plugin-pointer-cls]) [handle]))
 
-(defn plugin-get-index-buffer-data [handle]
-  (plugin-invoke-static spine-plugin-cls "SPINE_GetIndexBuffer" (into-array Class [spine-plugin-pointer-cls]) [handle]))
+(defn- plugin-get-vertex-buffer-byte-buffer [handle]
+  (plugin-invoke-static spine-plugin-cls "SPINE_GetVertexBufferByteBuffer" (into-array Class [spine-plugin-pointer-cls]) [handle]))
+
+(defn- plugin-get-vertex-buffer-version [handle]
+  (plugin-invoke-static spine-plugin-cls "SPINE_GetVertexBufferVersion" (into-array Class [spine-plugin-pointer-cls]) [handle]))
+
+(defn- plugin-get-index-buffer-byte-buffer [handle]
+  (plugin-invoke-static spine-plugin-cls "SPINE_GetIndexBufferByteBuffer" (into-array Class [spine-plugin-pointer-cls]) [handle]))
+
+(defn- plugin-get-index-buffer-version [handle]
+  (plugin-invoke-static spine-plugin-cls "SPINE_GetIndexBufferVersion" (into-array Class [spine-plugin-pointer-cls]) [handle]))
 
 ;(defn- plugin-get-render-objects ^"[Lcom.dynamo.bob.pipeline.Spine$RenderObject;" [handle]
 (defn- plugin-get-render-objects [handle]
@@ -225,6 +235,12 @@
   (vec4 color)
   (vec1 page_index))
 
+(vtx2/defvertex native-vtx-pos-tex-col-index
+  (vec3 position)
+  (vec2 texcoord0)
+  (vec4 color)
+  (vec1 page_index))
+
 (defn generate-vertex-buffer [verts]
   ; verts should be in the format [[x y z u v r g b a p] [x y z...] ...]
   (let [vcount (count verts)]
@@ -233,10 +249,14 @@
             vb-out (persistent! (reduce conj! vb verts))]
         vb-out))))
 
-(defn generate-index-buffer [request-id ^ints indices]
-  (when (pos? (alength indices))
-    (let [index-buffer (IntBuffer/wrap indices)
-          buffer-data (buffers/make-buffer-data index-buffer)]
+(defn- generate-native-vertex-buffer [^ByteBuffer vertex-buffer]
+  (when (pos? (.limit vertex-buffer))
+    (vtx2/wrap-vertex-buffer native-vtx-pos-tex-col-index :static vertex-buffer)))
+
+(defn- generate-native-index-buffer [request-id ^ByteBuffer index-buffer-byte-buffer version]
+  (when (pos? (.limit index-buffer-byte-buffer))
+    (let [index-buffer (.asIntBuffer (.order index-buffer-byte-buffer (ByteOrder/nativeOrder)))
+          buffer-data (buffers/make-buffer-data index-buffer version)]
       (attribute/make-index-buffer request-id buffer-data :static))))
 
 (set! *warn-on-reflection* false)
@@ -253,15 +273,18 @@
 (defn renderable->render-objects [renderable]
   (let [handle (renderable->handle renderable)
         _ (plugin-update-vertices handle 0.0 (:world-transform renderable) identity-color 1)
-        vb-data (plugin-get-vertex-buffer-data handle)
-        ib-data (plugin-get-index-buffer-data handle)
-        vb-data-transformed (transform-vertices-as-vec vb-data)
-        vb (generate-vertex-buffer vb-data-transformed)
-        ib (generate-index-buffer [::spine-index-buffer handle] ib-data)
+        vb-data (plugin-get-vertex-buffer-byte-buffer handle)
+        ib-data (plugin-get-index-buffer-byte-buffer handle)
+        vertex-buffer-version (plugin-get-vertex-buffer-version handle)
+        index-buffer-version (plugin-get-index-buffer-version handle)
+        vb (generate-native-vertex-buffer vb-data)
+        ib (generate-native-index-buffer [::spine-index-buffer handle] ib-data index-buffer-version)
         render-objects (plugin-get-render-objects handle)]
     {:vertex-buffer vb
      :index-buffer ib
-     :index-count (alength ^ints ib-data)
+     :vertex-buffer-version vertex-buffer-version
+     :index-buffer-version index-buffer-version
+     :index-count (quot (.limit ^ByteBuffer ib-data) Integer/BYTES)
      :render-objects render-objects
      :handle handle
      :renderable renderable}))
@@ -416,7 +439,7 @@
         vb (:vertex-buffer group)
         ib (:index-buffer group)
         render-objects (:render-objects group)
-        vertex-binding (vtx/use-with ::spine-trans vb shader)
+        vertex-binding (vtx2/use-with ::spine-trans vb shader)
         bindings (cond-> [shader gpu-texture vertex-binding]
                    ib (conj ib))]
     (gl/with-gl-bindings gl render-args bindings

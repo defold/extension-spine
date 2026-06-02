@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.List;
 import java.util.Arrays;
@@ -299,7 +300,10 @@ public class Spine {
 
     public static native String SPINE_GetLastError();
     public static native SpineVertex SPINE_GetVertexBufferData(SpinePointer spine, IntByReference objectCount);
+    public static native Pointer SPINE_GetVertexBufferPointer(SpinePointer spine, IntByReference objectCount);
+    public static native int SPINE_GetVertexBufferVersion(SpinePointer spine);
     public static native Pointer SPINE_GetIndexBufferData(SpinePointer spine, IntByReference objectCount);
+    public static native int SPINE_GetIndexBufferVersion(SpinePointer spine);
     public static native RenderObject SPINE_GetRenderObjectData(SpinePointer spine, IntByReference objectCount);
     public static native NativeString SPINE_GetAnimationData(SpinePointer spine, IntByReference objectCount);
     public static native NativeString SPINE_GetSkinData(SpinePointer spine, IntByReference objectCount);
@@ -353,6 +357,16 @@ public class Spine {
         return (SpineVertex[])first.toArray(pcount.getValue());
     }
 
+    public static ByteBuffer SPINE_GetVertexBufferByteBuffer(SpinePointer spine) {
+        IntByReference pcount = new IntByReference();
+        Pointer first = SPINE_GetVertexBufferPointer(spine, pcount);
+        if (first == null || pcount.getValue() == 0)
+        {
+            return ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder());
+        }
+        return first.getByteBuffer(0, (long)pcount.getValue() * SPINE_GetVertexSize()).order(ByteOrder.nativeOrder());
+    }
+
     public static int[] SPINE_GetIndexBuffer(SpinePointer spine) {
         IntByReference pcount = new IntByReference();
         Pointer first = SPINE_GetIndexBufferData(spine, pcount);
@@ -361,6 +375,16 @@ public class Spine {
             return new int[0];
         }
         return first.getIntArray(0, pcount.getValue());
+    }
+
+    public static ByteBuffer SPINE_GetIndexBufferByteBuffer(SpinePointer spine) {
+        IntByReference pcount = new IntByReference();
+        Pointer first = SPINE_GetIndexBufferData(spine, pcount);
+        if (first == null || pcount.getValue() == 0)
+        {
+            return ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder());
+        }
+        return first.getByteBuffer(0, (long)pcount.getValue() * Integer.BYTES).order(ByteOrder.nativeOrder());
     }
 
     public static RenderObject[] SPINE_GetRenderObjects(SpinePointer spine) {
