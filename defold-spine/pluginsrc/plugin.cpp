@@ -92,8 +92,8 @@ char g_LastSpineError[1024] = {0};
 
 typedef SpineFile* HSpineFile;
 
-static void UpdateRenderData(SpineFile* file);
-static void UpdateVertices(SpineFile* file, float dt);
+static void UpdateRenderData(SpineFile* file, const dmVMath::Matrix4& transform, const dmVMath::Vector4& color_tint);
+static void UpdateVertices(SpineFile* file, float dt, const dmVMath::Matrix4& transform, const dmVMath::Vector4& color_tint);
 
 // Need to free() the buffer
 static uint8_t* ReadFile(const char* path, size_t* file_size) {
@@ -127,6 +127,29 @@ static SpineFile* ToSpineFile(void* _file, const char* fnname)
         dmLogError("%s: File handle is null", fnname);
     }
     return (SpineFile*)_file;
+}
+
+static dmVMath::Matrix4 ToMatrix4(const float* m)
+{
+    if (!m)
+    {
+        return dmVMath::Matrix4::identity();
+    }
+
+    return dmVMath::Matrix4(dmVMath::Vector4(m[0], m[1], m[2], m[3]),
+                            dmVMath::Vector4(m[4], m[5], m[6], m[7]),
+                            dmVMath::Vector4(m[8], m[9], m[10], m[11]),
+                            dmVMath::Vector4(m[12], m[13], m[14], m[15]));
+}
+
+static dmVMath::Vector4 ToVector4(const float* v)
+{
+    if (!v)
+    {
+        return dmVMath::Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+    }
+
+    return dmVMath::Vector4(v[0], v[1], v[2], v[3]);
 }
 
 #define TO_SPINE_FILE(_P_) ToSpineFile(_P_, __FUNCTION__);
@@ -310,7 +333,7 @@ extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* json, size_t json_size,
     file->m_CurrentSkin = 0;
     file->m_CurrentAnimation = 0;
 
-    UpdateVertices(file, 0.0f);
+    UpdateVertices(file, 0.0f, dmVMath::Matrix4::identity(), dmVMath::Vector4(1.0f, 1.0f, 1.0f, 1.0f));
     SetupBones(file);
 
     return (void*)file;
@@ -465,12 +488,12 @@ extern "C" DM_DLLEXPORT int SPINE_GetVertexSize() {
     return sizeof(dmSpine::SpineVertex);
 }
 
-extern "C" DM_DLLEXPORT void SPINE_UpdateVertices(void* _file, float dt) {
+extern "C" DM_DLLEXPORT void SPINE_UpdateVertices(void* _file, float dt, const float* world_transform, const float* color_tint) {
     SpineFile* file = TO_SPINE_FILE(_file);
-    UpdateVertices(file, dt);
+    UpdateVertices(file, dt, ToMatrix4(world_transform), ToVector4(color_tint));
 }
 
-static void UpdateVertices(SpineFile* file, float dt)
+static void UpdateVertices(SpineFile* file, float dt, const dmVMath::Matrix4& transform, const dmVMath::Vector4& color_tint)
 {
     if (!file || !file->m_AnimationStateInstance) {
         if (file->m_VertexBuffer.Empty()) {
@@ -484,7 +507,7 @@ static void UpdateVertices(SpineFile* file, float dt)
     spSkeleton_update(file->m_SkeletonInstance, dt);
     spSkeleton_updateWorldTransform(file->m_SkeletonInstance, SP_PHYSICS_UPDATE);
 
-    UpdateRenderData(file); // Update the draw call list
+    UpdateRenderData(file, transform, color_tint); // Update the draw call list
 }
 
 extern "C" DM_DLLEXPORT dmSpine::SpineVertex* SPINE_GetVertexBufferData(void* _file, int* pcount)
@@ -688,7 +711,7 @@ static T* AdjustArraySize(dmArray<T>& array, uint32_t count)
     return p;
 }
 
-static void UpdateRenderData(SpineFile* file)
+static void UpdateRenderData(SpineFile* file, const dmVMath::Matrix4& transform, const dmVMath::Vector4& color_tint)
 {
     if (!file || !file->m_AnimationStateInstance)
         return;
@@ -706,8 +729,7 @@ static void UpdateRenderData(SpineFile* file)
     dmArray<dmSpine::SpineDrawDesc> draw_descs;
     draw_descs.SetCapacity(ro_count);
 
-    dmVMath::Matrix4 transform = dmVMath::Matrix4::identity();
-    dmSpine::GenerateVertexData(file->m_VertexBuffer, file->m_SkeletonInstance, clipper, transform, &draw_descs);
+    dmSpine::GenerateVertexData(file->m_VertexBuffer, file->m_SkeletonInstance, clipper, transform, color_tint, &draw_descs);
 
     dmArray<dmSpine::SpineDrawDesc> merged_draw_descs;
     MergeDrawDescs(draw_descs, merged_draw_descs);
@@ -729,7 +751,7 @@ static void UpdateRenderData(SpineFile* file)
 
         //ro.AddConstant(UNIFORM_TINT, dmVMath::Vector4(1.0f, 1.0f, 1.0f, 1.0f));
 
-        ro.m_WorldTransform = transform;
+        ro.m_WorldTransform = dmVMath::Matrix4::identity();
     }
 
     spSkeletonClipping_dispose(clipper);

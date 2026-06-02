@@ -30,8 +30,7 @@
             [util.coll :as coll]
             [util.murmur :as murmur])
   (:import [com.dynamo.gamesys.proto Gui$NodeDesc Gui$NodeDesc$ClippingMode]
-           [editor.gl.texture TextureLifecycle]
-           [javax.vecmath Matrix4d Point3d]))
+           [editor.gl.texture TextureLifecycle]))
 
 (set! *warn-on-reflection* true)
 
@@ -70,47 +69,43 @@
   (when-not (g/error? (validate-spine-scene node-id spine-scene-names spine-scene))
     (spineext/validate-skin node-id :__spine_skin spine-skin-ids spine-skin)))
 
-(defn- transform-vtx [^Matrix4d m4d color vtx]
-  (let [[cr cg cb ca] color
-        [x y z u v r g b a page_index] vtx
-        p (Point3d.)
-        _ (.set p x y z)
-        _ (.transform m4d p)]
-    [(.x p) (.y p) (.z p) u v (* r cr) (* g cg) (* b cb) (* a ca) page_index]))
+(defn- update-vertices! [handle skin anim dt world-transform color]
+  (when (some? handle)
+    (when-not (str/blank? skin)
+      (spineext/plugin-set-skin handle skin))
+    (when-not (str/blank? anim)
+      (spineext/plugin-set-animation handle anim))
+    (spineext/plugin-update-vertices handle dt world-transform color)))
 
-(defn- produce-local-vertices [handle skin anim dt]
-  (if (not= handle nil)
-    (let [_ (if (not (str/blank? skin)) (spineext/plugin-set-skin handle skin))
-          _ (if (not (str/blank? anim)) (spineext/plugin-set-animation handle anim))
-          _ (spineext/plugin-update-vertices handle dt)
-          vb-data (spineext/plugin-get-vertex-buffer-data handle) ; list of SpineVertex
-          vb-data-vec (spineext/transform-vertices-as-vec vb-data)] ; unpacked into lists of lists [[x y z u v r g b a page_index]])
-      vb-data-vec)
+(defn- produce-vertices [handle skin anim dt world-transform color]
+  (if (some? handle)
+    (let [_ (update-vertices! handle skin anim dt world-transform color)
+          vb-data (spineext/plugin-get-vertex-buffer-data handle)] ; list of SpineVertex
+      (into [] (spineext/transform-vertices-as-vec vb-data))) ; unpacked into lists of lists [[x y z u v r g b a page_index]])
     []))
 
-(g/defnk produce-spine-updatable [_node-id spine-data-handle spine-default-animation spine-skin spine-vertex-buffer]
+(g/defnk produce-spine-updatable [_node-id spine-data-handle spine-default-animation spine-skin]
   (when (and (some? spine-data-handle)
              spine-default-animation
              spine-skin)
     {:node-id _node-id
      :name "Spine GUI Updater"
      :update-fn (fn [state {:keys [dt]}]
-                  (let [vb (produce-local-vertices spine-data-handle spine-skin spine-default-animation dt)]
-                    (assoc state :spine-vertex-buffer vb)))
-     :initial-state {:spine-vertex-buffer spine-vertex-buffer}}))
+                  (update-vertices! spine-data-handle spine-skin spine-default-animation dt geom/Identity4d spineext/identity-color)
+                  state)
+     :initial-state {}}))
 
 (defn- renderable->vertices [renderable]
   (let [handle (spineext/renderable->handle renderable)
         world-transform (:world-transform renderable)
         per-node-user-data (:user-data renderable)
-        vertex-buffer (or (get-in renderable [:updatable :state :spine-vertex-buffer])
-                          (:spine-vertex-buffer per-node-user-data))
-        color (:color per-node-user-data)
-        vb-data-transformed (map (fn [vtx] (transform-vtx world-transform color vtx)) vertex-buffer)]
-    vb-data-transformed))
+        skin (:spine-skin per-node-user-data)
+        anim (:spine-default-animation per-node-user-data)
+        color (:color per-node-user-data)]
+    (produce-vertices handle skin anim 0.0 world-transform color)))
 
-(defn- gen-vb [user-data renderables]
-  (let [vertices (mapcat (fn [renderable] (renderable->vertices renderable)) renderables)
+(defn- gen-vb [_user-data renderables]
+  (let [vertices (into [] (mapcat renderable->vertices) renderables)
         vb-out (spineext/generate-vertex-buffer vertices)]
     vb-out))
 
@@ -284,9 +279,6 @@
               (:spine-data-handle (or (get infos spine-scene)
                                       (get infos ""))))))
 
-  (output spine-vertex-buffer g/Any :cached (g/fnk [spine-scene spine-data-handle spine-skin spine-default-animation]
-                                                   (produce-local-vertices spine-data-handle spine-skin spine-default-animation 0.0)))
-
   (output aabb g/Any
           (g/fnk [spine-data-handle]
             (if spine-data-handle
@@ -296,13 +288,14 @@
   ; Overloaded outputs from VisualNode
   (output scene-updatable g/Any :cached produce-spine-updatable)
   (output gpu-texture TextureLifecycle (g/constantly nil))
-  (output scene-renderable-user-data g/Any :cached (g/fnk [aabb spine-scene-scene spine-vertex-buffer color+alpha clipping-mode clipping-inverted clipping-visible]
+  (output scene-renderable-user-data g/Any :cached (g/fnk [aabb spine-scene-scene spine-skin spine-default-animation color+alpha clipping-mode clipping-inverted clipping-visible]
                                                           (let [lines (aabb->rect-lines aabb)
                                                                 user-data (assoc (get-in spine-scene-scene [:renderable :user-data])
                                                                                  :color color+alpha
                                                                                  :renderable-tags #{:gui-spine}
                                                                                  :gen-vb gen-vb
-                                                                                 :spine-vertex-buffer spine-vertex-buffer
+                                                                                 :spine-skin spine-skin
+                                                                                 :spine-default-animation spine-default-animation
                                                                                  :line-data lines)]
                                                             (cond-> user-data
                                                               (not= :clipping-mode-none clipping-mode)

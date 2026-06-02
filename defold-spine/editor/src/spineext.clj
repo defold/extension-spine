@@ -112,8 +112,18 @@
     (when (some #(= % animation) valid-anims)
       (plugin-invoke-static spine-plugin-cls "SPINE_SetAnimation" (into-array Class [spine-plugin-pointer-cls String]) [handle animation]))))
 
-(defn plugin-update-vertices [handle dt]
-  (plugin-invoke-static spine-plugin-cls "SPINE_UpdateVertices" (into-array Class [spine-plugin-pointer-cls Float/TYPE]) [handle (float dt)]))
+(defn- matrix4d->float-array [^Matrix4d transform]
+  (float-array (geom/as-array transform)))
+
+(def identity-color [1.0 1.0 1.0 1.0])
+
+(defn- color->float-array [color]
+  (float-array color))
+
+(defn plugin-update-vertices [handle dt ^Matrix4d world-transform color]
+  (plugin-invoke-static spine-plugin-cls "SPINE_UpdateVertices"
+                        (into-array Class [spine-plugin-pointer-cls Float/TYPE float-array-cls float-array-cls])
+                        [handle (float dt) (matrix4d->float-array world-transform) (color->float-array color)]))
 
 ;(defn- plugin-get-bones ^"[Lcom.dynamo.bob.pipeline.Spine$Bone;" [handle]
 (defn plugin-get-bones [handle]
@@ -230,6 +240,7 @@
 
 (defn renderable->render-objects [renderable]
   (let [handle (renderable->handle renderable)
+        _ (plugin-update-vertices handle 0.0 (:world-transform renderable) identity-color)
         vb-data (plugin-get-vertex-buffer-data handle)
         vb-data-transformed (transform-vertices-as-vec vb-data)
         vb (generate-vertex-buffer vb-data-transformed)
@@ -344,14 +355,11 @@
         face-winding (if (not= (.m_FaceWindingCCW ro) 0) GL/GL_CCW GL/GL_CW)
         _ (set-constants! gl shader ro)
         ro-transform (double-array (.m (.m_WorldTransform ro)))
-        renderable-transform (Matrix4d. (:world-transform renderable)) ; make a copy so we don't alter the original
-
         ro-matrix (doto (Matrix4d. ro-transform) (.transpose))
-        shader-world-transform (doto renderable-transform (.mul ro-matrix))
         use-index-buffer (not= (.m_UseIndexBuffer ro) 0)
         triangle-mode (if (not= (.m_IsTriangleStrip ro) 0) GL/GL_TRIANGLE_STRIP GL/GL_TRIANGLES)
         render-args (merge render-args
-                           (math/derive-render-transforms shader-world-transform
+                           (math/derive-render-transforms ro-matrix
                                                           (:view render-args)
                                                           (:projection render-args)
                                                           (:texture render-args)))]
@@ -611,7 +619,7 @@
             spine-data-handle (plugin-load-file-from-buffer spine-json-content spine-json-path texture-set-pb atlas-path) ; it throws if it fails to load
             _ (if (not (str/blank? default-animation)) (plugin-set-animation spine-data-handle default-animation))
             _ (if (not (str/blank? skin)) (plugin-set-skin spine-data-handle skin))
-            _ (plugin-update-vertices spine-data-handle 0.0)]
+            _ (plugin-update-vertices spine-data-handle 0.0 geom/Identity4d identity-color)]
         spine-data-handle))
     (catch Exception error
       (handle-read-error error _node-id spine-json-resource))))
@@ -861,7 +869,7 @@
   (when (not (nil? spine-data-handle))
     (plugin-set-skin spine-data-handle skin)
     (plugin-set-animation spine-data-handle animation)
-    (plugin-update-vertices spine-data-handle dt))
+    (plugin-update-vertices spine-data-handle dt geom/Identity4d identity-color))
   state)
 
 (g/defnk produce-spine-data-handle-updatable [_node-id spine-data-handle default-animation skin]

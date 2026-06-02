@@ -139,7 +139,17 @@ public class Spine {
 
     ////////////////////////////////////////////////////////////////////////////////
 
-    public static native void SPINE_UpdateVertices(SpinePointer spine, float dt);
+    private static final float[] IDENTITY_TRANSFORM = new float[] {
+        1.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f
+    };
+
+    private static final float[] IDENTITY_COLOR = new float[] { 1.0f, 1.0f, 1.0f, 1.0f };
+
+    public static native void SPINE_UpdateVertices(SpinePointer spine, float dt, float[] worldTransform, float[] colorTint);
+
     public static native int SPINE_GetVertexSize(); // size in bytes per vertex
 
 
@@ -473,7 +483,7 @@ public class Spine {
         Bone[] bones = SPINE_GetBones(p);
         DebugPrintBones(bones);
 
-        SPINE_UpdateVertices(p, 0.0f);
+        SPINE_UpdateVertices(p, 0.0f, IDENTITY_TRANSFORM, IDENTITY_COLOR);
 
         int count = 0;
         SpineVertex[] vertices = SPINE_GetVertexBuffer(p);

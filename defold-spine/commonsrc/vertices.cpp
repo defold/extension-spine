@@ -506,7 +506,7 @@ void CalcIndexedBufferSizeAndBounds(const spSkeleton* skeleton, spSkeletonClippi
     }
 }
 
-uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, const dmVMath::Matrix4& world, dmArray<SpineDrawDesc>* draw_descs_out)
+uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, const dmVMath::Matrix4& world, const dmVMath::Vector4& color_tint, dmArray<SpineDrawDesc>* draw_descs_out)
 {
     dmArray<float> scratch_vertex_floats;
     int vindex                  = vertex_buffer.Size();
@@ -629,15 +629,16 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
             indices_count = skeleton_clipper->clippedTriangles->size;
         }
 
-        const float colorR = tintR * color->r;
-        const float colorG = tintG * color->g;
-        const float colorB = tintB * color->b;
-        const float colorA = tintA * color->a;
+        const float colorR = tintR * color->r * color_tint.getX();
+        const float colorG = tintG * color->g * color_tint.getY();
+        const float colorB = tintB * color->b * color_tint.getZ();
+        const float colorA = tintA * color->a * color_tint.getW();
 
         for (int i = 0; i < indices_count; ++i)
         {
             int index = indices[i] << 1;
-            addVertex(&vertex_buffer[vindex++], vertices[index], vertices[index + 1], 0.0f, uvs[index], uvs[index + 1], colorR, colorG, colorB, colorA, page_index);
+            const dmVMath::Vector4 p = world * dmVMath::Point3(vertices[index], vertices[index + 1], 0.0f);
+            addVertex(&vertex_buffer[vindex++], p.getX(), p.getY(), p.getZ(), uvs[index], uvs[index + 1], colorR, colorG, colorB, colorA, page_index);
         }
 
         if (draw_descs_out)
@@ -653,28 +654,16 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
 
     spSkeletonClipping_clipEnd2(skeleton_clipper);
 
-    const dmVMath::Matrix4& w = world;
-
     uint32_t vcount = vertex_buffer.Size() - vindex_start;
     if (vcount)
     {
-        SpineVertex* vb = &vertex_buffer[vindex_start];
-        for (uint32_t i = 0; i < vcount; ++i)
-        {
-            SpineVertex* vertex = &vb[i];
-            const dmVMath::Vector4 p = w * dmVMath::Point3(vertex->x, vertex->y, vertex->z);
-            vertex->x = p.getX();
-            vertex->y = p.getY();
-            vertex->z = p.getZ();
-        }
-
         assert(vcount == estimated_vcount);
     }
 
     return vcount;
 }
 
-uint32_t GenerateIndexedVertexData(dmArray<SpineVertex>& vertex_buffer, dmArray<uint32_t>& index_buffer, const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, uint32_t expected_vertex_count, uint32_t expected_index_count, const dmVMath::Matrix4& world, dmArray<SpineIndexedDrawDesc>* draw_descs_out)
+uint32_t GenerateIndexedVertexData(dmArray<SpineVertex>& vertex_buffer, dmArray<uint32_t>& index_buffer, const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, uint32_t expected_vertex_count, uint32_t expected_index_count, const dmVMath::Matrix4& world, const dmVMath::Vector4& color_tint, dmArray<SpineIndexedDrawDesc>* draw_descs_out)
 {
     dmArray<float> scratch_vertex_floats;
     uint32_t vindex_start = vertex_buffer.Size();
@@ -777,10 +766,10 @@ uint32_t GenerateIndexedVertexData(dmArray<SpineVertex>& vertex_buffer, dmArray<
             indices_count = skeleton_clipper->clippedTriangles->size;
         }
 
-        const float colorR = tintR * color->r;
-        const float colorG = tintG * color->g;
-        const float colorB = tintB * color->b;
-        const float colorA = tintA * color->a;
+        const float colorR = tintR * color->r * color_tint.getX();
+        const float colorG = tintG * color->g * color_tint.getY();
+        const float colorB = tintB * color->b * color_tint.getZ();
+        const float colorA = tintA * color->a * color_tint.getW();
 
         uint32_t batch_index_start = iindex;
         uint32_t vertex_base = vindex;
