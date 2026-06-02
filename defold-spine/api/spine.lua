@@ -41,6 +41,7 @@ spine.MIX_BLEND_ADD = 3     --- 'Add' mix blend mode.
 ---@field track number The track index of the animation
 ---@field playback? constant (spine_animation_done only!) The playback mode for the animation
 ---@field event_id? hash (spine_event only!) the event that was triggered.
+---@field blend_weight? number (spine_event only!) Deprecated. Always 0.
 ---@field t? number (spine_event only!) the time at which the event occurred (seconds)
 ---@field integer? number (spine_event only!) a custom integer associated with the event (0 by default).
 ---@field float? number (spine_event only!) a custom float associated with the event (0 by default)
@@ -58,7 +59,7 @@ spine.MIX_BLEND_ADD = 3     --- 'Add' mix blend mode.
 ---@param anim_id string|hash Id of the animation to play
 ---@param playback number Playback mode of the animation (from go.PLAYBACK_*)
 ---@param options spine.play_anim.options Playback options
----@param callback_function? fun(self: userdata, message_id: hash, message: spine.play_anim.callback_function.message, sender: url) function to call when the animation has completed or a Spine event occured
+---@param callback_function? fun(self: userdata, message_id: hash, message: spine.play_anim.callback_function.message, sender: url) function to call when the animation has completed or a Spine event occurred
 function spine.play_anim(url, anim_id, playback, options, callback_function) end
 
 ---@class spine.cancel.options
@@ -152,8 +153,9 @@ function spine.physics_rotate(url, center, degrees) end
 ---@class on_message.spine_event
 ---@field event_id hash The event name
 ---@field animation_id hash The animation that sent the event
----@field blend_weight number The current blend weight
+---@field track number The track index of the animation
+---@field blend_weight number Deprecated. Always 0.
 ---@field t number The current animation time
 ---@field integer? number The event value. nil if not present
 ---@field float? number The event value. nil if not present
----@field string? string The event value. nil if not present
+---@field string? hash The event value. nil if not present

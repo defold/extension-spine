@@ -58,9 +58,61 @@
                   type: number
                   desc: The track number for the animation (1-based). Defaults to track 1. Multiple tracks allow for layered animations.
 
-        - name: complete_function
+        - name: callback_function
           type: function(self, node, message_id, message)
           desc: function to call when the animation has completed or when spine events occur
+          parameters:
+            - name: self
+              type: object
+              desc: The context of the calling script
+
+            - name: node
+              type: node
+              desc: The spine node that completed the animation or triggered the event
+
+            - name: message_id
+              type: hash
+              desc: The name of the message ("spine_animation_done" or "spine_event")
+
+            - name: message
+              type: table
+              desc: A table that contains the response
+              parameters:
+                - name: animation_id
+                  type: hash
+                  desc: The animation that was completed or triggered the event
+
+                - name: track
+                  type: number
+                  desc: The track index of the animation
+
+                - name: playback
+                  type: constant
+                  desc: (spine_animation_done only!) The playback mode for the animation
+
+                - name: event_id
+                  type: hash
+                  desc: (spine_event only!) the event that was triggered.
+
+                - name: blend_weight
+                  type: float
+                  desc: (spine_event only!) Deprecated. Always 0.
+
+                - name: t
+                  type: float
+                  desc: (spine_event only!) the time at which the event occurred (seconds)
+
+                - name: integer
+                  type: int
+                  desc: (spine_event only!) a custom integer associated with the event (0 by default).
+
+                - name: float
+                  type: float
+                  desc: (spine_event only!) a custom float associated with the event (0 by default)
+
+                - name: string
+                  type: hash
+                  desc: (spine_event only!) a custom string associated with the event (hash("") by default)
 
 
     - name: cancel_spine
