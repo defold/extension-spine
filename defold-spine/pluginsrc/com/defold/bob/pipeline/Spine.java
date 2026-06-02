@@ -13,7 +13,6 @@ import java.io.InputStream;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.FloatBuffer;
 import java.util.List;
 import java.util.Arrays;
 
@@ -165,126 +164,14 @@ public class Spine {
         }
     }
 
-    // The enums come straight from https://github.com/defold/defold/blob/dev/engine/graphics/src/dmsdk/graphics/graphics.h
-    public enum CompareFunc
-    {
-        COMPARE_FUNC_NEVER    (0),
-        COMPARE_FUNC_LESS     (1),
-        COMPARE_FUNC_LEQUAL   (2),
-        COMPARE_FUNC_GREATER  (3),
-        COMPARE_FUNC_GEQUAL   (4),
-        COMPARE_FUNC_EQUAL    (5),
-        COMPARE_FUNC_NOTEQUAL (6),
-        COMPARE_FUNC_ALWAYS   (7);
-
-        private final int value;
-        private CompareFunc(int v) { this.value = v; }
-        public int getValue() { return this.value; }
-    };
-
-    public enum FaceWinding
-    {
-        FACE_WINDING_CCW (0),
-        FACE_WINDING_CW  (1);
-
-        private final int value;
-        private FaceWinding(int v) { this.value = v; }
-        public int getValue() { return this.value; }
-    };
-
-    public enum StencilOp
-    {
-        STENCIL_OP_KEEP      (0),
-        STENCIL_OP_ZERO      (1),
-        STENCIL_OP_REPLACE   (2),
-        STENCIL_OP_INCR      (3),
-        STENCIL_OP_INCR_WRAP (4),
-        STENCIL_OP_DECR      (5),
-        STENCIL_OP_DECR_WRAP (6),
-        STENCIL_OP_INVERT    (7);
-
-        private final int value;
-        private StencilOp(int v) { this.value = v; }
-        public int getValue() { return this.value; }
-    };
-
-    static public class StencilTestFunc extends Structure {
-        public int m_Func;      // dmGraphics::CompareFunc
-        public int m_OpSFail;   // dmGraphics::StencilOp
-        public int m_OpDPFail;  // dmGraphics::StencilOp
-        public int m_OpDPPass;  // dmGraphics::StencilOp
-        protected List getFieldOrder() {
-            return Arrays.asList(new String[] {"m_Func", "m_OpSFail", "m_OpDPFail", "m_OpDPPass"});
-        }
-    }
-
-    static public class StencilTestParams extends Structure {
-        public StencilTestFunc m_Front;
-        public StencilTestFunc m_Back;
-        public byte    m_Ref;
-        public byte    m_RefMask;
-        public byte    m_BufferMask;
-        public byte    m_ColorBufferMask;
-        public byte    m_ClearBuffer;      // bool
-        public byte    m_SeparateFaceStates; // bool
-        public byte[]  pad = new byte[32 - 6];
-        protected List getFieldOrder() {
-            return Arrays.asList(new String[] {
-                "m_Front", "m_Back",
-                "m_Ref", "m_RefMask", "m_BufferMask",
-                "m_ColorBufferMask", "m_ClearBuffer", "m_SeparateFaceStates", "pad"});
-        }
-    }
-
-    static public class Matrix4 extends Structure {
-        public float[] m = new float[16];
-        protected List getFieldOrder() {
-            return Arrays.asList(new String[] {"m"});
-        }
-    }
-
-    static public class Vector4 extends Structure {
-        public float x, y, z, w;
-        protected List getFieldOrder() {
-            return Arrays.asList(new String[] {"x","y","z","w"});
-        }
-    }
-
-    static public class ShaderConstant extends Structure {
-        public Vector4 m_Value;
-        public long m_NameHash;
-        public long pad1;
-        protected List getFieldOrder() {
-            return Arrays.asList(new String[] {"m_Value", "m_NameHash", "pad1"});
-        }
-    }
-
-    // Matching the layout 1:1 with the struct in vertices.h
-    static public class RenderObject extends Structure {
-        public StencilTestParams    m_StencilTestParams;
-        public Matrix4              m_WorldTransform; // 16 byte alignment for simd
-        public ShaderConstant[]     m_Constants = new ShaderConstant[4];
-        public int                  m_NumConstants;
-        public int                  m_VertexStart;
-        public int                  m_VertexCount;
-        public int                  m_BlendFactor;
-        public byte                 m_SetBlendFactors;
-        public byte                 m_SetStencilTest;
-        public byte                 m_SetFaceWinding;
-        public byte                 m_FaceWindingCCW;
-        public byte                 m_UseIndexBuffer;
-        public byte                 m_IsTriangleStrip;
-        public byte[]               pad2 = new byte[(4*4) - 6];
+    // Matching the layout 1:1 with dmSpine::SpineIndexedDrawDesc in vertices.h
+    static public class DrawDesc extends Structure {
+        public int m_IndexStart;
+        public int m_IndexCount;
+        public int m_BlendMode;
 
         protected List getFieldOrder() {
-            return Arrays.asList(new String[] {
-                "m_StencilTestParams", "m_WorldTransform", "m_Constants",
-                "m_NumConstants", "m_VertexStart", "m_VertexCount", "m_BlendFactor",
-                "m_SetBlendFactors", "m_SetStencilTest", "m_SetFaceWinding", "m_FaceWindingCCW", "m_UseIndexBuffer", "m_IsTriangleStrip", "pad2"});
-        }
-
-        public int getOffset(String name) {
-            return super.fieldOffset(name);
+            return Arrays.asList(new String[] {"m_IndexStart", "m_IndexCount", "m_BlendMode"});
         }
     }
 
@@ -304,7 +191,7 @@ public class Spine {
     public static native int SPINE_GetVertexBufferVersion(SpinePointer spine);
     public static native Pointer SPINE_GetIndexBufferData(SpinePointer spine, IntByReference objectCount);
     public static native int SPINE_GetIndexBufferVersion(SpinePointer spine);
-    public static native RenderObject SPINE_GetRenderObjectData(SpinePointer spine, IntByReference objectCount);
+    public static native DrawDesc SPINE_GetDrawDescData(SpinePointer spine, IntByReference objectCount);
     public static native NativeString SPINE_GetAnimationData(SpinePointer spine, IntByReference objectCount);
     public static native NativeString SPINE_GetSkinData(SpinePointer spine, IntByReference objectCount);
 
@@ -387,22 +274,21 @@ public class Spine {
         return first.getByteBuffer(0, (long)pcount.getValue() * Integer.BYTES).order(ByteOrder.nativeOrder());
     }
 
-    public static RenderObject[] SPINE_GetRenderObjects(SpinePointer spine) {
+    public static DrawDesc[] SPINE_GetDrawDescs(SpinePointer spine) {
         IntByReference pcount = new IntByReference();
-        RenderObject first = SPINE_GetRenderObjectData(spine, pcount);
-        if (first == null)
+        DrawDesc first = SPINE_GetDrawDescData(spine, pcount);
+        if (first == null || pcount.getValue() == 0)
         {
-            System.out.printf("Render object buffer is empty!");
-            return new RenderObject[0];
+            return new DrawDesc[0];
         }
 
-        int ro_size = 288;
-        if (first.size() != ro_size) {
-            System.out.printf("RenderObject size is not %d, it was %d\n", ro_size, first.size());
-            return new RenderObject[0];
+        int draw_desc_size = 12;
+        if (first.size() != draw_desc_size) {
+            System.out.printf("DrawDesc size is not %d, it was %d\n", draw_desc_size, first.size());
+            return new DrawDesc[0];
         }
 
-        return (RenderObject[])first.toArray(pcount.getValue());
+        return (DrawDesc[])first.toArray(pcount.getValue());
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -525,21 +411,16 @@ public class Spine {
         }
 
         count = 0;
-        RenderObject[] ros = SPINE_GetRenderObjects(p);
+        DrawDesc[] drawDescs = SPINE_GetDrawDescs(p);
 
-        System.out.printf("Render Objects: count %d\n", ros.length);
-        for (RenderObject ro : ros) {
+        System.out.printf("Draw Descs: count %d\n", drawDescs.length);
+        for (DrawDesc drawDesc : drawDescs) {
             if (count > 10) {
                 System.out.printf(" ...\n");
                 break;
             }
 
-            System.out.printf(" ro %d: fw(ccw): %b  offset: %d  count: %d  constants: %d\n", count++, ro.m_FaceWindingCCW, ro.m_VertexStart, ro.m_VertexCount, ro.m_NumConstants);
-
-            for (int i = 0; i < ro.m_NumConstants && i < 2; ++i)
-            {
-                System.out.printf("    var %d: %s %.3f, %.3f, %.3f, %.3f\n", i, Long.toUnsignedString(ro.m_Constants[i].m_NameHash), ro.m_Constants[i].m_Value.x, ro.m_Constants[i].m_Value.y, ro.m_Constants[i].m_Value.z, ro.m_Constants[i].m_Value.w);
-            }
+            System.out.printf(" draw desc %d: index start: %d  index count: %d  blend mode: %d\n", count++, drawDesc.m_IndexStart, drawDesc.m_IndexCount, drawDesc.m_BlendMode);
         }
     }
 }

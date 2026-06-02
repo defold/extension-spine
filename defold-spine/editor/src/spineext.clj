@@ -39,15 +39,14 @@
             [editor.shaders :as shaders]
             [editor.types :as types]
             [editor.validation :as validation]
-            [editor.workspace :as workspace]
-            [util.murmur :as murmur])
+            [editor.workspace :as workspace])
   (:import [com.dynamo.bob.textureset TextureSetGenerator$UVTransform]
            [com.jogamp.opengl GL GL2]
            [editor.gl.shader ShaderLifecycle]
            [editor.types AABB]
            [java.io IOException]
            [java.nio ByteBuffer ByteOrder]
-           [javax.vecmath Matrix4d Vector3d Vector4d]
+           [javax.vecmath Matrix4d Vector3d]
            [org.apache.commons.io IOUtils]))
 
 (set! *warn-on-reflection* true)
@@ -152,9 +151,8 @@
 (defn- plugin-get-index-buffer-version [handle]
   (plugin-invoke-static spine-plugin-cls "SPINE_GetIndexBufferVersion" (into-array Class [spine-plugin-pointer-cls]) [handle]))
 
-;(defn- plugin-get-render-objects ^"[Lcom.dynamo.bob.pipeline.Spine$RenderObject;" [handle]
-(defn- plugin-get-render-objects [handle]
-  (plugin-invoke-static spine-plugin-cls "SPINE_GetRenderObjects" (into-array Class [spine-plugin-pointer-cls]) [handle]))
+(defn- plugin-get-draw-descs [handle]
+  (plugin-invoke-static spine-plugin-cls "SPINE_GetDrawDescs" (into-array Class [spine-plugin-pointer-cls]) [handle]))
 
 
 (set! *warn-on-reflection* false)
@@ -270,7 +268,7 @@
 (defn renderable->handle [renderable]
   (get-in renderable [:user-data :spine-data-handle]))
 
-(defn renderable->render-objects [renderable]
+(defn renderable->render-data [renderable]
   (let [handle (renderable->handle renderable)
         _ (plugin-update-vertices handle 0.0 (:world-transform renderable) identity-color 1)
         vb-data (plugin-get-vertex-buffer-byte-buffer handle)
@@ -279,103 +277,19 @@
         index-buffer-version (plugin-get-index-buffer-version handle)
         vb (generate-native-vertex-buffer vb-data)
         ib (generate-native-index-buffer [::spine-index-buffer handle] ib-data index-buffer-version)
-        render-objects (plugin-get-render-objects handle)]
+        draw-descs (plugin-get-draw-descs handle)]
     {:vertex-buffer vb
      :index-buffer ib
      :vertex-buffer-version vertex-buffer-version
      :index-buffer-version index-buffer-version
      :index-count (quot (.limit ^ByteBuffer ib-data) Integer/BYTES)
-     :render-objects render-objects
+     :draw-descs draw-descs
      :handle handle
      :renderable renderable}))
 
 
 (defn collect-render-groups [renderables]
-  (map renderable->render-objects renderables))
-
-(def constant-tint (murmur/hash64 "tint"))
-
-(defn- constant-hash->name [hash]
-  (condp = hash
-    constant-tint "tint"
-    "unknown"))
-
-(defn- do-mask [mask count]
-  ; Checks if a bit in the mask is set: "(mask & (1<<count)) != 0"
-  (not= 0 (bit-and mask (bit-shift-left 1 count))))
-
-; See GetOpenGLCompareFunc in graphics_opengl.cpp
-(defn- stencil-func->gl-func [^long func]
-  (case func
-    0 GL/GL_NEVER
-    1 GL/GL_LESS
-    2 GL/GL_LEQUAL
-    3 GL/GL_GREATER
-    4 GL/GL_GEQUAL
-    5 GL/GL_EQUAL
-    6 GL/GL_NOTEQUAL
-    7 GL/GL_ALWAYS))
-
-(defn- stencil-op->gl-op [^long op]
-  (case op
-    0 GL/GL_KEEP
-    1 GL/GL_ZERO
-    2 GL/GL_REPLACE
-    3 GL/GL_INCR
-    4 GL/GL_INCR_WRAP
-    5 GL/GL_DECR
-    6 GL/GL_DECR_WRAP
-    7 GL/GL_INVERT))
-
-(set! *warn-on-reflection* false)
-
-(defn- set-stencil-func! [^GL2 gl face-type ref ref-mask state]
-  (let [gl-func (stencil-func->gl-func (.m_Func state))
-        op-stencil-fail (stencil-op->gl-op (.m_OpSFail state))
-        op-depth-fail (stencil-op->gl-op (.m_OpDPFail state))
-        op-depth-pass (stencil-op->gl-op (.m_OpDPPass state))]
-    (.glStencilFuncSeparate gl face-type gl-func ref ref-mask)
-    (.glStencilOpSeparate gl face-type op-stencil-fail op-depth-fail op-depth-pass)))
-
-(set! *warn-on-reflection* true)
-
-(defn- to-int [b]
-  (bit-and 0xff (int b)))
-
-
-(set! *warn-on-reflection* false)
-
-; See ApplyStencilTest in render.cpp for reference
-(defn- set-stencil-test-params! [^GL2 gl params]
-  (let [clear (.m_ClearBuffer params)
-        mask (to-int (.m_BufferMask params))
-        color-mask (.m_ColorBufferMask params)
-        separate-states (.m_SeparateFaceStates params)
-        ref (to-int (.m_Ref params))
-        ref-mask (to-int (.m_RefMask params))
-        state-front (.m_Front params)
-        state-back (if (not= separate-states 0) (.m_Back params) state-front)]
-    (when (not= clear 0)
-      (.glStencilMask gl 0xFF)
-      (.glClear gl GL/GL_STENCIL_BUFFER_BIT))
-
-    (.glColorMask gl (do-mask color-mask 3) (do-mask color-mask 2) (do-mask color-mask 1) (do-mask color-mask 0))
-    (.glStencilMask gl mask)
-
-    (set-stencil-func! gl GL/GL_FRONT ref ref-mask state-front)
-    (set-stencil-func! gl GL/GL_BACK ref ref-mask state-back)))
-
-(defn- set-constant! [^GL2 gl shader constant]
-  (let [name-hash (.m_NameHash constant)]
-    (when (not= name-hash 0)
-      (let [v (.m_Value constant)
-            value (Vector4d. (.x v) (.y v) (.z v) (.w v))]
-        (shader/set-uniform shader gl (constant-hash->name name-hash) value)))))
-
-(defn- set-constants! [^GL2 gl shader ro]
-  (run! (fn [constant]
-          (set-constant! gl shader constant))
-        (.m_Constants ro)))
+  (map renderable->render-data renderables))
 
 (defn- blend-factor-value-to-blend-mode [blend-factor-value]
   (case blend-factor-value
@@ -385,23 +299,20 @@
     3 :blend-mode-screen
     :blend-mode-alpha))
 
-(defn- do-render-object! [^GL2 gl render-args shader renderable ro]
-  (let [start (.m_VertexStart ro)
-        count (.m_VertexCount ro)
+(set! *warn-on-reflection* false)
+
+(defn- do-draw-desc! [^GL2 gl render-args shader renderable draw-desc]
+  (let [start (* (.m_IndexStart draw-desc) Integer/BYTES)
+        count (.m_IndexCount draw-desc)
         is-selection-pass (:selection (:pass render-args))
         renderable-user-data (:user-data renderable)
         renderable-blend-mode (:blend-mode renderable-user-data)
         blend-mode (if (= renderable-blend-mode :blend-mode-inherit)
-                     (blend-factor-value-to-blend-mode (.m_BlendFactor ro))
+                     (blend-factor-value-to-blend-mode (.m_BlendMode draw-desc))
                      renderable-blend-mode)
-        face-winding (if (not= (.m_FaceWindingCCW ro) 0) GL/GL_CCW GL/GL_CW)
-        _ (set-constants! gl shader ro)
-        ro-transform (double-array (.m (.m_WorldTransform ro)))
-        ro-matrix (doto (Matrix4d. ro-transform) (.transpose))
-        use-index-buffer (not= (.m_UseIndexBuffer ro) 0)
-        triangle-mode (if (not= (.m_IsTriangleStrip ro) 0) GL/GL_TRIANGLE_STRIP GL/GL_TRIANGLES)
+        draw-transform (Matrix4d. geom/Identity4d)
         render-args (merge render-args
-                           (math/derive-render-transforms ro-matrix
+                           (math/derive-render-transforms draw-transform
                                                           (:view render-args)
                                                           (:projection render-args)
                                                           (:texture render-args)))]
@@ -410,25 +321,10 @@
     (if is-selection-pass
       (shader/set-uniform shader gl "mtx_world_view_proj" (:world-view-proj render-args))
       (shader/set-uniform shader gl "world_view_proj" (:world-view-proj render-args)))
-    (when (not= (.m_SetFaceWinding ro) 0)
-      (gl/gl-front-face gl face-winding))
-    (when (not= (.m_SetStencilTest ro) 0)
-      (set-stencil-test-params! gl (.m_StencilTestParams ro)))
-    (if use-index-buffer
-      (gl/gl-draw-elements gl triangle-mode GL/GL_UNSIGNED_INT start count)
-      (gl/gl-draw-arrays gl triangle-mode start count))
+    (gl/gl-draw-elements gl GL/GL_TRIANGLES GL/GL_UNSIGNED_INT start count)
     (gl/set-blend-mode gl :blend-mode-alpha)))
 
 (set! *warn-on-reflection* true)
-
-; Lent from gui_clipping.clj
-(defn- setup-gl [^GL2 gl]
-  (.glEnable gl GL/GL_STENCIL_TEST)
-  (.glClear gl GL/GL_STENCIL_BUFFER_BIT))
-
-(defn- restore-gl [^GL2 gl]
-  (.glDisable gl GL/GL_STENCIL_TEST)
-  (.glColorMask gl true true true true))
 
 
 (defn- render-group-transparent [^GL2 gl render-args override-shader group]
@@ -438,16 +334,14 @@
         shader (or override-shader (:shader user-data))
         vb (:vertex-buffer group)
         ib (:index-buffer group)
-        render-objects (:render-objects group)
+        draw-descs (:draw-descs group)
         vertex-binding (vtx2/use-with ::spine-trans vb shader)
         bindings (cond-> [shader gpu-texture vertex-binding]
                    ib (conj ib))]
     (gl/with-gl-bindings gl render-args bindings
-      (setup-gl gl)
-      (run! (fn [ro]
-              (do-render-object! gl render-args shader renderable ro))
-            render-objects)
-      (restore-gl gl))))
+      (run! (fn [draw-desc]
+              (do-draw-desc! gl render-args shader renderable draw-desc))
+            draw-descs))))
 
 ;; When debugging render using REPL, don't forget to run (dev/clear-caches!)
 ;; Also, it's possible to switch render modes in the Debug Editor using Cmd+T
