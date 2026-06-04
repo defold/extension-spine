@@ -292,7 +292,7 @@
   (map renderable->render-data renderables))
 
 (defn- blend-factor-value-to-blend-mode [blend-factor-value]
-  (case blend-factor-value
+  (case (long blend-factor-value)
     0 :blend-mode-alpha
     1 :blend-mode-add
     2 :blend-mode-mult
