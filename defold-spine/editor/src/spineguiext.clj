@@ -55,10 +55,10 @@
 (defn- spine-scene-names [basic-gui-scene-info]
   (get-in basic-gui-scene-info [:gui-resource-kind-names :spine-scene]))
 
-(defn- spine-scene-element-ids [basic-gui-scene-info]
+(defn- spine-scene-basic-info [basic-gui-scene-info]
   (get-in basic-gui-scene-info [:gui-resource-kind-basic-info :spine-scene]))
 
-(defn- spine-scene-infos [costly-gui-scene-info]
+(defn- spine-scene-costly-info [costly-gui-scene-info]
   (get-in costly-gui-scene-info [:gui-resource-kind-costly-info :spine-scene]))
 
 (defn- validate-spine-default-animation [node-id spine-scene-names spine-anim-ids spine-default-animation spine-scene]
@@ -75,7 +75,7 @@
       (spineext/plugin-set-skin handle skin))
     (when-not (str/blank? anim)
       (spineext/plugin-set-animation handle anim))
-    (spineext/plugin-update-vertices handle dt world-transform color 0)))
+    (spineext/plugin-update-vertices handle dt world-transform color false)))
 
 (defn- produce-vertices [handle skin anim dt world-transform color]
   (if (some? handle)
@@ -119,91 +119,64 @@
      [x1 y1 0] [x0 y1 0]
      [x0 y1 0] [x0 y0 0]]))
 
-(def ^:private spine-custom-property-infos
-  [{:legacy-field :spine-scene
-    :id "spine_scene"
-    :default ""
-    :protobuf-type :type-string
-    :value-field :string-value}
-   {:legacy-field :spine-default-animation
-    :id "spine_default_animation"
-    :default ""
-    :protobuf-type :type-string
-    :value-field :string-value}
-   {:legacy-field :spine-skin
-    :id "spine_skin"
-    :default ""
-    :protobuf-type :type-string
-    :value-field :string-value}
-   {:legacy-field :spine-create-bones
-    :id "spine_create_bones"
-    :default false
-    :protobuf-type :type-boolean
-    :value-field :boolean}])
+(def ^:private custom-property-pb-type->value-field
+  {:type-boolean :boolean
+   :type-hash :string
+   :type-number :number
+   :type-quat :quat
+   :type-string :string
+   :type-vector3 :vector3
+   :type-vector4 :vector4})
 
-(def ^:private spine-custom-property-id->info
-  (coll/pair-map-by :id spine-custom-property-infos))
-
-(defn- spine-custom-property [custom-property-id value]
-  (let [{:keys [protobuf-type value-field]} (spine-custom-property-id->info custom-property-id)]
+(defn- custom-property-info->pb [{:keys [custom-property-id protobuf-type]} value]
+  (let [value-field (custom-property-pb-type->value-field protobuf-type)]
     {:id custom-property-id
      :type protobuf-type
      value-field value}))
 
-(defn- custom-property-id [custom-property]
-  (:id custom-property))
-
-(def ^:private legacy-spine-node-desc-field->custom-property-id
-  (into {}
-        (map (fn [{:keys [legacy-field id]}]
-               [legacy-field id]))
-        spine-custom-property-infos))
-
-(def ^:private legacy-spine-node-desc-field->default
-  (into {}
-        (map (fn [{:keys [legacy-field default]}]
-               [legacy-field default]))
-        spine-custom-property-infos))
-
-(def ^:private node-desc-pb-field->index
-  (reduce-kv (fn [pb-field->index index pb-field]
-               (assoc pb-field->index pb-field index))
-             {}
-             (protobuf/fields-by-indices Gui$NodeDesc)))
-
-(def ^:private custom-properties-pb-field-index
-  (node-desc-pb-field->index :custom-properties))
+(def ^:private legacy-spine-prop-keys
+  [:spine-create-bones
+   :spine-default-animation
+   :spine-scene
+   :spine-skin])
 
 (def ^:private legacy-spine-pb-field-indices
-  (coll/pair-map-by node-desc-pb-field->index (keys legacy-spine-node-desc-field->custom-property-id)))
+  (coll/pair-map-by gui/prop-key->pb-field-index legacy-spine-prop-keys))
 
-(defn- migrate-legacy-spine-overridden-fields [overridden-fields]
-  (vec
-    (sort
-      (into #{}
-            (map (fn [overridden-field]
-                   (if (contains? legacy-spine-pb-field-indices overridden-field)
-                     custom-properties-pb-field-index
-                     overridden-field)))
-            overridden-fields))))
+(defn- strip-legacy-spine-overridden-fields [node-desc]
+  (protobuf/assign-repeated node-desc :overridden-fields
+                            (into []
+                                  (remove legacy-spine-pb-field-indices)
+                                  (:overridden-fields node-desc))))
 
-(g/defnk produce-spine-node-msg [visual-base-node-msg ^:raw clipping-mode ^:raw clipping-visible ^:raw clipping-inverted]
-  (merge visual-base-node-msg
-         (protobuf/make-map-without-defaults Gui$NodeDesc
-           :size-mode :size-mode-auto
-           :clipping-mode clipping-mode
-           :clipping-visible clipping-visible
-           :clipping-inverted clipping-inverted)))
+(g/defnk produce-spine-node-msg
+  [visual-base-node-msg
+   ^:raw spine-scene
+   ^:raw spine-default-animation
+   ^:raw spine-skin
+   ^:raw spine-create-bones
+   ^:raw clipping-mode
+   ^:raw clipping-visible
+   ^:raw clipping-inverted]
+  (assoc visual-base-node-msg
+         :spine-scene spine-scene
+         :spine-default-animation spine-default-animation
+         :spine-skin spine-skin
+         :spine-create-bones spine-create-bones
+         :clipping-mode clipping-mode
+         :clipping-visible clipping-visible
+         :clipping-inverted clipping-inverted
+         :size-mode :size-mode-auto))
 
 (g/defnode SpineNode
   (inherits gui/VisualNode)
 
   (property spine-scene g/Str (default "")
             (static custom-property {:id "spine_scene"
-                                     :protobuf-type :type-string
-                                     :resource-kind :spine-scene})
+                                     :protobuf-type :type-string})
             (dynamic edit-type (g/fnk [basic-gui-scene-info]
                                  (gui/wrap-layout-property-edit-type spine-scene (gui/required-gui-resource-choicebox (spine-scene-names basic-gui-scene-info)))))
+            (dynamic ext-edit-type (g/constantly {:type g/Str}))
             (dynamic error (g/fnk [_node-id basic-gui-scene-info spine-scene]
                              (validate-spine-scene _node-id (spine-scene-names basic-gui-scene-info) spine-scene)))
             (dynamic label (g/constantly "Spine Scene"))
@@ -214,6 +187,7 @@
                                      :protobuf-type :type-string})
             (dynamic edit-type (g/fnk [spine-anim-ids]
                                  (gui/wrap-layout-property-edit-type spine-default-animation (gui/optional-gui-resource-choicebox spine-anim-ids))))
+            (dynamic ext-edit-type (g/constantly {:type g/Str}))
             (dynamic error (g/fnk [_node-id basic-gui-scene-info spine-anim-ids spine-default-animation spine-scene]
                              (validate-spine-default-animation _node-id (spine-scene-names basic-gui-scene-info) spine-anim-ids spine-default-animation spine-scene)))
             (dynamic label (g/constantly "Default Animation"))
@@ -224,6 +198,7 @@
                                      :protobuf-type :type-string})
             (dynamic edit-type (g/fnk [spine-skin-ids]
                                  (gui/wrap-layout-property-edit-type spine-skin (spineext/->skin-choicebox spine-skin-ids))))
+            (dynamic ext-edit-type (g/constantly {:type g/Str}))
             (dynamic error (g/fnk [_node-id basic-gui-scene-info spine-skin spine-skin-ids spine-scene]
                              (validate-spine-skin _node-id (spine-scene-names basic-gui-scene-info) spine-skin-ids spine-skin spine-scene)))
             (dynamic label (g/constantly "Skin"))
@@ -256,36 +231,36 @@
   (output node-msg g/Any :cached produce-spine-node-msg)
   (output spine-anim-ids gui/GuiResourceNames
           (g/fnk [basic-gui-scene-info spine-scene]
-            (let [element-ids (spine-scene-element-ids basic-gui-scene-info)]
-              (:spine-anim-ids (or (get element-ids spine-scene)
-                                   (get element-ids ""))))))
+            (let [basic-info (spine-scene-basic-info basic-gui-scene-info)]
+              (:spine-anim-ids (or (get basic-info spine-scene)
+                                   (get basic-info ""))))))
   (output spine-skin-ids gui/GuiResourceNames
           (g/fnk [basic-gui-scene-info spine-scene]
-            (let [element-ids (spine-scene-element-ids basic-gui-scene-info)]
-              (:spine-skin-ids (or (get element-ids spine-scene)
-                                   (get element-ids ""))))))
+            (let [basic-info (spine-scene-basic-info basic-gui-scene-info)]
+              (:spine-skin-ids (or (get basic-info spine-scene)
+                                   (get basic-info ""))))))
   (output spine-scene-scene g/Any
           (g/fnk [costly-gui-scene-info spine-scene]
-            (let [infos (spine-scene-infos costly-gui-scene-info)]
-              (:spine-scene-scene (or (get infos spine-scene)
-                                      (get infos ""))))))
+            (let [costly-info (spine-scene-costly-info costly-gui-scene-info)]
+              (:spine-scene-scene (or (get costly-info spine-scene)
+                                      (get costly-info ""))))))
   (output spine-scene-bones g/Any
           (g/fnk [costly-gui-scene-info spine-scene]
-            (let [infos (spine-scene-infos costly-gui-scene-info)]
-              (:spine-bones (or (get infos spine-scene)
-                                (get infos ""))))))
+            (let [costly-info (spine-scene-costly-info costly-gui-scene-info)]
+              (:spine-bones (or (get costly-info spine-scene)
+                                (get costly-info ""))))))
   (output spine-scene-pb g/Any
           (g/fnk [costly-gui-scene-info spine-scene]
-            (let [infos (spine-scene-infos costly-gui-scene-info)]
-              (:spine-scene-pb (or (get infos spine-scene)
-                                   (get infos ""))))))
+            (let [costly-info (spine-scene-costly-info costly-gui-scene-info)]
+              (:spine-scene-pb (or (get costly-info spine-scene)
+                                   (get costly-info ""))))))
 
   ;; The handle to the C++ resource
   (output spine-data-handle g/Any
           (g/fnk [costly-gui-scene-info spine-scene]
-            (let [infos (spine-scene-infos costly-gui-scene-info)]
-              (:spine-data-handle (or (get infos spine-scene)
-                                      (get infos ""))))))
+            (let [costly-info (spine-scene-costly-info costly-gui-scene-info)]
+              (:spine-data-handle (or (get costly-info spine-scene)
+                                      (get costly-info ""))))))
 
   (output aabb g/Any
           (g/fnk [spine-data-handle]
@@ -319,9 +294,13 @@
                 (validate-spine-default-animation _node-id spine-scene-names spine-anim-ids spine-default-animation spine-scene)
                 (validate-spine-skin _node-id spine-scene-names spine-skin-ids spine-skin spine-scene))))))
 
+(defmethod gui/update-gui-resource-reference [::SpineNode :spine-scene]
+  [_ evaluation-context node-id old-name new-name]
+  (gui/update-basic-gui-resource-reference evaluation-context node-id :spine-scene old-name new-name))
+
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
-(g/defnk produce-spine-scene-element-ids [name spine-data-handle spine-anim-ids spine-skins spine-scene]
+(g/defnk produce-spine-scene-basic-info [name spine-data-handle spine-anim-ids spine-skins spine-scene]
   ;; If the referenced spine-scene-resource is missing, we don't return an entry.
   ;; This will cause every usage to fall back on the no-spine-scene entry for "".
   ;; NOTE: the no-spine-scene entry uses an instance of SpineSceneNode with an empty name.
@@ -331,7 +310,7 @@
     {name {:spine-anim-ids (into (sorted-set) spine-anim-ids)
            :spine-skin-ids (into (sorted-set) spine-skins)}}))
 
-(g/defnk produce-spine-scene-infos [_node-id name spine-data-handle spine-scene spine-bones spine-scene-pb spine-scene-scene spine-skin-aabbs]
+(g/defnk produce-spine-scene-costly-info [_node-id name spine-data-handle spine-scene spine-bones spine-scene-pb spine-scene-scene spine-skin-aabbs]
   ;; If the referenced spine-scene-resource is missing, we don't return an entry.
   ;; This will cause every usage to fall back on the no-spine-scene entry for "".
   ;; NOTE: the no-spine-scene entry uses an instance of SpineSceneNode with an empty name.
@@ -397,8 +376,8 @@
   (output pb-msg g/Any (g/fnk [name spine-scene]
                               {:name name
                                :path (resource/resource->proj-path spine-scene)}))
-  (output resource-kind-basic-info g/Any :cached produce-spine-scene-element-ids)
-  (output resource-kind-costly-info g/Any :cached produce-spine-scene-infos)
+  (output resource-kind-basic-info g/Any :cached produce-spine-scene-basic-info)
+  (output resource-kind-costly-info g/Any :cached produce-spine-scene-costly-info)
   (output build-errors g/Any (g/fnk [_node-id name name-counts spine-scene]
                                     (g/package-errors _node-id
                                                       (gui/prop-unique-id-error _node-id :name name name-counts "Name")
@@ -420,25 +399,27 @@
         legacy-spine-node (identical? :type-spine type)
         template-node-child (:template-node-child node-desc)
         overridden-fields (set (:overridden-fields node-desc))
-        custom-property-ids (into #{} (keep custom-property-id) (:custom-properties node-desc))
+        prop-key->custom-property-info (:custom-property-id->info node-type-info)
+        custom-property-ids (into #{} (keep :id) (:custom-properties node-desc))
         custom-properties
         (reduce
-          (fn [custom-properties [node-desc-field custom-property-id]]
-            (let [pb-field-index (node-desc-pb-field->index node-desc-field)
-                  overridden-field? (contains? overridden-fields pb-field-index)
-                  default-value (legacy-spine-node-desc-field->default node-desc-field)
-                  value (get node-desc node-desc-field default-value)]
+          (fn [custom-properties prop-key]
+            (let [{:keys [custom-property-id default] :as custom-property-info} (prop-key->custom-property-info prop-key)
+                  pb-field-index (gui/prop-key->pb-field-index prop-key)
+                  overridden (contains? overridden-fields pb-field-index)
+                  value (get node-desc prop-key default)]
               (if (or (contains? custom-property-ids custom-property-id)
-                      (not (or overridden-field?
+                      (not (or overridden
                                (and (not template-node-child)
-                                    (contains? node-desc node-desc-field))
-                               (and legacy-spine-node (= :spine-scene node-desc-field))
-                               (not= default-value value))))
+                                    (contains? node-desc prop-key))
+                               (and legacy-spine-node (= :spine-scene prop-key))
+                               (not= default value))))
                 custom-properties
-                (conj custom-properties (spine-custom-property custom-property-id value)))))
+                (conj custom-properties (custom-property-info->pb custom-property-info value)))))
           (vec (:custom-properties node-desc))
-          legacy-spine-node-desc-field->custom-property-id)
-        migrate-overridden-fields? (some #(contains? legacy-spine-pb-field-indices %) overridden-fields)]
+          legacy-spine-prop-keys)
+        custom-properties (vec (sort-by :id custom-properties))
+        strip-overridden-fields (coll/any? legacy-spine-pb-field-indices overridden-fields)]
     (cond-> (cond-> (-> node-desc
                         (assoc :size-mode :size-mode-auto)
                         (dissoc
@@ -446,11 +427,10 @@
                           :spine-default-animation
                           :spine-skin
                           :spine-create-bones
-                          :spine-node-child))
-                    (seq custom-properties)
-                    (assoc :custom-properties custom-properties)
-                    migrate-overridden-fields?
-                    (update :overridden-fields migrate-legacy-spine-overridden-fields))
+                          :spine-node-child)
+                        (protobuf/assign-repeated :custom-properties custom-properties))
+                    strip-overridden-fields
+                    (strip-legacy-spine-overridden-fields))
 
             (= :type-spine type)
             (assoc

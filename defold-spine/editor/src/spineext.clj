@@ -26,6 +26,7 @@
             [editor.gl.vertex :as vtx]
             [editor.gl.vertex2 :as vtx2]
             [editor.graph-util :as gu]
+            [editor.graphics.types :as graphics.types]
             [editor.localization :as localization]
             [editor.material :as material]
             [editor.math :as math]
@@ -126,7 +127,7 @@
 (defn plugin-update-vertices [handle dt ^Matrix4d world-transform color use-index-buffer]
   (plugin-invoke-static spine-plugin-cls "SPINE_UpdateVertices"
                         (into-array Class [spine-plugin-pointer-cls Float/TYPE float-array-cls float-array-cls Integer/TYPE])
-                        [handle (float dt) (matrix4d->float-array world-transform) (color->float-array color) (int use-index-buffer)]))
+                        [handle (float dt) (matrix4d->float-array world-transform) (color->float-array color) (int (protobuf/boolean->int use-index-buffer))]))
 
 ;(defn- plugin-get-bones ^"[Lcom.dynamo.bob.pipeline.Spine$Bone;" [handle]
 (defn plugin-get-bones [handle]
@@ -270,7 +271,7 @@
 
 (defn renderable->render-data [renderable]
   (let [handle (renderable->handle renderable)
-        _ (plugin-update-vertices handle 0.0 (:world-transform renderable) identity-color 1)
+        _ (plugin-update-vertices handle 0.0 (:world-transform renderable) identity-color true)
         vb-data (plugin-get-vertex-buffer-byte-buffer handle)
         ib-data (plugin-get-index-buffer-byte-buffer handle)
         vertex-buffer-version (plugin-get-vertex-buffer-version handle)
@@ -282,7 +283,7 @@
      :index-buffer ib
      :vertex-buffer-version vertex-buffer-version
      :index-buffer-version index-buffer-version
-     :index-count (quot (.limit ^ByteBuffer ib-data) Integer/BYTES)
+     :index-count (graphics.types/element-count ib)
      :draw-descs draw-descs
      :handle handle
      :renderable renderable}))
@@ -558,7 +559,7 @@
             spine-data-handle (plugin-load-file-from-buffer spine-json-content spine-json-path texture-set-pb atlas-path) ; it throws if it fails to load
             _ (if (not (str/blank? default-animation)) (plugin-set-animation spine-data-handle default-animation))
             _ (if (not (str/blank? skin)) (plugin-set-skin spine-data-handle skin))
-            _ (plugin-update-vertices spine-data-handle 0.0 geom/Identity4d identity-color 0)]
+            _ (plugin-update-vertices spine-data-handle 0.0 geom/Identity4d identity-color false)]
         spine-data-handle))
     (catch Exception error
       (handle-read-error error _node-id spine-json-resource))))
@@ -808,7 +809,7 @@
   (when (not (nil? spine-data-handle))
     (plugin-set-skin spine-data-handle skin)
     (plugin-set-animation spine-data-handle animation)
-    (plugin-update-vertices spine-data-handle dt geom/Identity4d identity-color 0))
+    (plugin-update-vertices spine-data-handle dt geom/Identity4d identity-color false))
   state)
 
 (g/defnk produce-spine-data-handle-updatable [_node-id spine-data-handle default-animation skin]
