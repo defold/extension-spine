@@ -255,12 +255,23 @@
               (:spine-scene-pb (or (get costly-info spine-scene)
                                    (get costly-info ""))))))
 
-  ;; The handle to the C++ resource
-  (output spine-data-handle g/Any
-          (g/fnk [costly-gui-scene-info spine-scene]
+  (output spine-data-handle g/Any :cached
+          (g/fnk [_node-id costly-gui-scene-info spine-scene spine-default-animation spine-skin spine-anim-ids spine-skin-ids]
             (let [costly-info (spine-scene-costly-info costly-gui-scene-info)]
-              (:spine-data-handle (or (get costly-info spine-scene)
-                                      (get costly-info ""))))))
+              (when-let [spine-info (or (get costly-info spine-scene)
+                                         (get costly-info ""))]
+                (spineext/make-spine-data-handle
+                  _node-id
+                  (:spine-json-resource spine-info)
+                  (:spine-json-content spine-info)
+                  (:atlas-resource spine-info)
+                  (:texture-set-pb spine-info)
+                  (if (str/blank? spine-default-animation)
+                    (first spine-anim-ids)
+                    spine-default-animation)
+                  (if (str/blank? spine-skin)
+                    (first spine-skin-ids)
+                    spine-skin))))))
 
   (output aabb g/Any
           (g/fnk [spine-data-handle]
@@ -271,12 +282,13 @@
   ; Overloaded outputs from VisualNode
   (output scene-updatable g/Any :cached produce-spine-updatable)
   (output gpu-texture TextureLifecycle (g/constantly nil))
-  (output scene-renderable-user-data g/Any :cached (g/fnk [aabb spine-scene-scene spine-skin spine-default-animation color+alpha clipping-mode clipping-inverted clipping-visible]
+  (output scene-renderable-user-data g/Any :cached (g/fnk [aabb spine-scene-scene spine-data-handle spine-skin spine-default-animation color+alpha clipping-mode clipping-inverted clipping-visible]
                                                           (let [lines (aabb->rect-lines aabb)
                                                                 user-data (assoc (get-in spine-scene-scene [:renderable :user-data])
                                                                                  :color color+alpha
                                                                                  :renderable-tags #{:gui-spine}
                                                                                  :gen-vb gen-vb
+                                                                                 :spine-data-handle spine-data-handle
                                                                                  :spine-skin spine-skin
                                                                                  :spine-default-animation spine-default-animation
                                                                                  :line-data lines)]
@@ -310,7 +322,7 @@
     {name {:spine-anim-ids (into (sorted-set) spine-anim-ids)
            :spine-skin-ids (into (sorted-set) spine-skins)}}))
 
-(g/defnk produce-spine-scene-costly-info [_node-id name spine-data-handle spine-scene spine-bones spine-scene-pb spine-scene-scene spine-skin-aabbs]
+(g/defnk produce-spine-scene-costly-info [_node-id name spine-data-handle spine-scene spine-json-resource atlas-resource texture-set-pb spine-json-content spine-bones spine-scene-pb spine-scene-scene spine-skin-aabbs]
   ;; If the referenced spine-scene-resource is missing, we don't return an entry.
   ;; This will cause every usage to fall back on the no-spine-scene entry for "".
   ;; NOTE: the no-spine-scene entry uses an instance of SpineSceneNode with an empty name.
@@ -318,6 +330,10 @@
   (when (or (and (= "" name) (nil? spine-scene))
             (every? some? [spine-data-handle spine-scene-pb spine-scene-scene]))
     {name {:spine-data-handle spine-data-handle
+           :spine-json-resource spine-json-resource
+           :atlas-resource atlas-resource
+           :texture-set-pb texture-set-pb
+           :spine-json-content spine-json-content
            :spine-bones spine-bones
            :spine-skin-aabbs spine-skin-aabbs
            :spine-scene-pb spine-scene-pb
@@ -336,6 +352,10 @@
                     [:resource :spine-scene-resource]
                     [:build-targets :dep-build-targets]
                     [:scene :spine-scene-scene]
+                    [:spine-json-resource :spine-json-resource]
+                    [:atlas-resource :atlas-resource]
+                    [:texture-set-pb :texture-set-pb]
+                    [:spine-json-content :spine-json-content]
                     [:skin-aabbs :spine-skin-aabbs]
                     [:spine-scene-pb :spine-scene-pb]
                     [:spine-data-handle :spine-data-handle]
@@ -351,6 +371,10 @@
   (input dep-build-targets g/Any)
   (input name-counts gui/NameCounts)
   (input spine-scene-resource resource/Resource)
+  (input spine-json-resource resource/Resource :substitute nil)
+  (input atlas-resource resource/Resource :substitute nil)
+  (input texture-set-pb g/Any :substitute (constantly nil))
+  (input spine-json-content g/Any :substitute (constantly nil))
 
   (input spine-data-handle g/Any :substitute nil) ; The c++ pointer
   (output spine-data-handle g/Any (gu/passthrough spine-data-handle))

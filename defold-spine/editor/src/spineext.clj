@@ -550,19 +550,25 @@
 
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
-(g/defnk load-spine-data-handle [_node-id spine-json-resource spine-json-content atlas-resource texture-set-pb default-animation skin]
+(defn make-spine-data-handle
+  [_node-id spine-json-resource spine-json-content atlas-resource texture-set-pb default-animation skin]
   ; The paths are used for error reporting if any loading goes wrong
   (try
     (when texture-set-pb
       (let [spine-json-path (resource/resource->proj-path spine-json-resource)
             atlas-path (resource/resource->proj-path atlas-resource)
             spine-data-handle (plugin-load-file-from-buffer spine-json-content spine-json-path texture-set-pb atlas-path) ; it throws if it fails to load
-            _ (if (not (str/blank? default-animation)) (plugin-set-animation spine-data-handle default-animation))
-            _ (if (not (str/blank? skin)) (plugin-set-skin spine-data-handle skin))
+            _ (when-not (str/blank? default-animation)
+                (plugin-set-animation spine-data-handle default-animation))
+            _ (when-not (str/blank? skin)
+                (plugin-set-skin spine-data-handle skin))
             _ (plugin-update-vertices spine-data-handle 0.0 geom/Identity4d identity-color false)]
         spine-data-handle))
     (catch Exception error
       (handle-read-error error _node-id spine-json-resource))))
+
+(g/defnk load-spine-data-handle [_node-id spine-json-resource spine-json-content atlas-resource texture-set-pb default-animation skin]
+  (make-spine-data-handle _node-id spine-json-resource spine-json-content atlas-resource texture-set-pb default-animation skin))
 
 (defn- sanitize-spine-scene [spine-scene-desc]
   {:pre [(map? spine-scene-desc)]} ; Spine$SpineSceneDesc in map format.
