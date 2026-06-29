@@ -128,9 +128,9 @@
    :type-vector3 :vector3
    :type-vector4 :vector4})
 
-(defn- custom-property-info->pb [{:keys [custom-property-id protobuf-type]} value]
+(defn- custom-property-info->pb [{:keys [id protobuf-type]} value]
   (let [value-field (custom-property-pb-type->value-field protobuf-type)]
-    {:id custom-property-id
+    {:id id
      :type protobuf-type
      value-field value}))
 
@@ -423,16 +423,16 @@
         legacy-spine-node (identical? :type-spine type)
         template-node-child (:template-node-child node-desc)
         overridden-fields (set (:overridden-fields node-desc))
-        prop-key->custom-property-info (:custom-property-id->info node-type-info)
+        custom-prop-kw->info (:custom-prop-kw->info node-type-info)
         custom-property-ids (into #{} (keep :id) (:custom-properties node-desc))
         custom-properties
         (reduce
           (fn [custom-properties prop-key]
-            (let [{:keys [custom-property-id default] :as custom-property-info} (prop-key->custom-property-info prop-key)
+            (let [{:keys [id default] :as custom-property-info} (custom-prop-kw->info prop-key)
                   pb-field-index (gui/prop-key->pb-field-index prop-key)
                   overridden (contains? overridden-fields pb-field-index)
                   value (get node-desc prop-key default)]
-              (if (or (contains? custom-property-ids custom-property-id)
+              (if (or (contains? custom-property-ids id)
                       (not (or overridden
                                (and (not template-node-child)
                                     (contains? node-desc prop-key))
