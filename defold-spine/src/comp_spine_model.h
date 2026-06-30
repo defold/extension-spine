@@ -54,7 +54,7 @@ namespace dmSpine
     {
         dmhash_t                                m_ConstraintHash;
         spIkConstraint*                         m_Constraint;
-        dmGameObject::HInstance                 m_Target;
+        dmhash_t                                m_TargetId;
         dmVMath::Point3                         m_Position;
     };
 

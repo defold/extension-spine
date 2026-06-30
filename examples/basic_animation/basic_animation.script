@@ -2,6 +2,8 @@ local function callback(self, message_id, message, sender)
 	pprint("GO callback", message_id, message, sender)
 end
 
+local IK_TARGET_ID = "ik-target"
+
 local function play_animation(self)
 	spine.play_anim(self.url, "run", go.PLAYBACK_ONCE_FORWARD, {}, 
 	function(self, message_id, message, sender)
@@ -47,7 +49,8 @@ function init(self)
 	-- Multi-track animation
 	spine.play_anim(self.url, "idle", go.PLAYBACK_LOOP_FORWARD, { track = 1 })
 	spine.play_anim(self.url, "aim", go.PLAYBACK_LOOP_FORWARD, { track = 2 })
-	spine.set_ik_target(self.url, "aim-ik", "ik-target")
+	spine.set_ik_target(self.url, "aim-ik", IK_TARGET_ID)
+	self.ik_target_exists = true
 	self.ik_mode = "follow" -- track current IK mode
 end
 
@@ -69,8 +72,8 @@ function on_input(self, action_id, action)
 	if action_id == nil then
 		self.mouse_pos = vmath.vector3(action.x, action.y, 0)
 		-- Move the IK target only in follow mode
-		if self.ik_mode == "follow" then
-			go.set("ik-target", "position", self.mouse_pos)
+		if self.ik_mode == "follow" and self.ik_target_exists then
+			go.set(IK_TARGET_ID, "position", self.mouse_pos)
 		end
 	elseif action_id == hash("mouse_button_right") and action.pressed then
 		if self.is_playing then
@@ -82,16 +85,30 @@ function on_input(self, action_id, action)
 	elseif action_id == hash("mouse_button_left") and action.pressed then
 		spine.play_anim(self.url, "shoot", go.PLAYBACK_ONCE_FORWARD, { track = 3 })
 	elseif action_id == hash("key_space") and action.pressed then
+		if not self.ik_target_exists then
+			print("GO IK target was deleted. Reload the example to restore it.")
+			return
+		end
+
 		-- Toggle between fixed and follow mode
 		if self.ik_mode == "follow" then
 			-- Switch to fixed mode - set IK target to current mouse position
-			go.set("ik-target", "position", self.mouse_pos)
+			go.set(IK_TARGET_ID, "position", self.mouse_pos)
 			self.ik_mode = "fixed"
 			print("GO IK mode: fixed at current mouse position")
 		else
 			-- Switch back to follow mode
 			self.ik_mode = "follow"
 			print("GO IK mode: follow mouse")
+		end
+	elseif action_id == hash("key_backspace") and action.pressed then
+		-- Regression test for https://github.com/defold/extension-spine/issues/281
+		if self.ik_target_exists then
+			go.delete(IK_TARGET_ID)
+			self.ik_target_exists = false
+			print("GO IK target deleted. The Spine component should not crash.")
+		else
+			print("GO IK target is already deleted.")
 		end
 	elseif action_id == hash("key_c") and action.pressed then
 		-- Test cursor control on different tracks
@@ -117,4 +134,4 @@ function on_input(self, action_id, action)
 end
 
 function on_reload(self)
-end 
+end

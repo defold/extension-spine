@@ -774,6 +774,31 @@ namespace dmSpine
         return dmGameObject::CREATE_RESULT_OK;
     }
 
+    static bool RemoveIKTargets(dmArray<IKTarget>& targets, dmhash_t constraint_id)
+    {
+        bool removed = false;
+        for (uint32_t i = 0; i < targets.Size();)
+        {
+            if (constraint_id == targets[i].m_ConstraintHash)
+            {
+                targets.EraseSwap(i);
+                removed = true;
+            }
+            else
+            {
+                ++i;
+            }
+        }
+        return removed;
+    }
+
+    static bool RemoveIKTargets(SpineModelComponent* component, dmhash_t constraint_id)
+    {
+        bool removed = RemoveIKTargets(component->m_IKTargets, constraint_id);
+        removed |= RemoveIKTargets(component->m_IKTargetPositions, constraint_id);
+        return removed;
+    }
+
     static void ApplyIKTargets(SpineModelComponent* component)
     {
         uint32_t count = component->m_IKTargetPositions.Size();
@@ -794,14 +819,23 @@ namespace dmSpine
         }
         component->m_IKTargetPositions.SetSize(0);
 
-        for (uint32_t i = 0; i < instance_count; ++i)
+        dmGameObject::HCollection collection = dmGameObject::GetCollection(component->m_Instance);
+        for (uint32_t i = 0; i < instance_count;)
         {
-            const IKTarget& target = component->m_IKTargets[i];
+            IKTarget& target = component->m_IKTargets[i];
+            dmGameObject::HInstance target_instance = dmGameObject::GetInstanceFromIdentifier(collection, target.m_TargetId);
+            if (!target_instance)
+            {
+                component->m_IKTargets.EraseSwap(i);
+                --instance_count;
+                continue;
+            }
 
-            dmVMath::Vector3 model_pos = (dmVMath::Vector3)dmTransform::Apply(world_to_model, dmGameObject::GetWorldPosition(target.m_Target));
+            dmVMath::Vector3 model_pos = (dmVMath::Vector3)dmTransform::Apply(world_to_model, dmGameObject::GetWorldPosition(target_instance));
 
             target.m_Constraint->target->x = model_pos.getX();
             target.m_Constraint->target->y = model_pos.getY();
+            ++i;
         }
     }
 
@@ -1629,26 +1663,29 @@ namespace dmSpine
             return CompSpineModelResetIKTarget(component, constraint_id);
         }
 
-        SpineModelResource* spine_model = component->m_Resource;
         SpineSceneResource* spine_scene = GetSpineScene(component);
 
         uint32_t* index = spine_scene->m_IKNameToIndex.Get(constraint_id);
         if (!index)
             return false;
-        if (*index > component->m_SkeletonInstance->ikConstraintsCount)
+        if (*index >= component->m_SkeletonInstance->ikConstraintsCount)
             return false;
+
+        dmGameObject::HCollection collection = dmGameObject::GetCollection(component->m_Instance);
+        dmGameObject::HInstance target_instance = dmGameObject::GetInstanceFromIdentifier(collection, instance_id);
+        if (!target_instance)
+            return false;
+
+        RemoveIKTargets(component, constraint_id);
 
         if (component->m_IKTargets.Full())
             component->m_IKTargets.OffsetCapacity(2);
 
-        // Convert game world space to model space
-        spIkConstraint* constraint = component->m_SkeletonInstance->ikConstraints[*index];
-
         IKTarget target;
         target.m_ConstraintHash = constraint_id; // for removing a constraint from this list
         target.m_Constraint = component->m_SkeletonInstance->ikConstraints[*index];
+        target.m_TargetId = instance_id;
         target.m_Position = dmVMath::Point3(0,0,0); // unused
-        target.m_Target = dmGameObject::GetInstanceFromIdentifier(dmGameObject::GetCollection(component->m_Instance), instance_id);
         component->m_IKTargets.Push(target);
 
         return true;
@@ -1656,25 +1693,23 @@ namespace dmSpine
 
     bool CompSpineModelSetIKTargetPosition(SpineModelComponent* component, dmhash_t constraint_id, float mix, Point3 position)
     {
-        SpineModelResource* spine_model = component->m_Resource;
         SpineSceneResource* spine_scene = GetSpineScene(component);
         uint32_t* index = spine_scene->m_IKNameToIndex.Get(constraint_id);
         if (!index)
             return false;
-        if (*index > component->m_SkeletonInstance->ikConstraintsCount)
+        if (*index >= component->m_SkeletonInstance->ikConstraintsCount)
             return false;
+
+        RemoveIKTargets(component, constraint_id);
 
         if (component->m_IKTargetPositions.Full())
             component->m_IKTargetPositions.OffsetCapacity(2);
 
-        // Convert game world space to model space
-        spIkConstraint* constraint = component->m_SkeletonInstance->ikConstraints[*index];
-
         IKTarget target;
         target.m_ConstraintHash = constraint_id; // for debugging
         target.m_Constraint = component->m_SkeletonInstance->ikConstraints[*index];
+        target.m_TargetId = 0;
         target.m_Position = position;
-        target.m_Target = 0;
         component->m_IKTargetPositions.Push(target);
 
         return true;
@@ -1682,16 +1717,7 @@ namespace dmSpine
 
     bool CompSpineModelResetIKTarget(SpineModelComponent* component, dmhash_t constraint_id)
     {
-        // Remove the constraint
-        for (uint32_t i = 0; i < component->m_IKTargets.Size(); ++i)
-        {
-            if (constraint_id == component->m_IKTargets[i].m_ConstraintHash)
-            {
-                component->m_IKTargets.EraseSwap(i);
-                return true;
-            }
-        }
-        return false;
+        return RemoveIKTargets(component, constraint_id);
     }
 
     bool CompSpineModelSetSkin(SpineModelComponent* component, dmhash_t skin_id)
