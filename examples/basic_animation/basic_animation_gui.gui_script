@@ -55,6 +55,7 @@ function init(self)
 	
 	-- Set IK target to follow the ik_target GUI node (equivalent to GO version)
 	gui.set_spine_ik_target(self.spine_node, "aim-ik", self.ik_target)
+	self.ik_target_exists = true
 	self.ik_mode = "follow" -- track current IK mode
 	
 end
@@ -77,7 +78,7 @@ function on_input(self, action_id, action)
 	if action_id == nil then
 		self.mouse_pos = vmath.vector3(action.x, action.y, 0)
 		-- Move the IK target GUI node to follow mouse (only in follow mode)
-		if self.ik_mode == "follow" then
+		if self.ik_mode == "follow" and self.ik_target_exists then
 			gui.set_position(self.ik_target, vmath.vector3(action.x, action.y, 0))
 		end
 	elseif action_id == hash("mouse_button_right") and action.pressed then
@@ -90,6 +91,11 @@ function on_input(self, action_id, action)
 	elseif action_id == hash("mouse_button_left") and action.pressed then
 		gui.play_spine_anim(self.spine_node, "shoot", gui.PLAYBACK_ONCE_FORWARD, { track = 3 })
 	elseif action_id == hash("key_space") and action.pressed then
+		if not self.ik_target_exists then
+			print("GUI IK target was deleted. Reload the example to restore it.")
+			return
+		end
+
 		-- Toggle between fixed and follow mode
 		if self.ik_mode == "follow" then
 			-- Switch to fixed mode
@@ -106,6 +112,14 @@ function on_input(self, action_id, action)
 			-- Change target color back to red for follow mode
 			gui.set_color(self.ik_target, vmath.vector4(1, 0, 0, 1)) -- red for follow
 			print("IK mode: follow mouse")
+		end
+	elseif action_id == hash("key_backspace") and action.pressed then
+		if self.ik_target_exists then
+			gui.delete_node(self.ik_target)
+			self.ik_target_exists = false
+			print("GUI IK target deleted. The Spine GUI node should not crash.")
+		else
+			print("GUI IK target is already deleted.")
 		end
 	elseif action_id == hash("key_c") and action.pressed then
 		-- Test cursor control on different tracks
@@ -134,6 +148,11 @@ function on_input(self, action_id, action)
 		local rate2 = gui.get_spine_playback_rate(self.spine_node, { track = 2 })
 		print("GUI: Set track 2 playback rate to 0.5, current value:", rate2)
 	elseif action_id == hash("key_r") and action.pressed then
+		if not self.ik_target_exists then
+			print("GUI IK target was deleted. Reload the example to restore it.")
+			return
+		end
+
 		-- Reset IK target and return to follow mode
 		gui.reset_spine_ik_target(self.spine_node, "aim-ik")
 		gui.set_spine_ik_target(self.spine_node, "aim-ik", self.ik_target)
@@ -145,4 +164,4 @@ function on_input(self, action_id, action)
 end
 
 function on_reload(self)
-end 
+end

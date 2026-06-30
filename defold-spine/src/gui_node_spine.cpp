@@ -1160,20 +1160,82 @@ static void GuiGetVertices(const dmGameSystem::CustomNodeCtx* nodectx, uint32_t 
 }
 
 // IK functions for GUI spine nodes
+static bool RemoveIKTargets(dmArray<GuiIKTarget>& targets, dmhash_t constraint_id)
+{
+    bool removed = false;
+    for (uint32_t i = 0; i < targets.Size();)
+    {
+        if (constraint_id == targets[i].m_ConstraintHash)
+        {
+            targets.EraseSwap(i);
+            removed = true;
+        }
+        else
+        {
+            ++i;
+        }
+    }
+    return removed;
+}
+
+static bool RemoveIKTargets(InternalGuiNode* node, dmhash_t constraint_id)
+{
+    bool removed = RemoveIKTargets(node->m_IKTargets, constraint_id);
+    removed |= RemoveIKTargets(node->m_IKTargetPositions, constraint_id);
+    return removed;
+}
+
+static dmGui::HNode FindIKTargetNode(dmGui::HScene scene, dmGui::HNode parent, dmGui::HNode target_node, dmhash_t target_node_id)
+{
+    dmGui::HNode child = dmGui::GetFirstChildNode(scene, parent);
+    while (child != dmGui::INVALID_HANDLE)
+    {
+        if (child == target_node || (target_node_id != 0 && dmGui::GetNodeId(scene, child) == target_node_id))
+        {
+            return child;
+        }
+
+        dmGui::HNode found = FindIKTargetNode(scene, child, target_node, target_node_id);
+        if (found != dmGui::INVALID_HANDLE)
+        {
+            return found;
+        }
+
+        child = dmGui::GetNextNode(scene, child);
+    }
+    return dmGui::INVALID_HANDLE;
+}
+
+static dmGui::HNode FindIKTargetNode(dmGui::HScene scene, const GuiIKTarget& target)
+{
+    if (target.m_TargetNode == dmGui::INVALID_HANDLE && target.m_TargetNodeId == 0)
+    {
+        return dmGui::INVALID_HANDLE;
+    }
+
+    return FindIKTargetNode(scene, dmGui::INVALID_HANDLE, target.m_TargetNode, target.m_TargetNodeId);
+}
+
 static void ApplyIKTargets(InternalGuiNode* node)
 {
     // Apply node-based targets (following GUI nodes)
     uint32_t count = node->m_IKTargets.Size();
-    for (uint32_t i = 0; i < count; ++i)
+    for (uint32_t i = 0; i < count;)
     {
-        const GuiIKTarget& target = node->m_IKTargets[i];
-        if (target.m_Constraint && target.m_TargetNode != dmGui::INVALID_HANDLE)
+        GuiIKTarget& target = node->m_IKTargets[i];
+        dmGui::HNode target_node = FindIKTargetNode(node->m_GuiScene, target);
+        if (target_node == dmGui::INVALID_HANDLE)
         {
-            // TODO: Convert target node space into IK space
-            dmVMath::Vector4 target_pos = dmGui::GetNodeProperty(node->m_GuiScene, target.m_TargetNode, dmGui::PROPERTY_POSITION);
-            target.m_Constraint->target->x = target_pos.getX();
-            target.m_Constraint->target->y = target_pos.getY();
+            node->m_IKTargets.EraseSwap(i);
+            --count;
+            continue;
         }
+
+        // TODO: Convert target node space into IK space
+        dmVMath::Vector4 target_pos = dmGui::GetNodeProperty(node->m_GuiScene, target_node, dmGui::PROPERTY_POSITION);
+        target.m_Constraint->target->x = target_pos.getX();
+        target.m_Constraint->target->y = target_pos.getY();
+        ++i;
     }
 
     // Apply position-based targets (fixed positions)
@@ -1289,8 +1351,10 @@ bool SetIKTargetPosition(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t const
     uint32_t* index = spine_scene->m_IKNameToIndex.Get(constraint_id);
     if (!index)
         return false;
-    if (*index > node->m_SkeletonInstance->ikConstraintsCount)
+    if (*index >= node->m_SkeletonInstance->ikConstraintsCount)
         return false;
+
+    RemoveIKTargets(node, constraint_id);
 
     if (node->m_IKTargetPositions.Full())
         node->m_IKTargetPositions.OffsetCapacity(2);
@@ -1301,6 +1365,7 @@ bool SetIKTargetPosition(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t const
     target.m_ConstraintHash = constraint_id;
     target.m_Constraint = constraint;
     target.m_TargetNode = dmGui::INVALID_HANDLE;
+    target.m_TargetNodeId = 0;
     target.m_Position = position;
     node->m_IKTargetPositions.Push(target);
 
@@ -1320,8 +1385,12 @@ bool SetIKTarget(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t constraint_id
     uint32_t* index = spine_scene->m_IKNameToIndex.Get(constraint_id);
     if (!index)
         return false;
-    if (*index > node->m_SkeletonInstance->ikConstraintsCount)
+    if (*index >= node->m_SkeletonInstance->ikConstraintsCount)
         return false;
+
+    dmhash_t target_node_id = dmGui::GetNodeId(scene, target_node);
+
+    RemoveIKTargets(node, constraint_id);
 
     if (node->m_IKTargets.Full())
         node->m_IKTargets.OffsetCapacity(2);
@@ -1332,6 +1401,7 @@ bool SetIKTarget(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t constraint_id
     target.m_ConstraintHash = constraint_id;
     target.m_Constraint = constraint;
     target.m_TargetNode = target_node;
+    target.m_TargetNodeId = target_node_id;
     target.m_Position = dmVMath::Point3(0, 0, 0);
     node->m_IKTargets.Push(target);
 
@@ -1344,27 +1414,7 @@ bool ResetIKTarget(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t constraint_
     if (!node)
         return false;
 
-    // Remove the constraint from position-based targets
-    for (uint32_t i = 0; i < node->m_IKTargetPositions.Size(); ++i)
-    {
-        if (constraint_id == node->m_IKTargetPositions[i].m_ConstraintHash)
-        {
-            node->m_IKTargetPositions.EraseSwap(i);
-            return true;
-        }
-    }
-
-    // Remove the constraint from node-based targets
-    for (uint32_t i = 0; i < node->m_IKTargets.Size(); ++i)
-    {
-        if (constraint_id == node->m_IKTargets[i].m_ConstraintHash)
-        {
-            node->m_IKTargets.EraseSwap(i);
-            return true;
-        }
-    }
-
-    return false;
+    return RemoveIKTargets(node, constraint_id);
 }
 
 } // namespace
