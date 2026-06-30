@@ -22,14 +22,12 @@
 #include <dmsdk/dlib/math.h>
 #include <dmsdk/dlib/dstrings.h>
 #include <dmsdk/dlib/shared_library.h>
-#include <dmsdk/dlib/static_assert.h>
 #include <dmsdk/ddf/ddf.h>
 #include <dmsdk/gamesys/resources/res_textureset.h>
 #include <gamesys/texture_set_ddf.h>
 
 #include <common/spine_loader.h>
 #include <common/vertices.h>
-#include "renderobject.h"
 
 #include <spine/AnimationStateData.h>
 #include <spine/AnimationState.h>
@@ -67,7 +65,10 @@ struct SpineFile
     dmArray<SpineBone>                      m_Bones;
     // Render data
     dmArray<dmSpine::SpineVertex>           m_VertexBuffer;
-    dmArray<dmSpinePlugin::RenderObject>    m_RenderObjects;
+    dmArray<uint32_t>                       m_IndexBuffer;
+    dmArray<dmSpine::SpineIndexedDrawDesc>  m_DrawDescs;
+    uint32_t                                m_VertexBufferVersion;
+    uint32_t                                m_IndexBufferVersion;
     dmhash_t                                m_CurrentSkin;
     dmhash_t                                m_CurrentAnimation;
 
@@ -81,6 +82,8 @@ struct SpineFile
     , m_AttachmentLoader(0)
     , m_SkeletonInstance(0)
     , m_AnimationStateInstance(0)
+    , m_VertexBufferVersion(0)
+    , m_IndexBufferVersion(0)
     , m_CurrentSkin(0)
     , m_CurrentAnimation(0)
     , m_Error(0)
@@ -92,8 +95,8 @@ char g_LastSpineError[1024] = {0};
 
 typedef SpineFile* HSpineFile;
 
-static void UpdateRenderData(SpineFile* file);
-static void UpdateVertices(SpineFile* file, float dt);
+static void UpdateRenderData(SpineFile* file, const dmVMath::Matrix4& transform, const dmVMath::Vector4& color_tint, bool use_index_buffer);
+static void UpdateVertices(SpineFile* file, float dt, const dmVMath::Matrix4& transform, const dmVMath::Vector4& color_tint, bool use_index_buffer);
 
 // Need to free() the buffer
 static uint8_t* ReadFile(const char* path, size_t* file_size) {
@@ -127,6 +130,29 @@ static SpineFile* ToSpineFile(void* _file, const char* fnname)
         dmLogError("%s: File handle is null", fnname);
     }
     return (SpineFile*)_file;
+}
+
+static dmVMath::Matrix4 ToMatrix4(const float* m)
+{
+    if (!m)
+    {
+        return dmVMath::Matrix4::identity();
+    }
+
+    return dmVMath::Matrix4(dmVMath::Vector4(m[0], m[1], m[2], m[3]),
+                            dmVMath::Vector4(m[4], m[5], m[6], m[7]),
+                            dmVMath::Vector4(m[8], m[9], m[10], m[11]),
+                            dmVMath::Vector4(m[12], m[13], m[14], m[15]));
+}
+
+static dmVMath::Vector4 ToVector4(const float* v)
+{
+    if (!v)
+    {
+        return dmVMath::Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+    }
+
+    return dmVMath::Vector4(v[0], v[1], v[2], v[3]);
 }
 
 #define TO_SPINE_FILE(_P_) ToSpineFile(_P_, __FUNCTION__);
@@ -224,13 +250,6 @@ static void DestroyAtlas(dmGameSystemDDF::TextureSet* texture_set_ddf)
 
 extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* json, size_t json_size, const char* path, void* atlas_buffer, size_t atlas_size, const char* atlas_path)
 {
-    // We map these to ints on the java side (See Spine.java)
-    DM_STATIC_ASSERT(sizeof(dmGraphics::CompareFunc) == sizeof(int), Invalid_struct_size);
-    DM_STATIC_ASSERT(sizeof(dmGraphics::StencilOp) == sizeof(int), Invalid_struct_size);
-    // Making sure the size is the same for both C++ and Java
-    DM_STATIC_ASSERT(sizeof(dmSpinePlugin::RenderObject) == 288, Invalid_struct_size);
-
-
     dmGameSystemDDF::TextureSet* texture_set_ddf = 0;
     if (atlas_buffer)
     {
@@ -310,7 +329,7 @@ extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* json, size_t json_size,
     file->m_CurrentSkin = 0;
     file->m_CurrentAnimation = 0;
 
-    UpdateVertices(file, 0.0f);
+    UpdateVertices(file, 0.0f, dmVMath::Matrix4::identity(), dmVMath::Vector4(1.0f, 1.0f, 1.0f, 1.0f), true);
     SetupBones(file);
 
     return (void*)file;
@@ -465,12 +484,12 @@ extern "C" DM_DLLEXPORT int SPINE_GetVertexSize() {
     return sizeof(dmSpine::SpineVertex);
 }
 
-extern "C" DM_DLLEXPORT void SPINE_UpdateVertices(void* _file, float dt) {
+extern "C" DM_DLLEXPORT void SPINE_UpdateVertices(void* _file, float dt, const float* world_transform, const float* color_tint, int use_index_buffer) {
     SpineFile* file = TO_SPINE_FILE(_file);
-    UpdateVertices(file, dt);
+    UpdateVertices(file, dt, ToMatrix4(world_transform), ToVector4(color_tint), use_index_buffer != 0);
 }
 
-static void UpdateVertices(SpineFile* file, float dt)
+static void UpdateVertices(SpineFile* file, float dt, const dmVMath::Matrix4& transform, const dmVMath::Vector4& color_tint, bool use_index_buffer)
 {
     if (!file || !file->m_AnimationStateInstance) {
         if (file->m_VertexBuffer.Empty()) {
@@ -484,7 +503,7 @@ static void UpdateVertices(SpineFile* file, float dt)
     spSkeleton_update(file->m_SkeletonInstance, dt);
     spSkeleton_updateWorldTransform(file->m_SkeletonInstance, SP_PHYSICS_UPDATE);
 
-    UpdateRenderData(file); // Update the draw call list
+    UpdateRenderData(file, transform, color_tint, use_index_buffer); // Update the draw call list
 }
 
 extern "C" DM_DLLEXPORT dmSpine::SpineVertex* SPINE_GetVertexBufferData(void* _file, int* pcount)
@@ -495,12 +514,39 @@ extern "C" DM_DLLEXPORT dmSpine::SpineVertex* SPINE_GetVertexBufferData(void* _f
     return file->m_VertexBuffer.Begin();
 }
 
-extern "C" DM_DLLEXPORT dmSpinePlugin::RenderObject* SPINE_GetRenderObjectData(void* _file, int* pcount)
+extern "C" DM_DLLEXPORT void* SPINE_GetVertexBufferPointer(void* _file, int* pcount)
+{
+    return SPINE_GetVertexBufferData(_file, pcount);
+}
+
+extern "C" DM_DLLEXPORT uint32_t SPINE_GetVertexBufferVersion(void* _file)
 {
     SpineFile* file = TO_SPINE_FILE(_file);
     CHECK_FILE_RETURN(file);
-    *pcount = (int)file->m_RenderObjects.Size();
-    return file->m_RenderObjects.Begin();
+    return file->m_VertexBufferVersion;
+}
+
+extern "C" DM_DLLEXPORT uint32_t* SPINE_GetIndexBufferData(void* _file, int* pcount)
+{
+    SpineFile* file = TO_SPINE_FILE(_file);
+    CHECK_FILE_RETURN(file);
+    *pcount = (int)file->m_IndexBuffer.Size();
+    return file->m_IndexBuffer.Begin();
+}
+
+extern "C" DM_DLLEXPORT uint32_t SPINE_GetIndexBufferVersion(void* _file)
+{
+    SpineFile* file = TO_SPINE_FILE(_file);
+    CHECK_FILE_RETURN(file);
+    return file->m_IndexBufferVersion;
+}
+
+extern "C" DM_DLLEXPORT dmSpine::SpineIndexedDrawDesc* SPINE_GetDrawDescData(void* _file, int* pcount)
+{
+    SpineFile* file = TO_SPINE_FILE(_file);
+    CHECK_FILE_RETURN(file);
+    *pcount = (int)file->m_DrawDescs.Size();
+    return file->m_DrawDescs.Begin();
 }
 
 extern "C" DM_DLLEXPORT const char** SPINE_GetAnimationData(void* _file, int* pcount)
@@ -611,6 +657,7 @@ static void CreateAABB(SpineFile* file)
     if (file->m_VertexBuffer.Capacity() < 6)
         file->m_VertexBuffer.SetCapacity(6);
     file->m_VertexBuffer.SetSize(6);
+    file->m_VertexBufferVersion++;
 
     float width = 200;
     float height = 200;
@@ -675,62 +722,52 @@ static void CreateAABB(SpineFile* file)
 // *******************************************************************************************************
 
 
-template<typename T>
-static T* AdjustArraySize(dmArray<T>& array, uint32_t count)
-{
-    if (array.Remaining() < count)
-    {
-        array.OffsetCapacity(count - array.Remaining());
-    }
-
-    T* p = array.End();
-    array.SetSize(array.Size()+count); // no reallocation, since we've preallocated
-    return p;
-}
-
-static void UpdateRenderData(SpineFile* file)
+static void UpdateRenderData(SpineFile* file, const dmVMath::Matrix4& transform, const dmVMath::Vector4& color_tint, bool use_index_buffer)
 {
     if (!file || !file->m_AnimationStateInstance)
         return;
 
     // reset the buffers (corresponding to the dmRender::RENDER_LIST_OPERATION_BEGIN)
     // we don't need to share the index/vertex buffer with another instance so
-    file->m_RenderObjects.SetSize(0);
+    file->m_DrawDescs.SetSize(0);
     file->m_VertexBuffer.SetSize(0);
+    file->m_IndexBuffer.SetSize(0);
 
     spSkeletonClipping* clipper = spSkeletonClipping_create();
 
-    uint32_t ro_count = dmSpine::CalcDrawDescCount(file->m_SkeletonInstance);
-    AdjustArraySize(file->m_RenderObjects, ro_count);
+    uint32_t draw_desc_count = dmSpine::CalcDrawDescCount(file->m_SkeletonInstance);
 
-    dmArray<dmSpine::SpineDrawDesc> draw_descs;
-    draw_descs.SetCapacity(ro_count);
-
-    dmVMath::Matrix4 transform = dmVMath::Matrix4::identity();
-    dmSpine::GenerateVertexData(file->m_VertexBuffer, file->m_SkeletonInstance, clipper, transform, &draw_descs);
-
-    dmArray<dmSpine::SpineDrawDesc> merged_draw_descs;
-    MergeDrawDescs(draw_descs, merged_draw_descs);
-
-    file->m_RenderObjects.SetSize(merged_draw_descs.Size());
-
-    for (int i = 0; i < merged_draw_descs.Size(); ++i)
+    if (use_index_buffer)
     {
-        dmSpinePlugin::RenderObject& ro = file->m_RenderObjects[i];
-        ro.Init();
-        ro.m_VertexStart       = merged_draw_descs[i].m_VertexStart; // byte offset
-        ro.m_VertexCount       = merged_draw_descs[i].m_VertexCount;
-        ro.m_SetStencilTest    = 0;
-        ro.m_UseIndexBuffer    = 0;
-        ro.m_IsTriangleStrip   = 0; // 0 == GL_TRIANGLES, 1 == GL_TRIANGLE_STRIP
-        ro.m_BlendFactor       = merged_draw_descs[i].m_BlendMode;
-        ro.m_SetFaceWinding    = 0;
-        ro.m_FaceWindingCCW    = dmGraphics::FACE_WINDING_CCW;
+        dmArray<dmSpine::SpineIndexedDrawDesc> draw_descs;
+        draw_descs.SetCapacity(draw_desc_count);
 
-        //ro.AddConstant(UNIFORM_TINT, dmVMath::Vector4(1.0f, 1.0f, 1.0f, 1.0f));
+        uint32_t vertex_count = 0;
+        uint32_t index_count = 0;
+        dmSpine::CalcIndexedBufferSizeAndBounds(file->m_SkeletonInstance, clipper, &vertex_count, &index_count, 0);
+        dmSpine::GenerateIndexedVertexData(file->m_VertexBuffer, file->m_IndexBuffer, file->m_SkeletonInstance, clipper, vertex_count, index_count, transform, color_tint, &draw_descs);
 
-        ro.m_WorldTransform = transform;
+        dmArray<dmSpine::SpineIndexedDrawDesc> merged_draw_descs;
+        MergeIndexedDrawDescs(draw_descs, merged_draw_descs);
+
+        uint32_t merged_draw_desc_count = merged_draw_descs.Size();
+        if (file->m_DrawDescs.Capacity() < merged_draw_desc_count)
+        {
+            file->m_DrawDescs.OffsetCapacity(merged_draw_desc_count - file->m_DrawDescs.Capacity());
+        }
+        file->m_DrawDescs.SetSize(merged_draw_desc_count);
+        if (merged_draw_desc_count > 0)
+        {
+            memcpy(file->m_DrawDescs.Begin(), merged_draw_descs.Begin(), merged_draw_desc_count * sizeof(dmSpine::SpineIndexedDrawDesc));
+        }
     }
+    else
+    {
+        dmSpine::GenerateVertexData(file->m_VertexBuffer, file->m_SkeletonInstance, clipper, transform, color_tint, 0);
+    }
+
+    file->m_VertexBufferVersion++;
+    file->m_IndexBufferVersion++;
 
     spSkeletonClipping_dispose(clipper);
 }

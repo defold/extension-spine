@@ -17,3 +17,5 @@ bob.jar
 /AGENTS.md
 /debug.keystore
 /debug.keystore.pass.txt
+/.clj-kondo/.cache
+/.lsp

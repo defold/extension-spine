@@ -14,15 +14,19 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
             [dynamo.graph :as g]
+            [editor.buffers :as buffers]
             [editor.build-target :as bt]
             [editor.defold-project :as project]
             [editor.geom :as geom]
             [editor.gl :as gl]
+            [editor.gl.attribute :as attribute]
             [editor.gl.pass :as pass]
             [editor.gl.shader :as shader]
             [editor.gl.texture :as texture]
             [editor.gl.vertex :as vtx]
+            [editor.gl.vertex2 :as vtx2]
             [editor.graph-util :as gu]
+            [editor.graphics.types :as graphics.types]
             [editor.localization :as localization]
             [editor.material :as material]
             [editor.math :as math]
@@ -36,14 +40,14 @@
             [editor.shaders :as shaders]
             [editor.types :as types]
             [editor.validation :as validation]
-            [editor.workspace :as workspace]
-            [util.murmur :as murmur])
+            [editor.workspace :as workspace])
   (:import [com.dynamo.bob.textureset TextureSetGenerator$UVTransform]
            [com.jogamp.opengl GL GL2]
            [editor.gl.shader ShaderLifecycle]
            [editor.types AABB]
            [java.io IOException]
-           [javax.vecmath Matrix4d Vector3d Vector4d]
+           [java.nio ByteBuffer ByteOrder]
+           [javax.vecmath Matrix4d Vector3d]
            [org.apache.commons.io IOUtils]))
 
 (set! *warn-on-reflection* true)
@@ -112,8 +116,18 @@
     (when (some #(= % animation) valid-anims)
       (plugin-invoke-static spine-plugin-cls "SPINE_SetAnimation" (into-array Class [spine-plugin-pointer-cls String]) [handle animation]))))
 
-(defn plugin-update-vertices [handle dt]
-  (plugin-invoke-static spine-plugin-cls "SPINE_UpdateVertices" (into-array Class [spine-plugin-pointer-cls Float/TYPE]) [handle (float dt)]))
+(defn- matrix4d->float-array [^Matrix4d transform]
+  (float-array (geom/as-array transform)))
+
+(def identity-color [1.0 1.0 1.0 1.0])
+
+(defn- color->float-array [color]
+  (float-array color))
+
+(defn plugin-update-vertices [handle dt ^Matrix4d world-transform color use-index-buffer]
+  (plugin-invoke-static spine-plugin-cls "SPINE_UpdateVertices"
+                        (into-array Class [spine-plugin-pointer-cls Float/TYPE float-array-cls float-array-cls Integer/TYPE])
+                        [handle (float dt) (matrix4d->float-array world-transform) (color->float-array color) (int (protobuf/boolean->int use-index-buffer))]))
 
 ;(defn- plugin-get-bones ^"[Lcom.dynamo.bob.pipeline.Spine$Bone;" [handle]
 (defn plugin-get-bones [handle]
@@ -126,9 +140,20 @@
 (defn plugin-get-vertex-buffer-data [handle]
   (plugin-invoke-static spine-plugin-cls "SPINE_GetVertexBuffer" (into-array Class [spine-plugin-pointer-cls]) [handle]))
 
-;(defn- plugin-get-render-objects ^"[Lcom.dynamo.bob.pipeline.Spine$RenderObject;" [handle]
-(defn- plugin-get-render-objects [handle]
-  (plugin-invoke-static spine-plugin-cls "SPINE_GetRenderObjects" (into-array Class [spine-plugin-pointer-cls]) [handle]))
+(defn- plugin-get-vertex-buffer-byte-buffer [handle]
+  (plugin-invoke-static spine-plugin-cls "SPINE_GetVertexBufferByteBuffer" (into-array Class [spine-plugin-pointer-cls]) [handle]))
+
+(defn- plugin-get-vertex-buffer-version [handle]
+  (plugin-invoke-static spine-plugin-cls "SPINE_GetVertexBufferVersion" (into-array Class [spine-plugin-pointer-cls]) [handle]))
+
+(defn- plugin-get-index-buffer-byte-buffer [handle]
+  (plugin-invoke-static spine-plugin-cls "SPINE_GetIndexBufferByteBuffer" (into-array Class [spine-plugin-pointer-cls]) [handle]))
+
+(defn- plugin-get-index-buffer-version [handle]
+  (plugin-invoke-static spine-plugin-cls "SPINE_GetIndexBufferVersion" (into-array Class [spine-plugin-pointer-cls]) [handle]))
+
+(defn- plugin-get-draw-descs [handle]
+  (plugin-invoke-static spine-plugin-cls "SPINE_GetDrawDescs" (into-array Class [spine-plugin-pointer-cls]) [handle]))
 
 
 (set! *warn-on-reflection* false)
@@ -209,6 +234,12 @@
   (vec4 color)
   (vec1 page_index))
 
+(vtx2/defvertex native-vtx-pos-tex-col-index
+  (vec3 position)
+  (vec2 texcoord0)
+  (vec4 color)
+  (vec1 page_index))
+
 (defn generate-vertex-buffer [verts]
   ; verts should be in the format [[x y z u v r g b a p] [x y z...] ...]
   (let [vcount (count verts)]
@@ -216,6 +247,16 @@
       (let [vb (->vtx-pos-tex-col-index vcount)
             vb-out (persistent! (reduce conj! vb verts))]
         vb-out))))
+
+(defn- generate-native-vertex-buffer [^ByteBuffer vertex-buffer]
+  (when (pos? (.limit vertex-buffer))
+    (vtx2/wrap-vertex-buffer native-vtx-pos-tex-col-index :static vertex-buffer)))
+
+(defn- generate-native-index-buffer [request-id ^ByteBuffer index-buffer-byte-buffer version]
+  (when (pos? (.limit index-buffer-byte-buffer))
+    (let [index-buffer (.asIntBuffer (.order index-buffer-byte-buffer (ByteOrder/nativeOrder)))
+          buffer-data (buffers/make-buffer-data index-buffer version)]
+      (attribute/make-index-buffer request-id buffer-data :static))))
 
 (set! *warn-on-reflection* false)
 
@@ -228,130 +269,51 @@
 (defn renderable->handle [renderable]
   (get-in renderable [:user-data :spine-data-handle]))
 
-(defn renderable->render-objects [renderable]
+(defn renderable->render-data [renderable]
   (let [handle (renderable->handle renderable)
-        vb-data (plugin-get-vertex-buffer-data handle)
-        vb-data-transformed (transform-vertices-as-vec vb-data)
-        vb (generate-vertex-buffer vb-data-transformed)
-        render-objects (plugin-get-render-objects handle)]
-    {:vertex-buffer vb :render-objects render-objects :handle handle :renderable renderable}))
+        _ (plugin-update-vertices handle 0.0 (:world-transform renderable) identity-color true)
+        vb-data (plugin-get-vertex-buffer-byte-buffer handle)
+        ib-data (plugin-get-index-buffer-byte-buffer handle)
+        vertex-buffer-version (plugin-get-vertex-buffer-version handle)
+        index-buffer-version (plugin-get-index-buffer-version handle)
+        vb (generate-native-vertex-buffer vb-data)
+        ib (generate-native-index-buffer [::spine-index-buffer handle] ib-data index-buffer-version)
+        draw-descs (plugin-get-draw-descs handle)]
+    {:vertex-buffer vb
+     :index-buffer ib
+     :vertex-buffer-version vertex-buffer-version
+     :index-buffer-version index-buffer-version
+     :index-count (graphics.types/element-count ib)
+     :draw-descs draw-descs
+     :handle handle
+     :renderable renderable}))
 
 
 (defn collect-render-groups [renderables]
-  (map renderable->render-objects renderables))
-
-(def constant-tint (murmur/hash64 "tint"))
-
-(defn- constant-hash->name [hash]
-  (condp = hash
-    constant-tint "tint"
-    "unknown"))
-
-(defn- do-mask [mask count]
-  ; Checks if a bit in the mask is set: "(mask & (1<<count)) != 0"
-  (not= 0 (bit-and mask (bit-shift-left 1 count))))
-
-; See GetOpenGLCompareFunc in graphics_opengl.cpp
-(defn- stencil-func->gl-func [^long func]
-  (case func
-    0 GL/GL_NEVER
-    1 GL/GL_LESS
-    2 GL/GL_LEQUAL
-    3 GL/GL_GREATER
-    4 GL/GL_GEQUAL
-    5 GL/GL_EQUAL
-    6 GL/GL_NOTEQUAL
-    7 GL/GL_ALWAYS))
-
-(defn- stencil-op->gl-op [^long op]
-  (case op
-    0 GL/GL_KEEP
-    1 GL/GL_ZERO
-    2 GL/GL_REPLACE
-    3 GL/GL_INCR
-    4 GL/GL_INCR_WRAP
-    5 GL/GL_DECR
-    6 GL/GL_DECR_WRAP
-    7 GL/GL_INVERT))
-
-(set! *warn-on-reflection* false)
-
-(defn- set-stencil-func! [^GL2 gl face-type ref ref-mask state]
-  (let [gl-func (stencil-func->gl-func (.m_Func state))
-        op-stencil-fail (stencil-op->gl-op (.m_OpSFail state))
-        op-depth-fail (stencil-op->gl-op (.m_OpDPFail state))
-        op-depth-pass (stencil-op->gl-op (.m_OpDPPass state))]
-    (.glStencilFuncSeparate gl face-type gl-func ref ref-mask)
-    (.glStencilOpSeparate gl face-type op-stencil-fail op-depth-fail op-depth-pass)))
-
-(set! *warn-on-reflection* true)
-
-(defn- to-int [b]
-  (bit-and 0xff (int b)))
-
-
-(set! *warn-on-reflection* false)
-
-; See ApplyStencilTest in render.cpp for reference
-(defn- set-stencil-test-params! [^GL2 gl params]
-  (let [clear (.m_ClearBuffer params)
-        mask (to-int (.m_BufferMask params))
-        color-mask (.m_ColorBufferMask params)
-        separate-states (.m_SeparateFaceStates params)
-        ref (to-int (.m_Ref params))
-        ref-mask (to-int (.m_RefMask params))
-        state-front (.m_Front params)
-        state-back (if (not= separate-states 0) (.m_Back params) state-front)]
-    (when (not= clear 0)
-      (.glStencilMask gl 0xFF)
-      (.glClear gl GL/GL_STENCIL_BUFFER_BIT))
-
-    (.glColorMask gl (do-mask color-mask 3) (do-mask color-mask 2) (do-mask color-mask 1) (do-mask color-mask 0))
-    (.glStencilMask gl mask)
-
-    (set-stencil-func! gl GL/GL_FRONT ref ref-mask state-front)
-    (set-stencil-func! gl GL/GL_BACK ref ref-mask state-back)))
-
-(defn- set-constant! [^GL2 gl shader constant]
-  (let [name-hash (.m_NameHash constant)]
-    (when (not= name-hash 0)
-      (let [v (.m_Value constant)
-            value (Vector4d. (.x v) (.y v) (.z v) (.w v))]
-        (shader/set-uniform shader gl (constant-hash->name name-hash) value)))))
-
-(defn- set-constants! [^GL2 gl shader ro]
-  (run! (fn [constant]
-          (set-constant! gl shader constant))
-        (.m_Constants ro)))
+  (map renderable->render-data renderables))
 
 (defn- blend-factor-value-to-blend-mode [blend-factor-value]
-  (case blend-factor-value
+  (case (long blend-factor-value)
     0 :blend-mode-alpha
     1 :blend-mode-add
     2 :blend-mode-mult
     3 :blend-mode-screen
     :blend-mode-alpha))
 
-(defn- do-render-object! [^GL2 gl render-args shader renderable ro]
-  (let [start (.m_VertexStart ro) ; the name is from the engine, but in this case refers to the index
-        count (.m_VertexCount ro)
+(set! *warn-on-reflection* false)
+
+(defn- do-draw-desc! [^GL2 gl render-args shader renderable draw-desc]
+  (let [start (* (.m_IndexStart draw-desc) Integer/BYTES)
+        count (.m_IndexCount draw-desc)
         is-selection-pass (:selection (:pass render-args))
         renderable-user-data (:user-data renderable)
         renderable-blend-mode (:blend-mode renderable-user-data)
         blend-mode (if (= renderable-blend-mode :blend-mode-inherit)
-                     (blend-factor-value-to-blend-mode (.m_BlendFactor ro))
+                     (blend-factor-value-to-blend-mode (.m_BlendMode draw-desc))
                      renderable-blend-mode)
-        face-winding (if (not= (.m_FaceWindingCCW ro) 0) GL/GL_CCW GL/GL_CW)
-        _ (set-constants! gl shader ro)
-        ro-transform (double-array (.m (.m_WorldTransform ro)))
-        renderable-transform (Matrix4d. (:world-transform renderable)) ; make a copy so we don't alter the original
-
-        ro-matrix (doto (Matrix4d. ro-transform) (.transpose))
-        shader-world-transform (doto renderable-transform (.mul ro-matrix))
-        use-index-buffer (not= (.m_UseIndexBuffer ro) 0)
-        triangle-mode (if (not= (.m_IsTriangleStrip ro) 0) GL/GL_TRIANGLE_STRIP GL/GL_TRIANGLES)
+        draw-transform (Matrix4d. geom/Identity4d)
         render-args (merge render-args
-                           (math/derive-render-transforms shader-world-transform
+                           (math/derive-render-transforms draw-transform
                                                           (:view render-args)
                                                           (:projection render-args)
                                                           (:texture render-args)))]
@@ -360,25 +322,10 @@
     (if is-selection-pass
       (shader/set-uniform shader gl "mtx_world_view_proj" (:world-view-proj render-args))
       (shader/set-uniform shader gl "world_view_proj" (:world-view-proj render-args)))
-    (when (not= (.m_SetFaceWinding ro) 0)
-      (gl/gl-front-face gl face-winding))
-    (when (not= (.m_SetStencilTest ro) 0)
-      (set-stencil-test-params! gl (.m_StencilTestParams ro)))
-    (if use-index-buffer
-      (gl/gl-draw-elements gl triangle-mode GL/GL_UNSIGNED_INT start count)
-      (gl/gl-draw-arrays gl triangle-mode start count))
+    (gl/gl-draw-elements gl GL/GL_TRIANGLES GL/GL_UNSIGNED_INT start count)
     (gl/set-blend-mode gl :blend-mode-alpha)))
 
 (set! *warn-on-reflection* true)
-
-; Lent from gui_clipping.clj
-(defn- setup-gl [^GL2 gl]
-  (.glEnable gl GL/GL_STENCIL_TEST)
-  (.glClear gl GL/GL_STENCIL_BUFFER_BIT))
-
-(defn- restore-gl [^GL2 gl]
-  (.glDisable gl GL/GL_STENCIL_TEST)
-  (.glColorMask gl true true true true))
 
 
 (defn- render-group-transparent [^GL2 gl render-args override-shader group]
@@ -387,14 +334,15 @@
         gpu-texture (or (get user-data :gpu-texture) texture/white-pixel)
         shader (or override-shader (:shader user-data))
         vb (:vertex-buffer group)
-        render-objects (:render-objects group)
-        vertex-binding (vtx/use-with ::spine-trans vb shader)]
-    (gl/with-gl-bindings gl render-args [shader gpu-texture vertex-binding]
-      (setup-gl gl)
-      (run! (fn [ro]
-              (do-render-object! gl render-args shader renderable ro))
-            render-objects)
-      (restore-gl gl))))
+        ib (:index-buffer group)
+        draw-descs (:draw-descs group)
+        vertex-binding (vtx2/use-with ::spine-trans vb shader)
+        bindings (cond-> [shader gpu-texture vertex-binding]
+                   ib (conj ib))]
+    (gl/with-gl-bindings gl render-args bindings
+      (run! (fn [draw-desc]
+              (do-draw-desc! gl render-args shader renderable draw-desc))
+            draw-descs))))
 
 ;; When debugging render using REPL, don't forget to run (dev/clear-caches!)
 ;; Also, it's possible to switch render modes in the Debug Editor using Cmd+T
@@ -602,19 +550,25 @@
 
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
-(g/defnk load-spine-data-handle [_node-id spine-json-resource spine-json-content atlas-resource texture-set-pb default-animation skin]
+(defn make-spine-data-handle
+  [_node-id spine-json-resource spine-json-content atlas-resource texture-set-pb default-animation skin]
   ; The paths are used for error reporting if any loading goes wrong
   (try
     (when texture-set-pb
       (let [spine-json-path (resource/resource->proj-path spine-json-resource)
             atlas-path (resource/resource->proj-path atlas-resource)
             spine-data-handle (plugin-load-file-from-buffer spine-json-content spine-json-path texture-set-pb atlas-path) ; it throws if it fails to load
-            _ (if (not (str/blank? default-animation)) (plugin-set-animation spine-data-handle default-animation))
-            _ (if (not (str/blank? skin)) (plugin-set-skin spine-data-handle skin))
-            _ (plugin-update-vertices spine-data-handle 0.0)]
+            _ (when-not (str/blank? default-animation)
+                (plugin-set-animation spine-data-handle default-animation))
+            _ (when-not (str/blank? skin)
+                (plugin-set-skin spine-data-handle skin))
+            _ (plugin-update-vertices spine-data-handle 0.0 geom/Identity4d identity-color false)]
         spine-data-handle))
     (catch Exception error
       (handle-read-error error _node-id spine-json-resource))))
+
+(g/defnk load-spine-data-handle [_node-id spine-json-resource spine-json-content atlas-resource texture-set-pb default-animation skin]
+  (make-spine-data-handle _node-id spine-json-resource spine-json-content atlas-resource texture-set-pb default-animation skin))
 
 (defn- sanitize-spine-scene [spine-scene-desc]
   {:pre [(map? spine-scene-desc)]} ; Spine$SpineSceneDesc in map format.
@@ -861,7 +815,7 @@
   (when (not (nil? spine-data-handle))
     (plugin-set-skin spine-data-handle skin)
     (plugin-set-animation spine-data-handle animation)
-    (plugin-update-vertices spine-data-handle dt))
+    (plugin-update-vertices spine-data-handle dt geom/Identity4d identity-color false))
   state)
 
 (g/defnk produce-spine-data-handle-updatable [_node-id spine-data-handle default-animation skin]
