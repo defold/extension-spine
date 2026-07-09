@@ -241,6 +241,11 @@ static int ai_readEntry(SimpleString entry[5], SimpleString *line) {
 
 	colon = ss_indexOf(line, ':');
 	if (colon == -1) return 0;
+	for (i = 1; i < 5; i++) {
+		entry[i].start = line->end;
+		entry[i].end = line->end;
+		entry[i].length = 0;
+	}
 	substr = ss_substr(line, 0, colon);
 	entry[0] = *ss_trim(&substr);
 	for (i = 1, lastMatch = colon + 1;; i++) {
@@ -311,7 +316,7 @@ spAtlas *spAtlas_create(const char *begin, int length, const char *dir, void *re
 			char *path = CALLOC(char, dirLength + needsSlash + strlen(name) + 1);
 			memcpy(path, dir, dirLength);
 			if (needsSlash) path[dirLength] = '/';
-			strcpy(path + dirLength + needsSlash, name);
+			memcpy(path + dirLength + needsSlash, name, strlen(name) + 1);
 			page = spAtlasPage_create(self, name);
 			FREE(name);
 
