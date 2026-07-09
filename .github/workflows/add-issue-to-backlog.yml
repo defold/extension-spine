@@ -1,11 +1,18 @@
 name: Add new issues to backlog
 on:
   issues:
-    types: [opened]
-
+    types:
+      - reopened
+      - opened
 jobs:
-  add-issue-to-project:
-    uses: defold/github-actions-common/.github/workflows/add-issue-to-project.yml@master
-    with:
-      project_owner: defold
-      project_number: 102
+  add_to_backlog:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - run: gh issue edit "$NUMBER" --add-project "$PROJECT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.issue.number }}
+          PROJECT: "Defold backlog"
