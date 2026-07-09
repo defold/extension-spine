@@ -1,0 +1,11 @@
+name: Add new issues to backlog
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  add-issue-to-project:
+    uses: defold/github-actions-common/.github/workflows/add-issue-to-project.yml@master
+    with:
+      project_owner: defold
+      project_number: 102
