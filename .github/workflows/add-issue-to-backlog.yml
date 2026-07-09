@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
-      projects: write
+      project: write
     steps:
       - run: gh issue edit "$NUMBER" --add-project "$PROJECT"
         env:
