@@ -7,6 +7,8 @@ on:
 jobs:
   add_to_backlog:
     runs-on: ubuntu-latest
+    permissions:
+      project: read
     steps:
       - run: gh project item-add "$PROJECT_ID" --owner "$OWNER" --url "$ISSUE_URL"
         env:
