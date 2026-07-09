@@ -7,12 +7,10 @@ on:
 jobs:
   add_to_backlog:
     runs-on: ubuntu-latest
-    permissions:
-      project: read
     steps:
       - run: gh project item-add "$PROJECT_ID" --owner "$OWNER" --url "$ISSUE_URL"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
           GH_REPO: ${{ github.repository }}
           OWNER: defold
           ISSUE_URL: ${{ github.event.issue.html_url }}
