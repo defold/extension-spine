@@ -67,6 +67,9 @@ struct SpineFile
     dmArray<dmSpine::SpineVertex>           m_VertexBuffer;
     dmArray<uint32_t>                       m_IndexBuffer;
     dmArray<dmSpine::SpineIndexedDrawDesc>  m_DrawDescs;
+    dmArray<dmSpine::SpineIndexedDrawDesc>  m_DrawDescScratch;
+    dmArray<dmSpine::SpineIndexedDrawDesc>  m_MergedDrawDescScratch;
+    dmArray<float>                           m_GeometryScratch;
     uint32_t                                m_VertexBufferVersion;
     uint32_t                                m_IndexBufferVersion;
     dmhash_t                                m_CurrentSkin;
@@ -613,7 +616,7 @@ extern "C" DM_DLLEXPORT AABB SPINE_GetAABB(void* _file)
     if (size == 0 && file->m_SkeletonInstance)
     {
         dmSpine::SpineModelBounds bounds;
-        dmSpine::GetSkeletonBounds(file->m_SkeletonInstance, bounds);
+        dmSpine::GetSkeletonBounds(file->m_SkeletonInstance, bounds, file->m_GeometryScratch);
         if (bounds.minX <= bounds.maxX && bounds.minY <= bounds.maxY)
         {
             aabb.minX = bounds.minX;
@@ -739,26 +742,27 @@ static void UpdateRenderData(SpineFile* file, const dmVMath::Matrix4& transform,
 
     if (use_index_buffer)
     {
-        dmArray<dmSpine::SpineIndexedDrawDesc> draw_descs;
-        draw_descs.SetCapacity(draw_desc_count);
+        file->m_DrawDescScratch.SetSize(0);
+        if (file->m_DrawDescScratch.Capacity() < draw_desc_count)
+        {
+            uint32_t new_capacity = dmMath::Max(draw_desc_count, dmMath::Max(16U, file->m_DrawDescScratch.Capacity() * 2));
+            file->m_DrawDescScratch.SetCapacity(new_capacity);
+        }
 
-        uint32_t vertex_count = 0;
-        uint32_t index_count = 0;
-        dmSpine::CalcIndexedBufferSizeAndBounds(file->m_SkeletonInstance, clipper, &vertex_count, &index_count, 0);
-        dmSpine::GenerateIndexedVertexData(file->m_VertexBuffer, file->m_IndexBuffer, file->m_SkeletonInstance, clipper, vertex_count, index_count, transform, color_tint, &draw_descs);
+        dmSpine::GenerateIndexedVertexData(file->m_VertexBuffer, file->m_IndexBuffer, file->m_SkeletonInstance, clipper, transform, color_tint, &file->m_DrawDescScratch, file->m_GeometryScratch);
 
-        dmArray<dmSpine::SpineIndexedDrawDesc> merged_draw_descs;
-        MergeIndexedDrawDescs(draw_descs, merged_draw_descs);
+        MergeIndexedDrawDescs(file->m_DrawDescScratch, file->m_MergedDrawDescScratch);
 
-        uint32_t merged_draw_desc_count = merged_draw_descs.Size();
+        uint32_t merged_draw_desc_count = file->m_MergedDrawDescScratch.Size();
         if (file->m_DrawDescs.Capacity() < merged_draw_desc_count)
         {
-            file->m_DrawDescs.OffsetCapacity(merged_draw_desc_count - file->m_DrawDescs.Capacity());
+            uint32_t new_capacity = dmMath::Max(merged_draw_desc_count, dmMath::Max(16U, file->m_DrawDescs.Capacity() * 2));
+            file->m_DrawDescs.SetCapacity(new_capacity);
         }
         file->m_DrawDescs.SetSize(merged_draw_desc_count);
         if (merged_draw_desc_count > 0)
         {
-            memcpy(file->m_DrawDescs.Begin(), merged_draw_descs.Begin(), merged_draw_desc_count * sizeof(dmSpine::SpineIndexedDrawDesc));
+            memcpy(file->m_DrawDescs.Begin(), file->m_MergedDrawDescScratch.Begin(), merged_draw_desc_count * sizeof(dmSpine::SpineIndexedDrawDesc));
         }
     }
     else

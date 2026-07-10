@@ -64,6 +64,20 @@ static uint32_t EnsureArrayFitsNumber(dmArray<T>& array, uint32_t num_to_add)
 }
 
 template <typename T>
+static uint32_t EnsureArrayFitsNumberGeometric(dmArray<T>& array, uint32_t num_to_add)
+{
+    if (array.Remaining() < num_to_add)
+    {
+        uint32_t required_capacity = array.Size() + num_to_add;
+        uint32_t grown_capacity = array.Capacity() ? array.Capacity() * 2 : 16;
+        array.SetCapacity(dmMath::Max(required_capacity, grown_capacity));
+    }
+    uint32_t prev_size = array.Size();
+    array.SetSize(prev_size + num_to_add);
+    return prev_size;
+}
+
+template <typename T>
 static void EnsureArraySize(dmArray<T>& array, uint32_t size)
 {
     if (array.Capacity() < size)
@@ -73,10 +87,13 @@ static void EnsureArraySize(dmArray<T>& array, uint32_t size)
     array.SetSize(size);
 }
 
-void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
+void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds, dmArray<float>& scratch)
 {
-    dmArray<float> scratch; // scratch buffer
-    EnsureArrayFitsNumber(scratch, ATTACHMENT_REGION_NUM_FLOATS); // this is enough for "SP_ATTACHMENT_REGION"
+    // Clipping attachments are intentionally ignored here. The unclipped region/mesh
+    // bounds conservatively contain the clipped output and are cheaper to compute.
+    // Invisible attachments are included because the editor uses this function as a
+    // fallback when the first frame does not generate any render vertices.
+    EnsureArraySize(scratch, ATTACHMENT_REGION_NUM_FLOATS);
 
     // a "negative" bounding rectangle for starters
     bounds.minX = FLT_MAX;
@@ -107,7 +124,6 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
             // Cast to an spRegionAttachment so we can get the rendererObject
             // and compute the world vertices
             spRegionAttachment* regionAttachment = (spRegionAttachment*)attachment;
-
             // Computed the world vertices positions for the 4 vertices that make up
             // the rectangular region attachment. This assumes the world transform of the
             // bone to which the slot (and hence attachment) is attached has been calculated
@@ -120,10 +136,9 @@ void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds)
             // Cast to an spMeshAttachment so we can get the rendererObject
             // and compute the world vertices
             spMeshAttachment* mesh = (spMeshAttachment*)attachment;
-
             num_world_vertices = mesh->super.worldVerticesLength / 2;
 
-            EnsureArrayFitsNumber(scratch, num_world_vertices*2); // increase capacity if needed
+            EnsureArraySize(scratch, num_world_vertices*2);
 
             // Computed the world vertices positions for the vertices that make up
             // the mesh attachment. This assumes the world transform of the
@@ -226,81 +241,6 @@ static void CalcAndAddVertexBufferAttachmentByClipper(dmArray<float>& scratch, s
     *out_vertices = dmMath::Max(*out_vertices, vertex_count);
 }
 
-static void CalcIndexedBufferAttachment(spAttachment* attachment, uint32_t* out_vertex_count, uint32_t* out_index_count)
-{
-    spAttachmentType type = attachment->type;
-    if (type == SP_ATTACHMENT_REGION)
-    {
-        spRegionAttachment* regionAttachment = (spRegionAttachment*)attachment;
-        if (!HasRenderableAlpha(regionAttachment->color.a))
-        {
-            return;
-        }
-        *out_vertex_count += ATTACHMENT_REGION_VERTEX_COUNT;
-        *out_index_count += ATTACHMENT_REGION_INDEX_COUNT;
-    }
-    else if (type == SP_ATTACHMENT_MESH)
-    {
-        spMeshAttachment* mesh = (spMeshAttachment*)attachment;
-        if (!HasRenderableAlpha(mesh->color.a))
-        {
-            return;
-        }
-        *out_vertex_count += SUPER(mesh)->worldVerticesLength / 2;
-        *out_index_count += (uint32_t)mesh->trianglesCount;
-    }
-}
-
-static void CalcIndexedBufferAttachmentByClipper(dmArray<float>& scratch, spSlot* slot, spAttachment* attachment, spSkeletonClipping* skeleton_clipper, uint32_t* out_vertex_count, uint32_t* out_index_count)
-{
-    uint16_t* indices = 0;
-    uint32_t vertex_count = 0;
-    uint32_t indices_count = 0;
-    float* uvs = 0;
-    float* vertices = 0;
-    spAttachmentType type = attachment->type;
-
-    if (type == SP_ATTACHMENT_REGION)
-    {
-        EnsureArraySize(scratch, ATTACHMENT_REGION_NUM_FLOATS);
-        spRegionAttachment* regionAttachment = (spRegionAttachment*)attachment;
-        if (SkipInvisibleClippedAttachment(skeleton_clipper, slot, regionAttachment->color.a))
-        {
-            return;
-        }
-
-        spRegionAttachment_computeWorldVertices(regionAttachment, slot, scratch.Begin(), 0, 2);
-
-        vertex_count = ATTACHMENT_REGION_VERTEX_COUNT;
-        uvs = regionAttachment->uvs;
-        indices = (uint16_t*)QUAD_INDICES;
-        indices_count = ATTACHMENT_REGION_INDEX_COUNT;
-        vertices = scratch.Begin();
-    }
-    else if (type == SP_ATTACHMENT_MESH)
-    {
-        spMeshAttachment* mesh = (spMeshAttachment*)attachment;
-        if (SkipInvisibleClippedAttachment(skeleton_clipper, slot, mesh->color.a))
-        {
-            return;
-        }
-
-        EnsureArraySize(scratch, mesh->super.worldVerticesLength);
-        spVertexAttachment_computeWorldVertices(SUPER(mesh), slot, 0, mesh->super.worldVerticesLength, scratch.Begin(), 0, 2);
-
-        vertex_count = mesh->super.worldVerticesLength / 2;
-        uvs = mesh->uvs;
-        indices = mesh->triangles;
-        indices_count = mesh->trianglesCount;
-        vertices = scratch.Begin();
-    }
-
-    spSkeletonClipping_clipTriangles(skeleton_clipper, vertices, vertex_count << 1, indices, indices_count, uvs, 2);
-
-    *out_vertex_count += skeleton_clipper->clippedVertices->size >> 1;
-    *out_index_count += skeleton_clipper->clippedTriangles->size;
-}
-
 uint32_t CalcVertexBufferSize(const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, uint32_t* out_vertices)
 {
     // This scratch buffer is used to calculate number of verties if the skeleton has a clipper attachment
@@ -377,133 +317,6 @@ uint32_t CalcDrawDescCount(const spSkeleton* skeleton)
         }
     }
     return count;
-}
-
-void CalcIndexedBufferSizeAndBounds(const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, uint32_t* out_vertex_count, uint32_t* out_index_count, SpineModelBounds* out_bounds)
-{
-    dmArray<float> scratch_attachment;
-    uint32_t vertex_count = 0;
-    uint32_t index_count = 0;
-    if (out_bounds)
-    {
-        out_bounds->minX = FLT_MAX;
-        out_bounds->minY = FLT_MAX;
-        out_bounds->maxX = -FLT_MAX;
-        out_bounds->maxY = -FLT_MAX;
-    }
-
-    for (int s = 0; s < skeleton->slotsCount; ++s)
-    {
-        spSlot* slot = skeleton->drawOrder[s];
-        spAttachment* attachment = slot->attachment;
-        if (!attachment)
-        {
-            spSkeletonClipping_clipEnd(skeleton_clipper, slot);
-            continue;
-        }
-
-        if (!HasRenderableAlpha(slot->color.a) || !slot->bone->active)
-        {
-            spSkeletonClipping_clipEnd(skeleton_clipper, slot);
-            continue;
-        }
-
-        spAttachmentType type = attachment->type;
-
-        if (type == SP_ATTACHMENT_CLIPPING)
-        {
-            spClippingAttachment* clip = (spClippingAttachment*)attachment;
-            spSkeletonClipping_clipStart(skeleton_clipper, slot, clip);
-            continue;
-        }
-
-        float* vertices = 0;
-        float* uvs = 0;
-        uint16_t* indices = 0;
-        uint32_t attachment_vertex_count = 0;
-        uint32_t attachment_index_count = 0;
-
-        if (type == SP_ATTACHMENT_REGION)
-        {
-            spRegionAttachment* region_attachment = (spRegionAttachment*)attachment;
-            if (SkipInvisibleClippedAttachment(skeleton_clipper, slot, region_attachment->color.a))
-            {
-                continue;
-            }
-
-            EnsureArraySize(scratch_attachment, ATTACHMENT_REGION_NUM_FLOATS);
-            spRegionAttachment_computeWorldVertices(region_attachment, slot, scratch_attachment.Begin(), 0, 2);
-            vertices = scratch_attachment.Begin();
-            attachment_vertex_count = ATTACHMENT_REGION_VERTEX_COUNT;
-            attachment_index_count = ATTACHMENT_REGION_INDEX_COUNT;
-            uvs = region_attachment->uvs;
-            indices = (uint16_t*)QUAD_INDICES;
-        }
-        else if (type == SP_ATTACHMENT_MESH)
-        {
-            spMeshAttachment* mesh = (spMeshAttachment*)attachment;
-            if (SkipInvisibleClippedAttachment(skeleton_clipper, slot, mesh->color.a))
-            {
-                continue;
-            }
-
-            EnsureArraySize(scratch_attachment, mesh->super.worldVerticesLength);
-            spVertexAttachment_computeWorldVertices(SUPER(mesh), slot, 0, mesh->super.worldVerticesLength, scratch_attachment.Begin(), 0, 2);
-            vertices = scratch_attachment.Begin();
-            attachment_vertex_count = mesh->super.worldVerticesLength / 2;
-            attachment_index_count = mesh->trianglesCount;
-            uvs = mesh->uvs;
-            indices = mesh->triangles;
-        }
-        else
-        {
-            spSkeletonClipping_clipEnd(skeleton_clipper, slot);
-            continue;
-        }
-
-        float* bounds_vertices = vertices;
-        uint32_t bounds_vertex_count = attachment_vertex_count;
-        if (spSkeletonClipping_isClipping(skeleton_clipper))
-        {
-            spSkeletonClipping_clipTriangles(skeleton_clipper, vertices, attachment_vertex_count << 1, indices, attachment_index_count, uvs, 2);
-            bounds_vertices = skeleton_clipper->clippedVertices->items;
-            bounds_vertex_count = skeleton_clipper->clippedVertices->size >> 1;
-            vertex_count += bounds_vertex_count;
-            index_count += skeleton_clipper->clippedTriangles->size;
-        }
-        else
-        {
-            vertex_count += attachment_vertex_count;
-            index_count += attachment_index_count;
-        }
-
-        if (out_bounds && bounds_vertex_count > 0)
-        {
-            float* coords = bounds_vertices;
-            for (uint32_t i = 0; i < bounds_vertex_count; ++i)
-            {
-                float x = *coords++;
-                float y = *coords++;
-                out_bounds->minX = dmMath::Min(x, out_bounds->minX);
-                out_bounds->minY = dmMath::Min(y, out_bounds->minY);
-                out_bounds->maxX = dmMath::Max(x, out_bounds->maxX);
-                out_bounds->maxY = dmMath::Max(y, out_bounds->maxY);
-            }
-        }
-
-        spSkeletonClipping_clipEnd(skeleton_clipper, slot);
-    }
-
-    spSkeletonClipping_clipEnd2(skeleton_clipper);
-
-    if (out_vertex_count)
-    {
-        *out_vertex_count = vertex_count;
-    }
-    if (out_index_count)
-    {
-        *out_index_count = index_count;
-    }
 }
 
 uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, const dmVMath::Matrix4& world, const dmVMath::Vector4& color_tint, dmArray<SpineDrawDesc>* draw_descs_out)
@@ -663,16 +476,9 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
     return vcount;
 }
 
-uint32_t GenerateIndexedVertexData(dmArray<SpineVertex>& vertex_buffer, dmArray<uint32_t>& index_buffer, const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, uint32_t expected_vertex_count, uint32_t expected_index_count, const dmVMath::Matrix4& world, const dmVMath::Vector4& color_tint, dmArray<SpineIndexedDrawDesc>* draw_descs_out)
+uint32_t GenerateIndexedVertexData(dmArray<SpineVertex>& vertex_buffer, dmArray<uint32_t>& index_buffer, const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, const dmVMath::Matrix4& world, const dmVMath::Vector4& color_tint, dmArray<SpineIndexedDrawDesc>* draw_descs_out, dmArray<float>& scratch_vertex_floats)
 {
-    dmArray<float> scratch_vertex_floats;
     uint32_t vindex_start = vertex_buffer.Size();
-    uint32_t iindex_start = index_buffer.Size();
-    uint32_t vindex = vindex_start;
-    uint32_t iindex = iindex_start;
-
-    EnsureArrayFitsNumber(vertex_buffer, expected_vertex_count);
-    EnsureArrayFitsNumber(index_buffer, expected_index_count);
 
     for (int s = 0; s < skeleton->slotsCount; ++s)
     {
@@ -771,18 +577,18 @@ uint32_t GenerateIndexedVertexData(dmArray<SpineVertex>& vertex_buffer, dmArray<
         const float colorB = tintB * color->b * color_tint.getZ();
         const float colorA = tintA * color->a * color_tint.getW();
 
-        uint32_t batch_index_start = iindex;
-        uint32_t vertex_base = vindex;
+        uint32_t vertex_base = EnsureArrayFitsNumberGeometric(vertex_buffer, vertex_count);
+        uint32_t batch_index_start = EnsureArrayFitsNumberGeometric(index_buffer, indices_count);
         for (uint32_t i = 0; i < vertex_count; ++i)
         {
             uint32_t index = i << 1;
             const dmVMath::Vector4 p = world * dmVMath::Point3(vertices[index], vertices[index + 1], 0.0f);
-            addVertex(&vertex_buffer[vindex++], p.getX(), p.getY(), p.getZ(), uvs[index], uvs[index + 1], colorR, colorG, colorB, colorA, page_index);
+            addVertex(&vertex_buffer[vertex_base + i], p.getX(), p.getY(), p.getZ(), uvs[index], uvs[index + 1], colorR, colorG, colorB, colorA, page_index);
         }
 
         for (uint32_t i = 0; i < indices_count; ++i)
         {
-            index_buffer[iindex++] = vertex_base + indices[i];
+            index_buffer[batch_index_start + i] = vertex_base + indices[i];
         }
 
         if (draw_descs_out)
@@ -799,10 +605,7 @@ uint32_t GenerateIndexedVertexData(dmArray<SpineVertex>& vertex_buffer, dmArray<
 
     spSkeletonClipping_clipEnd2(skeleton_clipper);
 
-    uint32_t vcount = vindex - vindex_start;
-    assert(iindex - iindex_start == expected_index_count);
-    assert(vcount == expected_vertex_count);
-    return vcount;
+    return vertex_buffer.Size() - vindex_start;
 }
 
 void MergeDrawDescs(const dmArray<SpineDrawDesc>& src, dmArray<SpineDrawDesc>& dst)
@@ -838,7 +641,11 @@ void MergeDrawDescs(const dmArray<SpineDrawDesc>& src, dmArray<SpineDrawDesc>& d
 
 void MergeIndexedDrawDescs(const dmArray<SpineIndexedDrawDesc>& src, dmArray<SpineIndexedDrawDesc>& dst)
 {
-    dst.SetCapacity(src.Size());
+    if (dst.Capacity() < src.Size())
+    {
+        uint32_t new_capacity = dmMath::Max(src.Size(), dmMath::Max(16U, dst.Capacity() * 2));
+        dst.SetCapacity(new_capacity);
+    }
     dst.SetSize(src.Size());
 
     if (src.Size() == 0)

@@ -81,7 +81,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add defold-spine/lib defold-spine/plugins
+          git add defold-spine/plugins
           if git diff --cached --quiet; then
             echo "No generated artifact changes to commit."
             exit 0
