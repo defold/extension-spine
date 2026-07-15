@@ -76,18 +76,12 @@ namespace dmSpine
     static void DestroyComponent(struct SpineModelWorld* world, uint32_t index);
     static void SpineEventListener(spAnimationState* state, spEventType type, spTrackEntry* entry, spEvent* event);
 
-    struct SpineGeometryCounts
-    {
-        uint32_t m_VertexCount;
-        uint32_t m_IndexCount;
-    };
-
     struct SpineModelWorld
     {
         dmObjectPool<SpineModelComponent*>      m_Components;
         dmArray<dmRender::RenderObject>         m_RenderObjects;
         dmArray<dmSpine::SpineModelBounds>      m_BoundingBoxes;
-        dmArray<SpineGeometryCounts>            m_GeometryCounts;
+        dmArray<float>                           m_GeometryScratch;
         dmGraphics::HVertexDeclaration          m_VertexDeclaration;
         dmGraphics::HVertexBuffer               m_VertexBuffer;
         dmGraphics::HIndexBuffer                m_IndexBuffer;
@@ -95,6 +89,7 @@ namespace dmSpine
         dmArray<uint32_t>                       m_IndexBufferData;
         dmArray<uint8_t>                        m_PackedIndexBufferData;
         dmArray<SpineIndexedDrawDesc>           m_DrawDescBuffer;
+        dmArray<SpineIndexedDrawDesc>           m_MergedDrawDescBuffer;
         dmResource::HFactory                    m_Factory;
         spSkeletonClipping*                     m_SkeletonClipper;
         uint8_t                                 m_Is16BitIndex : 1;
@@ -125,8 +120,6 @@ namespace dmSpine
         world->m_RenderObjects.SetCapacity(comp_count);
         world->m_BoundingBoxes.SetCapacity(comp_count);
         world->m_BoundingBoxes.SetSize(comp_count);
-        world->m_GeometryCounts.SetCapacity(comp_count);
-        world->m_GeometryCounts.SetSize(comp_count);
 
         dmGraphics::HVertexStreamDeclaration stream_declaration = dmGraphics::NewVertexStreamDeclaration(context->m_GraphicsContext);
         dmGraphics::AddVertexStream(stream_declaration, "position", 3, dmGraphics::TYPE_FLOAT, false);
@@ -912,6 +905,11 @@ namespace dmSpine
     {
         uint32_t index_count = world->m_IndexBufferData.Size();
         uint32_t index_data_size = index_count * GetIndexTypeSize(world);
+        if (world->m_PackedIndexBufferData.Capacity() < index_data_size)
+        {
+            uint32_t new_capacity = dmMath::Max(index_data_size, dmMath::Max(64U, world->m_PackedIndexBufferData.Capacity() * 2));
+            world->m_PackedIndexBufferData.SetCapacity(new_capacity);
+        }
         world->m_PackedIndexBufferData.SetSize(index_data_size);
 
         if (index_data_size == 0)
@@ -935,7 +933,6 @@ namespace dmSpine
     }
 
     static void FillRenderObject(SpineModelWorld*  world,
-        dmRender::HRenderContext                   render_context,
         dmRender::RenderObject&                    ro,
         dmGameSystem::HComponentRenderConstants    constants,
         dmGraphics::HTexture                       texture,
@@ -948,9 +945,10 @@ namespace dmSpine
         ro.m_VertexDeclaration = world->m_VertexDeclaration;
         ro.m_VertexBuffer      = world->m_VertexBuffer;
         ro.m_IndexBuffer       = world->m_IndexBuffer;
-        ro.m_IndexType         = GetIndexType(world);
         ro.m_PrimitiveType     = dmGraphics::PRIMITIVE_TRIANGLES;
-        ro.m_VertexStart       = index_start * GetIndexTypeSize(world);
+        // Keep the logical index offset until all visible geometry has been generated
+        // and the final 16/32-bit index type is known.
+        ro.m_VertexStart       = index_start;
         ro.m_VertexCount       = index_count;
         ro.m_Textures[0]       = texture;
         ro.m_Material          = material;
@@ -989,11 +987,9 @@ namespace dmSpine
                 assert(0);
             break;
         }
-
-        dmRender::AddToRender(render_context, &ro);
     }
 
-    static void RenderBatch(SpineModelWorld* world, dmRender::HRenderContext render_context, dmRender::RenderListEntry *buf, uint32_t* begin, uint32_t* end)
+    static void RenderBatch(SpineModelWorld* world, dmRender::RenderListEntry *buf, uint32_t* begin, uint32_t* end)
     {
         //DM_PROFILE(SpineModel, "RenderBatch");
 
@@ -1018,25 +1014,21 @@ namespace dmSpine
             if (use_inherit_blend)
             {
                 const SpineModelComponent* component = (const SpineModelComponent*) components[component_index];
-                draw_desc_buffer_count += dmSpine::CalcDrawDescCount(component->m_SkeletonInstance);
+                draw_desc_buffer_count += (uint32_t)component->m_SkeletonInstance->slotsCount;
             }
         }
 
         if (draw_desc_buffer_count && draw_desc_buffer_count > world->m_DrawDescBuffer.Capacity())
         {
-            world->m_DrawDescBuffer.SetCapacity(draw_desc_buffer_count);
+            uint32_t new_capacity = dmMath::Max(draw_desc_buffer_count, dmMath::Max(32U, world->m_DrawDescBuffer.Capacity() * 2));
+            world->m_DrawDescBuffer.SetCapacity(new_capacity);
         }
 
         for (uint32_t *i = begin; i != end; ++i)
         {
             component_index = (uint32_t)buf[*i].m_UserData;
             const SpineModelComponent* component = (const SpineModelComponent*) components[component_index];
-            const SpineGeometryCounts& geometry_counts = world->m_GeometryCounts[component_index];
-            uint32_t component_index_start = world->m_IndexBufferData.Size();
-            uint32_t generated_vertices = dmSpine::GenerateIndexedVertexData(world->m_VertexBufferData, world->m_IndexBufferData, component->m_SkeletonInstance, world->m_SkeletonClipper, geometry_counts.m_VertexCount, geometry_counts.m_IndexCount, component->m_World, Vector4(1.0f), use_inherit_blend ? &world->m_DrawDescBuffer : 0);
-            uint32_t generated_indices = world->m_IndexBufferData.Size() - component_index_start;
-            assert(generated_vertices == geometry_counts.m_VertexCount);
-            assert(generated_indices == geometry_counts.m_IndexCount);
+            dmSpine::GenerateIndexedVertexData(world->m_VertexBufferData, world->m_IndexBufferData, component->m_SkeletonInstance, world->m_SkeletonClipper, component->m_World, Vector4(1.0f), use_inherit_blend ? &world->m_DrawDescBuffer : 0, world->m_GeometryScratch);
         }
 
         uint32_t index_count = world->m_IndexBufferData.Size() - index_start;
@@ -1053,25 +1045,25 @@ namespace dmSpine
             uint32_t draw_desc_count = world->m_DrawDescBuffer.Size();
             if (draw_desc_count > 0)
             {
-                dmArray<SpineIndexedDrawDesc> scratch_draw_descs;
-                MergeIndexedDrawDescs(world->m_DrawDescBuffer, scratch_draw_descs);
+                MergeIndexedDrawDescs(world->m_DrawDescBuffer, world->m_MergedDrawDescBuffer);
 
-                uint32_t merged_size = scratch_draw_descs.Size();
+                uint32_t merged_size = world->m_MergedDrawDescBuffer.Size();
                 uint32_t ro_count_begin = world->m_RenderObjects.Size();
                 uint32_t expected_size = world->m_RenderObjects.Size() + merged_size;
                 if (world->m_RenderObjects.Capacity() < expected_size)
                 {
-                    world->m_RenderObjects.OffsetCapacity(expected_size - world->m_RenderObjects.Capacity());
+                    uint32_t new_capacity = dmMath::Max(expected_size, dmMath::Max(32U, world->m_RenderObjects.Capacity() * 2));
+                    world->m_RenderObjects.SetCapacity(new_capacity);
                 }
                 world->m_RenderObjects.SetSize(expected_size);
 
                 for (int i = 0; i < merged_size; ++i)
                 {
                     dmRender::RenderObject& ro = world->m_RenderObjects[ro_count_begin + i];
-                    FillRenderObject(world, render_context, ro, first->m_RenderConstants, texture, material,
-                        SpineBlendModeToRenderBlendMode((spBlendMode) scratch_draw_descs[i].m_BlendMode),
-                        scratch_draw_descs[i].m_IndexStart,
-                        scratch_draw_descs[i].m_IndexCount);
+                    FillRenderObject(world, ro, first->m_RenderConstants, texture, material,
+                        SpineBlendModeToRenderBlendMode((spBlendMode) world->m_MergedDrawDescBuffer[i].m_BlendMode),
+                        world->m_MergedDrawDescBuffer[i].m_IndexStart,
+                        world->m_MergedDrawDescBuffer[i].m_IndexCount);
                 }
             }
         }
@@ -1080,7 +1072,7 @@ namespace dmSpine
             uint32_t ro_index = world->m_RenderObjects.Size();
             world->m_RenderObjects.SetSize(ro_index + 1);
             dmRender::RenderObject& ro = world->m_RenderObjects[ro_index];
-            FillRenderObject(world, render_context, ro, first->m_RenderConstants, texture, material, blend_mode, index_start, index_count);
+            FillRenderObject(world, ro, first->m_RenderConstants, texture, material, blend_mode, index_start, index_count);
         }
     }
 
@@ -1141,11 +1133,12 @@ namespace dmSpine
             }
             case dmRender::RENDER_LIST_OPERATION_BATCH:
             {
-                RenderBatch(world, params.m_Context, params.m_Buf, params.m_Begin, params.m_End);
+                RenderBatch(world, params.m_Buf, params.m_Begin, params.m_End);
                 break;
             }
             case dmRender::RENDER_LIST_OPERATION_END:
             {
+                world->m_Is16BitIndex = world->m_VertexBufferData.Size() <= 65536;
                 uint32_t vertex_data_size = sizeof(dmSpine::SpineVertex) * world->m_VertexBufferData.Size();
                 uint32_t index_data_size = GetIndexTypeSize(world) * world->m_IndexBufferData.Size();
                 if (vertex_data_size && index_data_size)
@@ -1155,6 +1148,17 @@ namespace dmSpine
                                                     world->m_VertexBufferData.Begin(), dmGraphics::BUFFER_USAGE_DYNAMIC_DRAW);
                     dmGraphics::SetIndexBufferData(world->m_IndexBuffer, index_data_size,
                                                    world->m_PackedIndexBufferData.Begin(), dmGraphics::BUFFER_USAGE_DYNAMIC_DRAW);
+
+                    uint32_t index_type_size = GetIndexTypeSize(world);
+                    dmGraphics::Type index_type = GetIndexType(world);
+                    for (uint32_t i = 0; i < world->m_RenderObjects.Size(); ++i)
+                    {
+                        dmRender::RenderObject& ro = world->m_RenderObjects[i];
+                        ro.m_IndexType = index_type;
+                        ro.m_VertexStart *= index_type_size;
+                        dmRender::AddToRender(params.m_Context, &ro);
+                    }
+
                     DM_PROPERTY_ADD_U32(rmtp_SpineVertexCount, world->m_VertexBufferData.Size());
                     DM_PROPERTY_ADD_U32(rmtp_SpineVertexSize, vertex_data_size);
                     DM_PROPERTY_ADD_U32(rmtp_SpineIndexSize, index_data_size);
@@ -1177,39 +1181,15 @@ namespace dmSpine
 
         dmArray<SpineModelComponent*>& components = world->m_Components.GetRawObjects();
         const uint32_t count = components.Size();
-        uint32_t total_vertex_count = 0;
-        uint32_t total_index_count = 0;
 
         for (uint32_t i = 0; i < count; ++i)
         {
-            SpineGeometryCounts& geometry_counts = world->m_GeometryCounts[i];
-            geometry_counts.m_VertexCount = 0;
-            geometry_counts.m_IndexCount = 0;
-
             SpineModelComponent& component = *components[i];
             if (!component.m_DoRender || !component.m_Enabled)
                 continue;
 
             SpineModelBounds& bounds = world->m_BoundingBoxes[i];
-            dmSpine::CalcIndexedBufferSizeAndBounds(component.m_SkeletonInstance, world->m_SkeletonClipper, &geometry_counts.m_VertexCount, &geometry_counts.m_IndexCount, &bounds);
-            total_vertex_count += geometry_counts.m_VertexCount;
-            total_index_count += geometry_counts.m_IndexCount;
-        }
-
-        world->m_Is16BitIndex = total_vertex_count <= 65536;
-        if (total_vertex_count > world->m_VertexBufferData.Capacity())
-        {
-            world->m_VertexBufferData.SetCapacity(total_vertex_count);
-        }
-        if (total_index_count > world->m_IndexBufferData.Capacity())
-        {
-            world->m_IndexBufferData.SetCapacity(total_index_count);
-        }
-
-        uint32_t packed_index_size = total_index_count * GetIndexTypeSize(world);
-        if (packed_index_size > world->m_PackedIndexBufferData.Capacity())
-        {
-            world->m_PackedIndexBufferData.SetCapacity(packed_index_size);
+            dmSpine::GetSkeletonBounds(component.m_SkeletonInstance, bounds, world->m_GeometryScratch);
         }
 
         // Prepare list submit
