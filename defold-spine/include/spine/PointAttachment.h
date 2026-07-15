@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated July 28, 2023. Replaces all prior versions.
+ * Last updated April 5, 2025. Replaces all prior versions.
  *
- * Copyright (c) 2013-2023, Esoteric Software LLC
+ * Copyright (c) 2013-2025, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software or
- * otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software
+ * or otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,37 +23,65 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
- * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef SPINE_POINTATTACHMENT_H_
-#define SPINE_POINTATTACHMENT_H_
+#ifndef Spine_PointAttachment_h
+#define Spine_PointAttachment_h
 
-#include <spine/dll.h>
 #include <spine/Attachment.h>
-#include <spine/VertexAttachment.h>
-#include <spine/Atlas.h>
-#include <spine/Slot.h>
+#include <spine/Color.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace spine {
+	class Bone;
+	class BonePose;
 
-typedef struct spPointAttachment {
-	spAttachment super;
-	float x, y, rotation;
-	spColor color;
-} spPointAttachment;
+	/// An attachment which is a single point and a rotation. This can be used to spawn projectiles, particles, etc. A bone can be
+	/// used in similar ways, but a PointAttachment is slightly less expensive to compute and can be hidden, shown, and placed in a
+	/// skin.
+	///
+	/// See https://esotericsoftware.com/spine-points for Point Attachments in the Spine User Guide.
+	///
+	class SP_API PointAttachment : public Attachment {
+		friend class SkeletonBinary;
 
-SP_API spPointAttachment *spPointAttachment_create(const char *name);
+		friend class SkeletonJson;
 
-SP_API void spPointAttachment_computeWorldPosition(spPointAttachment *self, spBone *bone, float *x, float *y);
+		RTTI_DECL
 
-SP_API float spPointAttachment_computeWorldRotation(spPointAttachment *self, spBone *bone);
+	public:
+		explicit PointAttachment(const String &name);
 
-#ifdef __cplusplus
+		/// The local x position.
+		float getX();
+
+		void setX(float inValue);
+
+		/// The local y position.
+		float getY();
+
+		void setY(float inValue);
+
+		/// The local rotation in degrees, counter clockwise.
+		float getRotation();
+
+		void setRotation(float inValue);
+
+		Color &getColor();
+
+		/// Computes the world position from the local position.
+		void computeWorldPosition(BonePose &bone, float &ox, float &oy);
+
+		/// Computes the world rotation from the local rotation.
+		float computeWorldRotation(BonePose &bone);
+
+		virtual Attachment &copy() override;
+
+	private:
+		float _x, _y, _rotation;
+		Color _color;
+	};
 }
-#endif
 
-#endif /* SPINE_POINTATTACHMENT_H_ */
+#endif /* Spine_PointAttachment_h */

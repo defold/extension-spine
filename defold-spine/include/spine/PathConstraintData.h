@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated July 28, 2023. Replaces all prior versions.
+ * Last updated April 5, 2025. Replaces all prior versions.
  *
- * Copyright (c) 2013-2023, Esoteric Software LLC
+ * Copyright (c) 2013-2025, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software or
- * otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software
+ * or otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,54 +23,89 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
- * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef SPINE_PATHCONSTRAINTDATA_H_
-#define SPINE_PATHCONSTRAINTDATA_H_
+#ifndef Spine_PathConstraintData_h
+#define Spine_PathConstraintData_h
 
+#include <spine/ConstraintData.h>
+#include <spine/PosedData.h>
+#include <spine/Array.h>
+#include <spine/PathConstraintPose.h>
 #include <spine/dll.h>
-#include <spine/BoneData.h>
-#include <spine/SlotData.h>
+#include <spine/PositionMode.h>
+#include <spine/SpacingMode.h>
+#include <spine/RotateMode.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace spine {
+	class BoneData;
+	class SlotData;
+	class PathConstraint;
+	class Skeleton;
 
-typedef enum {
-	SP_POSITION_MODE_FIXED, SP_POSITION_MODE_PERCENT
-} spPositionMode;
+	/// Stores the setup pose for a PathConstraint.
+	///
+	/// See https://esotericsoftware.com/spine-path-constraints Path constraints in the Spine User Guide.
+	class SP_API PathConstraintData : public ConstraintDataGeneric<PathConstraint, PathConstraintPose> {
+		friend class SkeletonBinary;
 
-typedef enum {
-	SP_SPACING_MODE_LENGTH, SP_SPACING_MODE_FIXED, SP_SPACING_MODE_PERCENT, SP_SPACING_MODE_PROPORTIONAL
-} spSpacingMode;
+		friend class SkeletonJson;
 
-typedef enum {
-	SP_ROTATE_MODE_TANGENT, SP_ROTATE_MODE_CHAIN, SP_ROTATE_MODE_CHAIN_SCALE
-} spRotateMode;
+		friend class PathConstraint;
 
-typedef struct spPathConstraintData {
-	char *name;
-	int order;
-	int/*bool*/ skinRequired;
-	int bonesCount;
-	spBoneData **bones;
-	spSlotData *target;
-	spPositionMode positionMode;
-	spSpacingMode spacingMode;
-	spRotateMode rotateMode;
-	float offsetRotation;
-	float position, spacing;
-	float mixRotate, mixX, mixY;
-} spPathConstraintData;
+		friend class Skeleton;
 
-SP_API spPathConstraintData *spPathConstraintData_create(const char *name);
+		friend class PathConstraintMixTimeline;
 
-SP_API void spPathConstraintData_dispose(spPathConstraintData *self);
+		friend class PathConstraintPositionTimeline;
 
-#ifdef __cplusplus
+		friend class PathConstraintSpacingTimeline;
+
+		RTTI_DECL
+	public:
+		explicit PathConstraintData(const String &name);
+
+		virtual Constraint &create(Skeleton &skeleton) override;
+
+
+		/// The bones that will be modified by this path constraint.
+		Array<BoneData *> &getBones();
+
+		/// The slot whose path attachment will be used to constrained the bones.
+		SlotData &getSlot();
+
+		void setSlot(SlotData &slot);
+
+		/// The mode for positioning the first bone on the path.
+		PositionMode getPositionMode();
+
+		void setPositionMode(PositionMode positionMode);
+
+		/// The mode for positioning the bones after the first bone on the path.
+		SpacingMode getSpacingMode();
+
+		void setSpacingMode(SpacingMode spacingMode);
+
+		/// The mode for adjusting the rotation of the bones.
+		RotateMode getRotateMode();
+
+		void setRotateMode(RotateMode rotateMode);
+
+		/// An offset added to the constrained bone rotation.
+		float getOffsetRotation();
+
+		void setOffsetRotation(float offsetRotation);
+
+	private:
+		Array<BoneData *> _bones;
+		SlotData *_slot;
+		PositionMode _positionMode;
+		SpacingMode _spacingMode;
+		RotateMode _rotateMode;
+		float _offsetRotation;
+	};
 }
-#endif
 
-#endif /* SPINE_PATHCONSTRAINTDATA_H_ */
+#endif /* Spine_PathConstraintData_h */

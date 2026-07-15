@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated July 28, 2023. Replaces all prior versions.
+ * Last updated April 5, 2025. Replaces all prior versions.
  *
- * Copyright (c) 2013-2023, Esoteric Software LLC
+ * Copyright (c) 2013-2025, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software or
- * otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software
+ * or otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,36 +23,73 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
- * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef SPINE_EVENT_H_
-#define SPINE_EVENT_H_
+#ifndef Spine_Event_h
+#define Spine_Event_h
 
-#include <spine/dll.h>
-#include <spine/EventData.h>
+#include <spine/SpineObject.h>
+#include <spine/SpineString.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace spine {
+	class EventData;
 
-typedef struct spEvent {
-	spEventData *data;
-	float time;
-	int intValue;
-	float floatValue;
-	char *stringValue;
-	float volume;
-	float balance;
-} spEvent;
+	/// Fired by EventTimeline when specific animation times are reached.
+	///
+	/// See Timeline::apply(), AnimationStateListener::event(), and
+	/// https://esotericsoftware.com/spine-events Events in the Spine User Guide.
+	class SP_API Event : public SpineObject {
+		friend class SkeletonBinary;
 
-SP_API spEvent *spEvent_create(float time, spEventData *data);
+		friend class SkeletonJson;
 
-SP_API void spEvent_dispose(spEvent *self);
+		friend class AnimationState;
 
-#ifdef __cplusplus
+	public:
+		Event(float time, const EventData &data);
+
+		/// The event's setup pose data.
+		const EventData &getData();
+
+		/// The animation time this event was keyed, or -1 for the setup pose.
+		float getTime();
+
+		/// The integer payload for this event.
+		int getInt();
+
+		void setInt(int inValue);
+
+		/// The float payload for this event.
+		float getFloat();
+
+		void setFloat(float inValue);
+
+		/// The string payload for this event.
+		const String &getString();
+
+		void setString(const String &inValue);
+
+		/// If an audio path is set, the volume for the audio.
+		float getVolume();
+
+		void setVolume(float inValue);
+
+		/// If an audio path is set, the left/right balance for the audio.
+		float getBalance();
+
+		void setBalance(float inValue);
+
+	private:
+		const EventData &_data;
+		const float _time;
+		int _intValue;
+		float _floatValue;
+		String _stringValue;
+		float _volume;
+		float _balance;
+	};
 }
-#endif
 
-#endif /* SPINE_EVENT_H_ */
+#endif /* Spine_Event_h */

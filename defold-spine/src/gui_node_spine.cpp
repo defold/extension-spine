@@ -1,5 +1,6 @@
 #include "gui_node_spine.h"
 #include "res_spine_scene.h"
+#include "spine_skin_utils.h"
 #include <common/vertices.h>
 
 #include <dmsdk/dlib/buffer.h>
@@ -11,16 +12,23 @@
 #include <dmsdk/gamesys/gui.h>
 #include <dmsdk/script/script.h>
 
-#include <spine/extension.h>
+#include <spine/Extension.h>
 #include <spine/Skeleton.h>
-#include <spine/SkeletonClipping.h>
+#include <spine/SkeletonRenderer.h>
 #include <spine/Slot.h>
+#include <spine/SlotData.h>
 #include <spine/AnimationState.h>
+#include <spine/Animation.h>
 #include <spine/Attachment.h>
 #include <spine/RegionAttachment.h>
 #include <spine/MeshAttachment.h>
 #include <spine/Bone.h>
+#include <spine/BoneData.h>
 #include <spine/IkConstraint.h>
+#include <spine/Skin.h>
+#include <spine/Event.h>
+#include <spine/EventData.h>
+#include <spine/Constraint.h>
 
 #include "spine_ddf.h" // generated from the spine_ddf.proto
 #include "script_spine_gui.h"
@@ -39,16 +47,17 @@ static const dmhash_t SPINE_CREATE_BONES        = dmHashString64("spine_create_b
 
 struct GuiNodeTypeContext
 {
-    spSkeletonClipping* m_SkeletonClipper;
+    spine::SkeletonRenderer* m_SkeletonRenderer;
 };
 
 struct InternalGuiNode
 {
     dmhash_t            m_SpinePath;
     SpineSceneResource* m_SpineScene;
+    SpineSceneData*     m_SceneData;
 
-    spSkeleton*         m_SkeletonInstance;
-    spAnimationState*   m_AnimationStateInstance;
+    spine::Skeleton*         m_SkeletonInstance;
+    spine::AnimationState*   m_AnimationStateInstance;
     dmArray<dmSpine::GuiSpineAnimationTrack> m_AnimationTracks;
     
     dmhash_t            m_SkinId;
@@ -63,7 +72,7 @@ struct InternalGuiNode
     dmArray<dmGui::HNode>   m_BonesNodes;
     dmArray<dmhash_t>       m_BonesIds;     // Matches 1:1 with m_BoneNodes     (each element is hash(scene_name/bone_name))
     dmArray<dmhash_t>       m_BonesNames;   // Matches 1:1 with m_BoneNodes (each element is hash(bone_name)))
-    dmArray<spBone*>        m_Bones;        // Matches 1:1 with m_BoneNodes
+    dmArray<spine::Bone*>   m_Bones;        // Matches 1:1 with m_BoneNodes
 
     // IK targets for GUI spine nodes
     dmArray<GuiIKTarget>    m_IKTargets;           // targets that follow GUI nodes
@@ -76,6 +85,7 @@ struct InternalGuiNode
     InternalGuiNode()
     : m_SpinePath(0)
     , m_SpineScene(0)
+    , m_SceneData(0)
     , m_SkeletonInstance(0)
     , m_AnimationStateInstance(0)
     , m_SkinId(0)
@@ -85,7 +95,36 @@ struct InternalGuiNode
     {}
 };
 
+// State owned by the integration layer that can be rebound to a new Spine
+// resource generation. Runtime pointers are deliberately not retained here.
+struct ReloadAnimationTrack
+{
+    dmhash_t                       m_AnimationId;
+    dmGui::Playback                m_Playback;
+    dmScript::LuaCallbackInfo*     m_CallbackInfo;
+    uint32_t                       m_CallbackId;
+    float                          m_Delay;
+    float                          m_TrackTime;
+    float                          m_TrackEnd;
+    float                          m_AnimationLast;
+    float                          m_TimeScale;
+    float                          m_Alpha;
+    float                          m_EventThreshold;
+    float                          m_MixAttachmentThreshold;
+    float                          m_AlphaAttachmentThreshold;
+    float                          m_MixDrawOrderThreshold;
+    float                          m_MixTime;
+    float                          m_MixDuration;
+    bool                           m_Active;
+    bool                           m_Loop;
+    bool                           m_Additive;
+    bool                           m_Reverse;
+    bool                           m_ShortestRotation;
+};
+
 static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNode* node, bool create_bones);
+static void DestroyNode(InternalGuiNode* node);
+static spine::IkConstraint* GetIKConstraint(InternalGuiNode* node, dmhash_t constraint_id);
 
 static bool GetCustomHashProperty(dmGui::HScene scene, dmGui::HNode node, dmhash_t property_id, dmhash_t* value)
 {
@@ -197,16 +236,16 @@ static void ClearTrackCallback(GuiSpineAnimationTrack* track)
     }
 }
 
-static void SendAnimationDone(InternalGuiNode* node, const spAnimationState* state, const spTrackEntry* entry, const spEvent* event)
+static void SendAnimationDone(InternalGuiNode* node, spine::AnimationState* state, spine::TrackEntry* entry, spine::Event* event)
 {
-    GuiSpineAnimationTrack* track = GetTrackFromIndex(node, entry->trackIndex);
+    GuiSpineAnimationTrack* track = GetTrackFromIndex(node, entry->getTrackIndex());
     if (!track)
         return;
 
     dmGameSystemDDF::SpineAnimationDone message;
-    message.m_AnimationId = dmHashString64(entry->animation->name);
+    message.m_AnimationId = dmHashString64(entry->getAnimation().getName().buffer());
     message.m_Playback    = track->m_Playback;
-    message.m_Track       = entry->trackIndex + 1; // Convert to 1-based indexing for API
+    message.m_Track       = entry->getTrackIndex() + 1; // Convert to 1-based indexing for API
 
     // Send to track-specific callback if available
     if (track->m_CallbackInfo && dmScript::IsCallbackValid(track->m_CallbackInfo))
@@ -241,23 +280,24 @@ static void SendAnimationDone(InternalGuiNode* node, const spAnimationState* sta
     }
 }
 
-static void SendSpineEvent(InternalGuiNode* node, const spAnimationState* state, const spTrackEntry* entry, const spEvent* event)
+static void SendSpineEvent(InternalGuiNode* node, spine::AnimationState* state, spine::TrackEntry* entry, spine::Event* event)
 {
-    GuiSpineAnimationTrack* track = GetTrackFromIndex(node, entry->trackIndex);
+    GuiSpineAnimationTrack* track = GetTrackFromIndex(node, entry->getTrackIndex());
     if (!track)
         return;
 
     dmGameSystemDDF::SpineEvent message;
-    message.m_AnimationId = dmHashString64(entry->animation->name);
-    message.m_EventId     = dmHashString64(event->data->name);
+    message.m_AnimationId = dmHashString64(entry->getAnimation().getName().buffer());
+    message.m_EventId     = dmHashString64(event->getData().getName().buffer());
     message.m_BlendWeight = 0.0f;//keyframe_event->m_BlendWeight;
-    message.m_T           = event->time;
-    message.m_Integer     = event->intValue;
-    message.m_Float       = event->floatValue;
-    message.m_String      = dmHashString64(event->stringValue?event->stringValue:"");
+    message.m_T           = event->getTime();
+    message.m_Integer     = event->getInt();
+    message.m_Float       = event->getFloat();
+    const char* event_string = event->getString().buffer();
+    message.m_String      = dmHashString64(event_string ? event_string : "");
     message.m_Node.m_Ref  = 0;
     message.m_Node.m_ContextTableRef = 0;
-    message.m_Track       = entry->trackIndex + 1; // Convert to 1-based indexing for API
+    message.m_Track       = entry->getTrackIndex() + 1; // Convert to 1-based indexing for API
 
     // Send to track-specific callback if available
     if (track->m_CallbackInfo && dmScript::IsCallbackValid(track->m_CallbackInfo))
@@ -284,10 +324,10 @@ static void SendSpineEvent(InternalGuiNode* node, const spAnimationState* state,
     }
 }
 
-static void SpineEventListener(spAnimationState* state, spEventType type, spTrackEntry* entry, spEvent* event)
+static void SpineEventListener(spine::AnimationState* state, spine::EventType type, spine::TrackEntry* entry, spine::Event* event, void* user_data)
 {
-    InternalGuiNode* node = (InternalGuiNode*)state->userData;
-    GuiSpineAnimationTrack* track = GetTrackFromIndex(node, entry->trackIndex);
+    InternalGuiNode* node = (InternalGuiNode*)user_data;
+    GuiSpineAnimationTrack* track = GetTrackFromIndex(node, entry->getTrackIndex());
 
     switch (type)
     {
@@ -300,7 +340,7 @@ static void SpineEventListener(spAnimationState* state, spEventType type, spTrac
     // case SP_ANIMATION_END:
     //     printf("Animation %s ended on track %i\n", entry->animation->name, entry->trackIndex);
     //     break;
-    case SP_ANIMATION_COMPLETE:
+    case spine::EventType_Complete:
         {
             if (!track)
                 break;
@@ -317,12 +357,12 @@ static void SpineEventListener(spAnimationState* state, spEventType type, spTrac
 
             if (IsPingPong(track->m_Playback))
             {
-                entry->reverse = !entry->reverse;
+                entry->setReverse(!entry->getReverse());
             }
             
         }
         break;
-    case SP_ANIMATION_DISPOSE:
+    case spine::EventType_Dispose:
         {
             if (track && track->m_AnimationInstance == entry)
             {
@@ -332,7 +372,7 @@ static void SpineEventListener(spAnimationState* state, spEventType type, spTrac
             }
         }
         break;
-    case SP_ANIMATION_EVENT:
+    case spine::EventType_Event:
         SendSpineEvent(node, state, entry, event);
         break;
     default:
@@ -344,31 +384,32 @@ static const uint32_t INVALID_ANIMATION_INDEX = 0xFFFFFFFF;
 
 static inline uint32_t FindAnimationIndex(InternalGuiNode* node, dmhash_t animation)
 {
-    SpineSceneResource* spine_scene = node->m_SpineScene;
-    uint32_t* index = spine_scene->m_AnimationNameToIndex.Get(animation);
+    SpineSceneData* scene_data = node->m_SceneData;
+    uint32_t* index = scene_data->m_AnimationNameToIndex.Get(animation);
     return index ? *index : INVALID_ANIMATION_INDEX;
 }
 
 static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::Playback playback,
                             float blend_duration, float offset, float playback_rate, int32_t track, dmScript::LuaCallbackInfo* callback)
 {
-    SpineSceneResource* spine_scene = node->m_SpineScene;
+    SpineSceneData* scene_data = node->m_SceneData;
     uint32_t index = FindAnimationIndex(node, animation_id);
     if (index == INVALID_ANIMATION_INDEX)
     {
         dmLogError("No animation '%s' found", dmHashReverseSafe64(animation_id));
         return false;
     }
-    else if (index >= spine_scene->m_Skeleton->animationsCount)
+    spine::Array<spine::Animation*>& animations = scene_data->m_Skeleton->getAnimations();
+    if (index >= animations.size())
     {
-        dmLogError("Animation index %u is too large. Number of animations are %u", index, spine_scene->m_Skeleton->animationsCount);
+        dmLogError("Animation index %u is too large. Number of animations are %u", index, (uint32_t)animations.size());
         return false;
     }
 
     int trackIndex = track - 1; // Convert from 1-based to 0-based indexing
     int loop = IsLooping(playback);
 
-    spAnimation* animation = spine_scene->m_Skeleton->animations[index];
+    spine::Animation* animation = animations[index];
 
     // Ensure we have enough tracks
     if (trackIndex >= node->m_AnimationTracks.Capacity())
@@ -394,18 +435,18 @@ static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::P
 
     // Set up the track
     targetTrack.m_AnimationId = animation_id;
-    targetTrack.m_AnimationInstance = spAnimationState_setAnimation(node->m_AnimationStateInstance, trackIndex, animation, loop);
+    targetTrack.m_AnimationInstance = &node->m_AnimationStateInstance->setAnimation(trackIndex, *animation, loop != 0);
     targetTrack.m_Playback = playback;
     targetTrack.m_CallbackInfo = callback;
     targetTrack.m_CallbackId++;
 
     // Configure animation properties
-    targetTrack.m_AnimationInstance->timeScale = playback_rate;
-    targetTrack.m_AnimationInstance->reverse = IsReverse(playback);
-    targetTrack.m_AnimationInstance->mixDuration = blend_duration;
-    targetTrack.m_AnimationInstance->trackTime = dmMath::Clamp(offset, 
-        targetTrack.m_AnimationInstance->animationStart, 
-        targetTrack.m_AnimationInstance->animationEnd);
+    targetTrack.m_AnimationInstance->setTimeScale(playback_rate);
+    targetTrack.m_AnimationInstance->setReverse(IsReverse(playback));
+    targetTrack.m_AnimationInstance->setMixDuration(blend_duration);
+    targetTrack.m_AnimationInstance->setTrackTime(dmMath::Clamp(offset,
+        targetTrack.m_AnimationInstance->getAnimationStart(),
+        targetTrack.m_AnimationInstance->getAnimationEnd()));
 
 
     return true;
@@ -423,10 +464,9 @@ bool SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene)
     if (!resource)
         return false;
 
-    // If alias is the same but the underlying resource changed via override, we must rebind.
-    // Only early-out when both alias and resource pointer match.
+    // The wrapper remains stable across a resource recreate, but its generation changes.
     if (spine_scene == node->m_SpinePath && resource == node->m_SpineScene)
-        return true;
+        return ReloadSceneResource(scene, hnode, resource);
 
     if (node->m_FindBones)
     {
@@ -434,22 +474,7 @@ bool SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene)
         FindBones(node);
     }
 
-    // A possible improvement is to find an animation with the same name in the new scene
-    // and try to use the same unit time cursor
-    if (node->m_AnimationStateInstance)
-        spAnimationState_dispose(node->m_AnimationStateInstance);
-    node->m_AnimationStateInstance = 0;
-    if (node->m_SkeletonInstance)
-        spSkeleton_dispose(node->m_SkeletonInstance);
-    node->m_SkeletonInstance = 0;
-
-    // Clean up all track callbacks since we're changing scenes
-    for (int32_t i = 0; i < node->m_AnimationTracks.Size(); i++)
-    {
-        ClearTrackCallback(&node->m_AnimationTracks[i]);
-    }
-    node->m_AnimationTracks.SetSize(0);
-
+    DestroyNode(node);
     return SetupNode(spine_scene, resource, node, true);
 }
 
@@ -495,7 +520,7 @@ static void CancelTrackAnimation(InternalGuiNode* node, int32_t track_index)
     if (!track || !track->m_AnimationInstance)
         return;
 
-    spAnimationState_clearTrack(node->m_AnimationStateInstance, track->m_AnimationInstance->trackIndex);
+    node->m_AnimationStateInstance->clearTrack(track->m_AnimationInstance->getTrackIndex());
 
     ClearTrackCallback(track);
     track->m_AnimationInstance = nullptr;
@@ -525,104 +550,127 @@ void CancelAnimation(dmGui::HScene scene, dmGui::HNode hnode, int32_t track)
 
 bool AddSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id_a, dmhash_t skin_id_b){
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    spSkin* skin_a = node->m_SpineScene->m_Skeleton->defaultSkin;
-    spSkin* skin_b = node->m_SpineScene->m_Skeleton->defaultSkin;
+    spine::Skin* skin_a = node->m_SceneData->m_Skeleton->getDefaultSkin();
+    spine::Skin* skin_b = node->m_SceneData->m_Skeleton->getDefaultSkin();
+    spine::Array<spine::Skin*>& skins = node->m_SceneData->m_Skeleton->getSkins();
 
     if (skin_id_a)
     {
-        uint32_t* index = node->m_SpineScene->m_SkinNameToIndex.Get(skin_id_a);
+        uint32_t* index = node->m_SceneData->m_SkinNameToIndex.Get(skin_id_a);
         if (!index)
         {
             dmLogError("No skin '%s' found", dmHashReverseSafe64(skin_id_a));
             return false;
         }
 
-        skin_a = node->m_SpineScene->m_Skeleton->skins[*index];
+        skin_a = skins[*index];
     }
 
     if (skin_id_b)
     {
-        uint32_t* index = node->m_SpineScene->m_SkinNameToIndex.Get(skin_id_b);
+        uint32_t* index = node->m_SceneData->m_SkinNameToIndex.Get(skin_id_b);
         if (!index)
         {
             dmLogError("No skin '%s' found", dmHashReverseSafe64(skin_id_b));
             return false;
         }
 
-        skin_b = node->m_SpineScene->m_Skeleton->skins[*index];
+        skin_b = skins[*index];
     }
 
-    spSkin_addSkin(skin_a,skin_b);
+    if (!skin_a || !skin_b)
+        return false;
+
+    skin_a->addSkin(*skin_b);
+    if (node->m_SkeletonInstance->getSkin() == skin_a)
+        node->m_SkeletonInstance->updateCache();
     return true;
 }
 
 bool CopySkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id_a, dmhash_t skin_id_b){
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    spSkin* skin_a = node->m_SpineScene->m_Skeleton->defaultSkin;
-    spSkin* skin_b = node->m_SpineScene->m_Skeleton->defaultSkin;
+    spine::Skin* skin_a = node->m_SceneData->m_Skeleton->getDefaultSkin();
+    spine::Skin* skin_b = node->m_SceneData->m_Skeleton->getDefaultSkin();
+    spine::Array<spine::Skin*>& skins = node->m_SceneData->m_Skeleton->getSkins();
 
     if (skin_id_a)
     {
-        uint32_t* index = node->m_SpineScene->m_SkinNameToIndex.Get(skin_id_a);
+        uint32_t* index = node->m_SceneData->m_SkinNameToIndex.Get(skin_id_a);
         if (!index)
         {
             return false;
         }
 
-        skin_a = node->m_SpineScene->m_Skeleton->skins[*index];
+        skin_a = skins[*index];
     }
     if (skin_id_b)
     {
-        uint32_t* index = node->m_SpineScene->m_SkinNameToIndex.Get(skin_id_b);
+        uint32_t* index = node->m_SceneData->m_SkinNameToIndex.Get(skin_id_b);
         if (!index)
         {
             return false;
         }
 
-        skin_b = node->m_SpineScene->m_Skeleton->skins[*index];
+        skin_b = skins[*index];
     }
 
-    spSkin_copySkin(skin_a,skin_b);
+    if (!skin_a || !skin_b)
+        return false;
+
+    skin_a->copySkin(*skin_b);
+    if (node->m_SkeletonInstance->getSkin() == skin_a)
+        node->m_SkeletonInstance->updateCache();
     return true;
 }
 
 bool ClearSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id){
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    spSkin* skin = node->m_SpineScene->m_Skeleton->defaultSkin;
+    spine::Skin* skin = node->m_SceneData->m_Skeleton->getDefaultSkin();
+    spine::Array<spine::Skin*>& skins = node->m_SceneData->m_Skeleton->getSkins();
 
     if (skin_id)
     {
-        uint32_t* index = node->m_SpineScene->m_SkinNameToIndex.Get(skin_id);
+        uint32_t* index = node->m_SceneData->m_SkinNameToIndex.Get(skin_id);
         if (!index)
         {
             return false;
         }
 
-        skin = node->m_SpineScene->m_Skeleton->skins[*index];
+        skin = skins[*index];
     }
 
-    spSkin_clear(skin);
+    if (!skin)
+        return false;
+
+    ClearSkinAttachments(node->m_SceneData, node->m_SkeletonInstance, skin);
+    return true;
+}
+
+static bool SetSkin(InternalGuiNode* node, dmhash_t skin_id)
+{
+    spine::Skin* skin = node->m_SceneData->m_Skeleton->getDefaultSkin();
+    spine::Array<spine::Skin*>& skins = node->m_SceneData->m_Skeleton->getSkins();
+    if (skin_id)
+    {
+        uint32_t* index = node->m_SceneData->m_SkinNameToIndex.Get(skin_id);
+        if (!index)
+        {
+            return false;
+        } else {
+            skin = skins[*index];
+        }
+    }
+
+    node->m_SkeletonInstance->setSkin(skin);
+    node->m_SkeletonInstance->setupPoseSlots();
+    node->m_SkinId = skin_id;
     return true;
 }
 
 bool SetSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    spSkin* skin = node->m_SpineScene->m_Skeleton->defaultSkin;
-    if (skin_id)
-    {
-        uint32_t* index = node->m_SpineScene->m_SkinNameToIndex.Get(skin_id);
-        if (!index)
-        {
-            return false;
-        } else {
-            skin = node->m_SpineScene->m_Skeleton->skins[*index];
-        }
-    }
-
-    spSkeleton_setSkin(node->m_SkeletonInstance, skin);
-    spSkeleton_setSlotsToSetupPose(node->m_SkeletonInstance);
-    return true;
+    return SetSkin(node, skin_id);
 }
 
 dmhash_t GetSkin(dmGui::HScene scene, dmGui::HNode hnode)
@@ -653,10 +701,10 @@ bool SetCursor(dmGui::HScene scene, dmGui::HNode hnode, float cursor, int32_t tr
 
     float unit_0_1 = fmodf(cursor + 1.0f, 1.0f);
 
-    float duration = targetTrack->m_AnimationInstance->animationEnd - targetTrack->m_AnimationInstance->animationStart;
+    float duration = targetTrack->m_AnimationInstance->getAnimationEnd() - targetTrack->m_AnimationInstance->getAnimationStart();
     float t = unit_0_1 * duration;
 
-    targetTrack->m_AnimationInstance->trackTime = t;
+    targetTrack->m_AnimationInstance->setTrackTime(t);
     return true;
 }
 
@@ -671,14 +719,14 @@ float GetCursor(dmGui::HScene scene, dmGui::HNode hnode, int32_t track)
         return 0.0f;
     }
     
-    spTrackEntry* entry = targetTrack->m_AnimationInstance;
+    spine::TrackEntry* entry = targetTrack->m_AnimationInstance;
     float unit = 0.0f;
     if (entry)
     {
-        float duration = entry->animationEnd - entry->animationStart;
+        float duration = entry->getAnimationEnd() - entry->getAnimationStart();
         if (duration != 0)
         {
-            unit = fmodf(entry->trackTime, duration) / duration;
+            unit = fmodf(entry->getTrackTime(), duration) / duration;
         }
     }
     return unit;
@@ -693,7 +741,7 @@ bool SetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode, float playback_rat
     if (!targetTrack || !targetTrack->m_AnimationInstance)
         return false;
     
-    targetTrack->m_AnimationInstance->timeScale = playback_rate;
+    targetTrack->m_AnimationInstance->setTimeScale(playback_rate);
     return true;
 }
 
@@ -706,15 +754,15 @@ float GetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode, int32_t track)
     if (!targetTrack || !targetTrack->m_AnimationInstance)
         return 1.0f;
     
-    return targetTrack->m_AnimationInstance->timeScale;
+    return targetTrack->m_AnimationInstance->getTimeScale();
 }
 
 bool SetAttachment(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t slot_id, dmhash_t attachment_id)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    SpineSceneResource* spine_scene = node->m_SpineScene;
+    SpineSceneData* scene_data = node->m_SceneData;
 
-    uint32_t* index = spine_scene->m_SlotNameToIndex.Get(slot_id);
+    uint32_t* index = scene_data->m_SlotNameToIndex.Get(slot_id);
     if (!index)
     {
         dmLogError("No slot named '%s'", dmHashReverseSafe64(slot_id));
@@ -724,7 +772,7 @@ bool SetAttachment(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t slot_id, dm
     const char* attachment_name = 0;
     if (attachment_id)
     {
-        const char** p_attachment_name = spine_scene->m_AttachmentHashToName.Get(attachment_id);
+        const char** p_attachment_name = scene_data->m_AttachmentHashToName.Get(attachment_id);
         if (!p_attachment_name)
         {
             dmLogError("No attachment named '%s'", dmHashReverseSafe64(attachment_id));
@@ -733,26 +781,40 @@ bool SetAttachment(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t slot_id, dm
         attachment_name = *p_attachment_name;
     }
 
-    spSlot* slot = node->m_SkeletonInstance->slots[*index];
+    spine::Array<spine::Slot*>& slots = node->m_SkeletonInstance->getSlots();
+    if (*index >= slots.size())
+        return false;
 
-    // it's a bit weird to use strings here, but we'd rather not use too much knowledge about the internals
-    return 1 == spSkeleton_setAttachment(node->m_SkeletonInstance, slot->data->name, attachment_name);
+    spine::Slot* slot = slots[*index];
+    spine::Attachment* attachment = 0;
+    if (attachment_name)
+    {
+        attachment = node->m_SkeletonInstance->getAttachment((int)*index, attachment_name);
+        if (!attachment)
+            return false;
+    }
+    slot->getPose().setAttachment(attachment);
+    return true;
 }
 
 bool SetSlotColor(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t slot_id, Vectormath::Aos::Vector4* color)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    SpineSceneResource* spine_scene = node->m_SpineScene;
+    SpineSceneData* scene_data = node->m_SceneData;
 
-    uint32_t* index = spine_scene->m_SlotNameToIndex.Get(slot_id);
+    uint32_t* index = scene_data->m_SlotNameToIndex.Get(slot_id);
     if (!index)
     {
         dmLogError("No slot named '%s'", dmHashReverseSafe64(slot_id));
         return false;
     }
 
-    spSlot* slot = node->m_SkeletonInstance->slots[*index];
-    spColor_setFromFloats(&slot->color, color->getX(), color->getY(), color->getZ(), color->getW());
+    spine::Array<spine::Slot*>& slots = node->m_SkeletonInstance->getSlots();
+    if (*index >= slots.size())
+        return false;
+
+    spine::Slot* slot = slots[*index];
+    slot->getPose().getColor().set(color->getX(), color->getY(), color->getZ(), color->getW());
 
     return true;
 }
@@ -760,13 +822,13 @@ bool SetSlotColor(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t slot_id, Vec
 void PhysicsTranslate(dmGui::HScene scene, dmGui::HNode hnode, Vectormath::Aos::Vector3* translation)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    spSkeleton_physicsTranslate(node->m_SkeletonInstance, translation->getX(), translation->getY());
+    node->m_SkeletonInstance->physicsTranslate(translation->getX(), translation->getY());
 }
 
 void PhysicsRotate(dmGui::HScene scene, dmGui::HNode hnode, Vectormath::Aos::Vector3* center, float degrees)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    spSkeleton_physicsRotate(node->m_SkeletonInstance, center->getX(), center->getY(), degrees);
+    node->m_SkeletonInstance->physicsRotate(center->getX(), center->getY(), degrees);
 }
 
 
@@ -785,26 +847,28 @@ static void DeleteBones(InternalGuiNode* node)
     node->m_Bones.SetSize(0);
 }
 
-static void UpdateTransform(dmGui::HScene scene, dmGui::HNode node, const spBone* bone)
+static void UpdateTransform(dmGui::HScene scene, dmGui::HNode node, spine::Bone* bone)
 {
-    float radians = spBone_getWorldRotationX((spBone*)bone);
-    float sx = spBone_getWorldScaleX((spBone*)bone);
-    float sy = spBone_getWorldScaleY((spBone*)bone);
+    spine::BonePose& pose = bone->getAppliedPose();
+    float rotation = pose.getWorldRotationX();
+    float sx = pose.getWorldScaleX();
+    float sy = pose.getWorldScaleY();
 
-    dmGui::SetNodeProperty(scene, node, dmGui::PROPERTY_POSITION, dmVMath::Vector4(bone->worldX, bone->worldY, 0, 0));
-    dmGui::SetNodeProperty(scene, node, dmGui::PROPERTY_EULER, dmVMath::Vector4(0, 0, radians, 0));
+    dmGui::SetNodeProperty(scene, node, dmGui::PROPERTY_POSITION, dmVMath::Vector4(pose.getWorldX(), pose.getWorldY(), 0, 0));
+    dmGui::SetNodeProperty(scene, node, dmGui::PROPERTY_EULER, dmVMath::Vector4(0, 0, rotation, 0));
     dmGui::SetNodeProperty(scene, node, dmGui::PROPERTY_SCALE, dmVMath::Vector4(sx, sy, 1, 0));
 }
 
-static dmGui::HNode CreateBone(dmGui::HScene scene, dmGui::HNode gui_parent, dmGui::AdjustMode adjust_mode, const char* spine_gui_node_id, spBone* bone)
+static dmGui::HNode CreateBone(dmGui::HScene scene, dmGui::HNode gui_parent, dmGui::AdjustMode adjust_mode, const char* spine_gui_node_id, spine::Bone* bone)
 {
-    dmVMath::Point3 position = dmVMath::Point3(bone->x, bone->y, 0);
+    spine::BonePose& pose = bone->getPose();
+    dmVMath::Point3 position = dmVMath::Point3(pose.getX(), pose.getY(), 0);
     dmGui::HNode gui_bone = dmGui::NewNode(scene, position, dmVMath::Vector3(0,0,0), dmGui::NODE_TYPE_BOX, 0);
     if (!gui_bone)
         return 0;
 
     char id_str[256];
-    dmSnPrintf(id_str, sizeof(id_str), "%s/%s", spine_gui_node_id, bone->data->name);
+    dmSnPrintf(id_str, sizeof(id_str), "%s/%s", spine_gui_node_id, bone->getData().getName().buffer());
     dmhash_t id = dmHashString64(id_str);
 
     dmGui::SetNodeId(scene, gui_bone, id);
@@ -817,7 +881,7 @@ static dmGui::HNode CreateBone(dmGui::HScene scene, dmGui::HNode gui_parent, dmG
     return gui_bone;
 }
 
-static bool CreateBones(InternalGuiNode* node, dmGui::HScene scene, dmGui::HNode gui_parent, spBone* bone)
+static bool CreateBones(InternalGuiNode* node, dmGui::HScene scene, dmGui::HNode gui_parent, spine::Bone* bone)
 {
     dmGui::HNode gui_bone = CreateBone(scene, gui_parent, node->m_AdjustMode, node->m_Id, bone);
     if (!gui_bone)
@@ -825,13 +889,13 @@ static bool CreateBones(InternalGuiNode* node, dmGui::HScene scene, dmGui::HNode
 
     node->m_BonesNodes.Push(gui_bone);
     node->m_BonesIds.Push(dmGui::GetNodeId(scene, gui_bone));
-    node->m_BonesNames.Push(dmHashString64(bone->data->name));
+    node->m_BonesNames.Push(dmHashString64(bone->getData().getName().buffer()));
     node->m_Bones.Push(bone);
 
-    int count = bone->childrenCount;
-    for (int i = 0; i < count; ++i)
+    spine::Array<spine::Bone*>& children = bone->getChildren();
+    for (size_t i = 0; i < children.size(); ++i)
     {
-        spBone* child_bone = bone->children[i];
+        spine::Bone* child_bone = children[i];
 
         if (!CreateBones(node, scene, gui_parent, child_bone))
             return false;
@@ -851,7 +915,7 @@ static bool CreateBones(InternalGuiNode* node)
         return true;
     }
 
-    uint32_t num_bones = (uint32_t)node->m_SkeletonInstance->bonesCount;
+    uint32_t num_bones = (uint32_t)node->m_SkeletonInstance->getBones().size();
     if (node->m_BonesNodes.Capacity() < num_bones)
     {
         node->m_BonesNodes.SetCapacity(num_bones);
@@ -860,7 +924,7 @@ static bool CreateBones(InternalGuiNode* node)
         node->m_Bones.SetCapacity(num_bones);
     }
 
-    return CreateBones(node, node->m_GuiScene, node->m_GuiNode, node->m_SkeletonInstance->root);
+    return CreateBones(node, node->m_GuiScene, node->m_GuiNode, node->m_SkeletonInstance->getRootBone());
 }
 
 static void UpdateBones(InternalGuiNode* node)
@@ -872,7 +936,7 @@ static void UpdateBones(InternalGuiNode* node)
     for (uint32_t i = 0; i < num_bones; ++i)
     {
         dmGui::HNode gui_bone = node->m_BonesNodes[i];
-        spBone* bone = node->m_Bones[i];
+        spine::Bone* bone = node->m_Bones[i];
         UpdateTransform(scene, gui_bone, bone);
     }
 }
@@ -895,15 +959,15 @@ static void FindGuiBones(InternalGuiNode* node, dmGui::HScene scene, dmGui::HNod
     }
 }
 
-static void FindSpineBones(InternalGuiNode* node, spBone* bone)
+static void FindSpineBones(InternalGuiNode* node, spine::Bone* bone)
 {
     // We add them in the same order as they were created
     node->m_Bones.Push(bone);
 
-    int count = bone->childrenCount;
-    for (int i = 0; i < count; ++i)
+    spine::Array<spine::Bone*>& children = bone->getChildren();
+    for (size_t i = 0; i < children.size(); ++i)
     {
-        spBone* child_bone = bone->children[i];
+        spine::Bone* child_bone = children[i];
         FindSpineBones(node, child_bone);
     }
 }
@@ -921,11 +985,13 @@ static void FindBones(InternalGuiNode* node)
         child = dmGui::GetNextNode(node->m_GuiScene, child);
     }
 
-    FindSpineBones(node, node->m_SkeletonInstance->root);
+    FindSpineBones(node, node->m_SkeletonInstance->getRootBone());
 }
 
 static void DestroyNode(InternalGuiNode* node)
 {
+    SpineSceneData* scene_data = node->m_SceneData;
+
     DeleteBones(node);
 
     // Clean up all track callbacks
@@ -935,10 +1001,23 @@ static void DestroyNode(InternalGuiNode* node)
     }
     node->m_AnimationTracks.SetCapacity(0);
 
+    node->m_IKTargets.SetSize(0);
+    node->m_IKTargetPositions.SetSize(0);
+
     if (node->m_AnimationStateInstance)
-        spAnimationState_dispose(node->m_AnimationStateInstance);
+    {
+        delete node->m_AnimationStateInstance;
+        node->m_AnimationStateInstance = 0;
+    }
     if (node->m_SkeletonInstance)
-        spSkeleton_dispose(node->m_SkeletonInstance);
+    {
+        delete node->m_SkeletonInstance;
+        node->m_SkeletonInstance = 0;
+    }
+
+    node->m_SceneData = 0;
+    node->m_SpineScene = 0;
+    ReleaseSceneData(scene_data);
 
     //delete node; // don't delete it. It's already been registered with the comp_gui and we need to wait for the GuiDestroy
 }
@@ -957,15 +1036,7 @@ static void* GuiCreate(const dmGameSystem::CompGuiNodeContext* ctx, void* contex
 static void GuiDestroy(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameSystem::CustomNodeCtx* nodectx)
 {
     InternalGuiNode* node = (InternalGuiNode*)nodectx->m_NodeData;
-
-    // Clean up all track callbacks
-    for (int32_t i = 0; i < node->m_AnimationTracks.Size(); i++)
-    {
-        ClearTrackCallback(&node->m_AnimationTracks[i]);
-    }
-
-    // Track callbacks are already cleaned up above
-
+    DestroyNode(node);
     delete node;
     dmSpine::GuiSpineSceneRelease(nodectx->m_Scene);
     dmSpine::GuiSpineUnregisterNode(nodectx->m_Scene, nodectx->m_Node);
@@ -973,10 +1044,18 @@ static void GuiDestroy(const dmGameSystem::CompGuiNodeContext* ctx, const dmGame
 
 static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNode* node, bool create_bones)
 {
+    SpineSceneData* scene_data = RetainSceneData(resource);
+    if (!scene_data)
+    {
+        dmLogError("%s: Spine scene has no data", __FUNCTION__);
+        return false;
+    }
+
     node->m_SpinePath    = path;
     node->m_SpineScene   = resource;
+    node->m_SceneData    = scene_data;
 
-    node->m_SkeletonInstance = spSkeleton_create(node->m_SpineScene->m_Skeleton);
+    node->m_SkeletonInstance = new spine::Skeleton(*node->m_SceneData->m_Skeleton);
     if (!node->m_SkeletonInstance)
     {
         dmLogError("%s: Failed to create skeleton instance", __FUNCTION__);
@@ -984,9 +1063,9 @@ static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNo
         return false;
     }
 
-    SetSkin(node->m_GuiScene, node->m_GuiNode, 0);
+    SetSkin(node, 0);
 
-    node->m_AnimationStateInstance = spAnimationState_create(node->m_SpineScene->m_AnimationStateData);
+    node->m_AnimationStateInstance = new spine::AnimationState(*node->m_SceneData->m_AnimationStateData);
     if (!node->m_AnimationStateInstance)
     {
         dmLogError("%s: Failed to create animation state instance", __FUNCTION__);
@@ -994,18 +1073,17 @@ static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNo
         return false;
     }
 
-    node->m_AnimationStateInstance->userData = node;
-    node->m_AnimationStateInstance->listener = SpineEventListener;
+    node->m_AnimationStateInstance->setListener(SpineEventListener, node);
 
     // Initialize animation tracks array
     node->m_AnimationTracks.SetCapacity(8); // Start with capacity for 8 tracks
 
-    spSkeleton_setToSetupPose(node->m_SkeletonInstance);
-    spSkeleton_updateWorldTransform(node->m_SkeletonInstance, SP_PHYSICS_NONE);
+    node->m_SkeletonInstance->setupPose();
+    node->m_SkeletonInstance->updateWorldTransform(spine::Physics_None);
 
     node->m_Transform = dmVMath::Matrix4::identity();
 
-    dmGui::SetNodeTexture(node->m_GuiScene, node->m_GuiNode, dmGui::NODE_TEXTURE_TYPE_TEXTURE_SET, (dmGui::HTextureSource)node->m_SpineScene->m_TextureSet);
+    dmGui::SetNodeTexture(node->m_GuiScene, node->m_GuiNode, dmGui::NODE_TEXTURE_TYPE_TEXTURE_SET, (dmGui::HTextureSource)node->m_SceneData->m_TextureSet);
 
     if (create_bones)
     {
@@ -1014,6 +1092,198 @@ static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNo
 
     return true;
 
+}
+
+static void CaptureReloadAnimationTracks(InternalGuiNode* node, dmArray<ReloadAnimationTrack>& tracks)
+{
+    uint32_t track_count = node->m_AnimationTracks.Size();
+    if (track_count > tracks.Capacity())
+        tracks.SetCapacity(track_count);
+
+    for (uint32_t i = 0; i < track_count; ++i)
+    {
+        GuiSpineAnimationTrack& source = node->m_AnimationTracks[i];
+        ReloadAnimationTrack saved = {};
+        saved.m_AnimationId = source.m_AnimationId;
+        saved.m_Playback = source.m_Playback;
+        saved.m_CallbackInfo = source.m_CallbackInfo;
+        saved.m_CallbackId = source.m_CallbackId;
+
+        // Move callback ownership out of the live track before DestroyNode. The
+        // callback is either moved back to a rebuilt track or destroyed once.
+        source.m_CallbackInfo = 0;
+
+        spine::TrackEntry* entry = source.m_AnimationInstance;
+        saved.m_Active = entry != 0 && source.m_AnimationId != 0;
+        if (saved.m_Active)
+        {
+            saved.m_Loop = entry->getLoop();
+            saved.m_Additive = entry->getAdditive();
+            saved.m_Reverse = entry->getReverse();
+            saved.m_ShortestRotation = entry->getShortestRotation();
+            saved.m_Delay = entry->getDelay();
+            saved.m_TrackTime = entry->getTrackTime();
+            saved.m_TrackEnd = entry->getTrackEnd();
+            saved.m_AnimationLast = entry->getAnimationLast();
+            saved.m_TimeScale = entry->getTimeScale();
+            saved.m_Alpha = entry->getAlpha();
+            saved.m_EventThreshold = entry->getEventThreshold();
+            saved.m_MixAttachmentThreshold = entry->getMixAttachmentThreshold();
+            saved.m_AlphaAttachmentThreshold = entry->getAlphaAttachmentThreshold();
+            saved.m_MixDrawOrderThreshold = entry->getMixDrawOrderThreshold();
+            saved.m_MixTime = entry->getMixTime();
+            saved.m_MixDuration = entry->getMixDuration();
+        }
+        tracks.Push(saved);
+    }
+}
+
+static void DestroyReloadCallbacks(dmArray<ReloadAnimationTrack>& tracks)
+{
+    for (uint32_t i = 0; i < tracks.Size(); ++i)
+    {
+        if (tracks[i].m_CallbackInfo)
+        {
+            dmScript::DestroyCallback(tracks[i].m_CallbackInfo);
+            tracks[i].m_CallbackInfo = 0;
+        }
+    }
+}
+
+static void RestoreReloadAnimationTracks(InternalGuiNode* node, dmArray<ReloadAnimationTrack>& tracks)
+{
+    uint32_t track_count = tracks.Size();
+    if (track_count > node->m_AnimationTracks.Capacity())
+        node->m_AnimationTracks.SetCapacity(track_count);
+
+    while (node->m_AnimationTracks.Size() < track_count)
+    {
+        GuiSpineAnimationTrack track = {};
+        track.m_Playback = dmGui::PLAYBACK_LOOP_FORWARD;
+        node->m_AnimationTracks.Push(track);
+    }
+
+    spine::Array<spine::Animation*>& animations = node->m_SceneData->m_Skeleton->getAnimations();
+    for (uint32_t i = 0; i < track_count; ++i)
+    {
+        ReloadAnimationTrack& saved = tracks[i];
+        if (!saved.m_Active)
+            continue;
+
+        uint32_t animation_index = FindAnimationIndex(node, saved.m_AnimationId);
+        if (animation_index == INVALID_ANIMATION_INDEX || animation_index >= animations.size() || !animations[animation_index])
+        {
+            dmLogWarning("Spine animation '%s' on track %u no longer exists after scene reload",
+                         dmHashReverseSafe64(saved.m_AnimationId), i + 1);
+            continue;
+        }
+
+        spine::TrackEntry& entry = node->m_AnimationStateInstance->setAnimation((int)i, *animations[animation_index], saved.m_Loop);
+        entry.setAdditive(saved.m_Additive);
+        entry.setReverse(saved.m_Reverse);
+        entry.setShortestRotation(saved.m_ShortestRotation);
+        entry.setDelay(saved.m_Delay);
+        entry.setTrackEnd(saved.m_TrackEnd);
+        entry.setTimeScale(saved.m_TimeScale);
+        entry.setAlpha(saved.m_Alpha);
+        entry.setEventThreshold(saved.m_EventThreshold);
+        entry.setMixAttachmentThreshold(saved.m_MixAttachmentThreshold);
+        entry.setAlphaAttachmentThreshold(saved.m_AlphaAttachmentThreshold);
+        entry.setMixDrawOrderThreshold(saved.m_MixDrawOrderThreshold);
+        entry.setMixDuration(saved.m_MixDuration);
+        entry.setMixTime(saved.m_MixTime);
+        entry.setTrackTime(saved.m_TrackTime);
+        entry.setAnimationLast(saved.m_AnimationLast);
+
+        GuiSpineAnimationTrack& target = node->m_AnimationTracks[i];
+        target.m_AnimationInstance = &entry;
+        target.m_AnimationId = saved.m_AnimationId;
+        target.m_Playback = saved.m_Playback;
+        target.m_CallbackInfo = saved.m_CallbackInfo;
+        target.m_CallbackId = saved.m_CallbackId;
+        saved.m_CallbackInfo = 0;
+    }
+
+    // Destroys callbacks for tracks that could not be restored (for example,
+    // because their animation was removed from the reloaded scene).
+    DestroyReloadCallbacks(tracks);
+}
+
+static void CaptureReloadIKTargets(const dmArray<GuiIKTarget>& source, dmArray<GuiIKTarget>& targets)
+{
+    uint32_t target_count = source.Size();
+    if (target_count > targets.Capacity())
+        targets.SetCapacity(target_count);
+    for (uint32_t i = 0; i < target_count; ++i)
+        targets.Push(source[i]);
+}
+
+static void RestoreReloadIKTargets(InternalGuiNode* node, const dmArray<GuiIKTarget>& targets, dmArray<GuiIKTarget>& destination)
+{
+    uint32_t target_count = targets.Size();
+    if (target_count > destination.Capacity())
+        destination.SetCapacity(target_count);
+
+    for (uint32_t i = 0; i < target_count; ++i)
+    {
+        GuiIKTarget target = targets[i];
+        target.m_Constraint = GetIKConstraint(node, target.m_ConstraintHash);
+        if (!target.m_Constraint)
+        {
+            dmLogWarning("Spine IK constraint '%s' no longer exists after scene reload",
+                         dmHashReverseSafe64(target.m_ConstraintHash));
+            continue;
+        }
+        destination.Push(target);
+    }
+}
+
+bool ReloadSceneResource(dmGui::HScene scene, dmGui::HNode hnode, SpineSceneResource* resource)
+{
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    if (!node || !resource || node->m_SpineScene != resource)
+        return false;
+
+    if (node->m_SceneData == resource->m_Data)
+        return true;
+
+    const dmhash_t path = node->m_SpinePath;
+    const dmhash_t skin_id = node->m_SkinId;
+    bool create_bones = node->m_FindBones || node->m_BonesNodes.Size() > 0;
+    float animation_state_time_scale = node->m_AnimationStateInstance ? node->m_AnimationStateInstance->getTimeScale() : 1.0f;
+
+    dmArray<ReloadAnimationTrack> animation_tracks;
+    dmArray<GuiIKTarget> ik_targets;
+    dmArray<GuiIKTarget> ik_target_positions;
+    CaptureReloadAnimationTracks(node, animation_tracks);
+    CaptureReloadIKTargets(node->m_IKTargets, ik_targets);
+    CaptureReloadIKTargets(node->m_IKTargetPositions, ik_target_positions);
+
+    // Cloned bone nodes are discovered lazily. Find them before teardown so
+    // DestroyNode can remove the old hierarchy before creating replacements.
+    if (node->m_FindBones)
+    {
+        node->m_FindBones = 0;
+        FindBones(node);
+    }
+
+    DestroyNode(node);
+    if (!SetupNode(path, resource, node, create_bones))
+    {
+        DestroyReloadCallbacks(animation_tracks);
+        return false;
+    }
+
+    if (skin_id && !SetSkin(node, skin_id))
+    {
+        dmLogWarning("Spine skin '%s' no longer exists after scene reload", dmHashReverseSafe64(skin_id));
+    }
+
+    node->m_AnimationStateInstance->setTimeScale(animation_state_time_scale);
+    RestoreReloadAnimationTracks(node, animation_tracks);
+    RestoreReloadIKTargets(node, ik_targets, node->m_IKTargets);
+    RestoreReloadIKTargets(node, ik_target_positions, node->m_IKTargetPositions);
+    return true;
 }
 
 static void* GuiClone(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameSystem::CustomNodeCtx* nodectx)
@@ -1037,6 +1307,8 @@ static void* GuiClone(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameS
     // But, since the cloned nodes doesn't have any id's, we can't fetch them via id
     // So, we instead create specific gui node type for the bones, and let them register themselves to this cloned node
     SetupNode(src->m_SpinePath, src->m_SpineScene, dst, false);
+    if (src->m_SkinId)
+        SetSkin(dst, src->m_SkinId);
     // Only attempt to find bones on the cloned node if the source node had bones.
     // Avoids unnecessary scanning and array growth when the original had no bones created.
     dst->m_FindBones = src->m_BonesNodes.Size() > 0 ? 1 : 0;
@@ -1078,20 +1350,21 @@ static void* GuiClone(const dmGameSystem::CompGuiNodeContext* ctx, const dmGameS
             if (srcTrack.m_AnimationId && srcTrack.m_AnimationInstance)
             {
                 uint32_t index = FindAnimationIndex(dst, srcTrack.m_AnimationId);
-                if (index != INVALID_ANIMATION_INDEX && index < dst->m_SpineScene->m_Skeleton->animationsCount)
+                spine::Array<spine::Animation*>& animations = dst->m_SceneData->m_Skeleton->getAnimations();
+                if (index != INVALID_ANIMATION_INDEX && index < animations.size())
                 {
-                    spAnimation* animation = dst->m_SpineScene->m_Skeleton->animations[index];
+                    spine::Animation* animation = animations[index];
                     if (animation)
                     {
                         int loop = IsLooping(srcTrack.m_Playback);
-                        dstTrack.m_AnimationInstance = spAnimationState_setAnimation(dst->m_AnimationStateInstance, i, animation, loop);
+                        dstTrack.m_AnimationInstance = &dst->m_AnimationStateInstance->setAnimation(i, *animation, loop != 0);
 
                         // Copy the state of the animation
                         if (dstTrack.m_AnimationInstance)
                         {
-                            dstTrack.m_AnimationInstance->trackTime = srcTrack.m_AnimationInstance->trackTime;
-                            dstTrack.m_AnimationInstance->reverse = srcTrack.m_AnimationInstance->reverse;
-                            dstTrack.m_AnimationInstance->timeScale = srcTrack.m_AnimationInstance->timeScale;
+                            dstTrack.m_AnimationInstance->setTrackTime(srcTrack.m_AnimationInstance->getTrackTime());
+                            dstTrack.m_AnimationInstance->setReverse(srcTrack.m_AnimationInstance->getReverse());
+                            dstTrack.m_AnimationInstance->setTimeScale(srcTrack.m_AnimationInstance->getTimeScale());
                         }
                     }
                 }
@@ -1109,10 +1382,11 @@ static void GuiSetNodeDesc(const dmGameSystem::CompGuiNodeContext* ctx, const dm
 
     dmhash_t name_hash = 0;
     dmhash_t default_animation_id = 0;
+    dmhash_t skin_id = 0;
     bool create_bones = false;
     if (!GetCustomHashProperty(nodectx->m_Scene, nodectx->m_Node, SPINE_SCENE, &name_hash) ||
         !GetCustomHashProperty(nodectx->m_Scene, nodectx->m_Node, SPINE_DEFAULT_ANIMATION, &default_animation_id) ||
-        !GetCustomHashProperty(nodectx->m_Scene, nodectx->m_Node, SPINE_SKIN, &node->m_SkinId) ||
+        !GetCustomHashProperty(nodectx->m_Scene, nodectx->m_Node, SPINE_SKIN, &skin_id) ||
         !GetCustomBoolProperty(nodectx->m_Scene, nodectx->m_Node, SPINE_CREATE_BONES, &create_bones))
     {
         return;
@@ -1129,8 +1403,8 @@ static void GuiSetNodeDesc(const dmGameSystem::CompGuiNodeContext* ctx, const dm
 
     SetupNode(name_hash, resource, node, create_bones);
 
-    if (node->m_SkinId) {
-        SetSkin(node->m_GuiScene, node->m_GuiNode, node->m_SkinId);
+    if (skin_id) {
+        SetSkin(node, skin_id);
     }
 
     if (default_animation_id) {
@@ -1141,6 +1415,15 @@ static void GuiSetNodeDesc(const dmGameSystem::CompGuiNodeContext* ctx, const dm
 static void GuiGetVertices(const dmGameSystem::CustomNodeCtx* nodectx, uint32_t decl_size, dmBuffer::StreamDeclaration* decl, uint32_t struct_size, dmArray<uint8_t>& vertices)
 {
     InternalGuiNode* node = (InternalGuiNode*) nodectx->m_NodeData;
+
+    if (node->m_SpineScene && node->m_SceneData != node->m_SpineScene->m_Data &&
+        !ReloadSceneResource(nodectx->m_Scene, nodectx->m_Node, node->m_SpineScene))
+    {
+        return;
+    }
+
+    if (!node->m_SkeletonInstance)
+        return;
 
     if (sizeof(dmSpine::SpineVertex) != struct_size)
     {
@@ -1155,7 +1438,7 @@ static void GuiGetVertices(const dmGameSystem::CustomNodeCtx* nodectx, uint32_t 
     // We currently know it's xyz-uv-rgba
     dmArray<dmSpine::SpineVertex>* vbdata = (dmArray<dmSpine::SpineVertex>*)&vertices;
 
-    uint32_t num_vertices = dmSpine::GenerateVertexData(*vbdata, node->m_SkeletonInstance, type_context->m_SkeletonClipper, node->m_Transform, dmVMath::Vector4(1.0f), 0);
+    uint32_t num_vertices = dmSpine::GenerateVertexData(*vbdata, node->m_SkeletonInstance, type_context->m_SkeletonRenderer, node->m_Transform, dmVMath::Vector4(1.0f), 0);
     (void)num_vertices;
 }
 
@@ -1171,8 +1454,7 @@ static void ApplyIKTargets(InternalGuiNode* node)
         {
             // TODO: Convert target node space into IK space
             dmVMath::Vector4 target_pos = dmGui::GetNodeProperty(node->m_GuiScene, target.m_TargetNode, dmGui::PROPERTY_POSITION);
-            target.m_Constraint->target->x = target_pos.getX();
-            target.m_Constraint->target->y = target_pos.getY();
+            target.m_Constraint->getTarget().getPose().setPosition(target_pos.getX(), target_pos.getY());
         }
     }
 
@@ -1184,17 +1466,23 @@ static void ApplyIKTargets(InternalGuiNode* node)
         if (target.m_Constraint)
         {
             // TODO: Convert target node space into IK space
-            target.m_Constraint->target->x = target.m_Position.getX();
-            target.m_Constraint->target->y = target.m_Position.getY();
+            target.m_Constraint->getTarget().getPose().setPosition(target.m_Position.getX(), target.m_Position.getY());
         }
     }
-    // Clear the position-based targets after applying them (they're one-shot)
-    node->m_IKTargetPositions.SetSize(0);
 }
 
 static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
 {
     InternalGuiNode* node = (InternalGuiNode*)(nodectx->m_NodeData);
+
+    if (node->m_SpineScene && node->m_SceneData != node->m_SpineScene->m_Data &&
+        !ReloadSceneResource(nodectx->m_Scene, nodectx->m_Node, node->m_SpineScene))
+    {
+        return;
+    }
+
+    if (!node->m_SkeletonInstance)
+        return;
 
 // Temp fix begin!
     // since the comp_gui.cpp call dmGui::SetNodeTexture() with a null texture, we set it here again
@@ -1202,7 +1490,7 @@ static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
     if (node->m_FirstUpdate)
     {
         node->m_FirstUpdate = 0;
-        dmGui::SetNodeTexture(node->m_GuiScene, node->m_GuiNode, dmGui::NODE_TEXTURE_TYPE_TEXTURE_SET, (dmGui::HTextureSource)node->m_SpineScene->m_TextureSet);
+        dmGui::SetNodeTexture(node->m_GuiScene, node->m_GuiNode, dmGui::NODE_TEXTURE_TYPE_TEXTURE_SET, (dmGui::HTextureSource)node->m_SceneData->m_TextureSet);
     }
 // end temp fix
 
@@ -1229,18 +1517,23 @@ static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
 
     if (anyTrackPlaying)
     {
-        spAnimationState_update(node->m_AnimationStateInstance, anim_dt);
-        spAnimationState_apply(node->m_AnimationStateInstance, node->m_SkeletonInstance);
-        spSkeleton_update(node->m_SkeletonInstance, anim_dt);
-        spSkeleton_updateWorldTransform(node->m_SkeletonInstance, SP_PHYSICS_UPDATE);
+        node->m_AnimationStateInstance->update(anim_dt);
+        node->m_AnimationStateInstance->apply(*node->m_SkeletonInstance);
+    }
+
+    // Apply custom IK target poses after animation has written its pose, but
+    // before constraints consume those targets during world-transform update.
+    ApplyIKTargets(node);
+
+    if (anyTrackPlaying)
+    {
+        node->m_SkeletonInstance->update(anim_dt);
+        node->m_SkeletonInstance->updateWorldTransform(spine::Physics_Update);
     }
     else
     {
-        spSkeleton_updateWorldTransform(node->m_SkeletonInstance, SP_PHYSICS_NONE);
-    }   
-    
-    // Apply IK targets
-    ApplyIKTargets(node);
+        node->m_SkeletonInstance->updateWorldTransform(spine::Physics_None);
+    }
     
     DM_PROPERTY_ADD_U32(rmtp_SpineGuiNodes, 1);
     UpdateBones(node);
@@ -1250,7 +1543,7 @@ static dmGameObject::Result GuiNodeTypeSpineCreate(const dmGameSystem::CompGuiNo
 {
     GuiNodeTypeContext* type_context = new GuiNodeTypeContext;
 
-    type_context->m_SkeletonClipper = spSkeletonClipping_create();
+    type_context->m_SkeletonRenderer = new spine::SkeletonRenderer();
 
     dmGameSystem::CompGuiNodeTypeSetContext(type, type_context);
 
@@ -1270,32 +1563,63 @@ static dmGameObject::Result GuiNodeTypeSpineCreate(const dmGameSystem::CompGuiNo
 static dmGameObject::Result GuiNodeTypeSpineDestroy(const dmGameSystem::CompGuiNodeTypeCtx* ctx, dmGameSystem::CompGuiNodeType* type)
 {
     GuiNodeTypeContext* type_context = (GuiNodeTypeContext*)dmGameSystem::CompGuiNodeTypeGetContext(type);
-    spSkeletonClipping_dispose(type_context->m_SkeletonClipper);
+    delete type_context->m_SkeletonRenderer;
 
     delete type_context;
     return dmGameObject::RESULT_OK;
 }
 
+static spine::IkConstraint* GetIKConstraint(InternalGuiNode* node, dmhash_t constraint_id)
+{
+    if (!node || !node->m_SceneData || !node->m_SkeletonInstance)
+        return 0;
+
+    uint32_t* index = node->m_SceneData->m_IKNameToIndex.Get(constraint_id);
+    if (!index)
+        return 0;
+
+    spine::Array<spine::Constraint*>& constraints = node->m_SkeletonInstance->getConstraints();
+    if (*index >= constraints.size())
+        return 0;
+
+    spine::Constraint* constraint = constraints[*index];
+    if (!constraint || !constraint->getRTTI().instanceOf(spine::IkConstraint::rtti))
+        return 0;
+    return static_cast<spine::IkConstraint*>(constraint);
+}
+
+static bool RemoveIKTargets(dmArray<GuiIKTarget>& targets, dmhash_t constraint_id)
+{
+    bool removed = false;
+    for (uint32_t i = 0; i < targets.Size();)
+    {
+        if (constraint_id == targets[i].m_ConstraintHash)
+        {
+            targets.EraseSwap(i);
+            removed = true;
+        }
+        else
+        {
+            ++i;
+        }
+    }
+    return removed;
+}
+
 bool SetIKTargetPosition(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t constraint_id, Vectormath::Aos::Point3 position)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    if (!node)
+    spine::IkConstraint* constraint = GetIKConstraint(node, constraint_id);
+    if (!constraint)
         return false;
 
-    SpineSceneResource* spine_scene = node->m_SpineScene;
-    if (!spine_scene)
-        return false;
-
-    uint32_t* index = spine_scene->m_IKNameToIndex.Get(constraint_id);
-    if (!index)
-        return false;
-    if (*index > node->m_SkeletonInstance->ikConstraintsCount)
-        return false;
+    // A constraint has one persistent override mode. Replacing rather than
+    // appending also keeps repeated script calls from accumulating bindings.
+    RemoveIKTargets(node->m_IKTargets, constraint_id);
+    RemoveIKTargets(node->m_IKTargetPositions, constraint_id);
 
     if (node->m_IKTargetPositions.Full())
         node->m_IKTargetPositions.OffsetCapacity(2);
-
-    spIkConstraint* constraint = node->m_SkeletonInstance->ikConstraints[*index];
 
     GuiIKTarget target;
     target.m_ConstraintHash = constraint_id;
@@ -1310,23 +1634,15 @@ bool SetIKTargetPosition(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t const
 bool SetIKTarget(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t constraint_id, dmGui::HNode target_node)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    if (!node)
+    spine::IkConstraint* constraint = GetIKConstraint(node, constraint_id);
+    if (!constraint)
         return false;
 
-    SpineSceneResource* spine_scene = node->m_SpineScene;
-    if (!spine_scene)
-        return false;
-
-    uint32_t* index = spine_scene->m_IKNameToIndex.Get(constraint_id);
-    if (!index)
-        return false;
-    if (*index > node->m_SkeletonInstance->ikConstraintsCount)
-        return false;
+    RemoveIKTargets(node->m_IKTargetPositions, constraint_id);
+    RemoveIKTargets(node->m_IKTargets, constraint_id);
 
     if (node->m_IKTargets.Full())
         node->m_IKTargets.OffsetCapacity(2);
-
-    spIkConstraint* constraint = node->m_SkeletonInstance->ikConstraints[*index];
 
     GuiIKTarget target;
     target.m_ConstraintHash = constraint_id;
@@ -1344,27 +1660,9 @@ bool ResetIKTarget(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t constraint_
     if (!node)
         return false;
 
-    // Remove the constraint from position-based targets
-    for (uint32_t i = 0; i < node->m_IKTargetPositions.Size(); ++i)
-    {
-        if (constraint_id == node->m_IKTargetPositions[i].m_ConstraintHash)
-        {
-            node->m_IKTargetPositions.EraseSwap(i);
-            return true;
-        }
-    }
-
-    // Remove the constraint from node-based targets
-    for (uint32_t i = 0; i < node->m_IKTargets.Size(); ++i)
-    {
-        if (constraint_id == node->m_IKTargets[i].m_ConstraintHash)
-        {
-            node->m_IKTargets.EraseSwap(i);
-            return true;
-        }
-    }
-
-    return false;
+    bool removed = RemoveIKTargets(node->m_IKTargetPositions, constraint_id);
+    removed = RemoveIKTargets(node->m_IKTargets, constraint_id) || removed;
+    return removed;
 }
 
 } // namespace

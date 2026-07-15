@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated July 28, 2023. Replaces all prior versions.
+ * Last updated April 5, 2025. Replaces all prior versions.
  *
- * Copyright (c) 2013-2023, Esoteric Software LLC
+ * Copyright (c) 2013-2025, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software or
- * otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software
+ * or otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,102 +23,148 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
- * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef SPINE_SKIN_H_
-#define SPINE_SKIN_H_
+#ifndef Spine_Skin_h
+#define Spine_Skin_h
 
-#include <spine/dll.h>
-#include <spine/Attachment.h>
-#include <spine/IkConstraintData.h>
-#include <spine/TransformConstraintData.h>
-#include <spine/PathConstraintData.h>
-#include <spine/PhysicsConstraintData.h>
 #include <spine/Array.h>
+#include <spine/SpineString.h>
+#include <spine/Color.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace spine {
+	class Attachment;
 
-/* Size of hashtable used in skin structure for fast attachment lookup. */
-#define SKIN_ENTRIES_HASH_TABLE_SIZE 100
+	class Skeleton;
 
-struct spSkeleton;
+	class BoneData;
 
-_SP_ARRAY_DECLARE_TYPE(spBoneDataArray, spBoneData*)
+	class ConstraintData;
 
-_SP_ARRAY_DECLARE_TYPE(spIkConstraintDataArray, spIkConstraintData*)
+	/// Stores attachments by slot index and placeholder name. Multiple Skeleton instances can use the same skins.
+	/// See SkeletonData::getDefaultSkin, Skeleton::getSkin, and
+	/// http://esotericsoftware.com/spine-runtime-skins in the Spine Runtimes Guide.
+	class SP_API Skin : public SpineObject {
+		friend class Skeleton;
 
-_SP_ARRAY_DECLARE_TYPE(spTransformConstraintDataArray, spTransformConstraintData*)
+	public:
+		class SP_API AttachmentMap : public SpineObject {
+			friend class Skin;
 
-_SP_ARRAY_DECLARE_TYPE(spPathConstraintDataArray, spPathConstraintData*)
+		public:
+			struct SP_API Entry {
+				size_t _slotIndex;
+				String _placeholder;
+				Attachment *_attachment;
 
-_SP_ARRAY_DECLARE_TYPE(spPhysicsConstraintDataArray, spPhysicsConstraintData*)
+				Entry(size_t slotIndex, const String &placeholder, Attachment *attachment)
+					: _slotIndex(slotIndex), _placeholder(placeholder), _attachment(attachment) {
+				}
+			};
 
-typedef struct spSkin {
-	char *name;
+			class SP_API Entries {
+				friend class AttachmentMap;
 
-	spBoneDataArray *bones;
-	spIkConstraintDataArray *ikConstraints;
-	spTransformConstraintDataArray *transformConstraints;
-	spPathConstraintDataArray *pathConstraints;
-    spPhysicsConstraintDataArray *physicsConstraints;
-    spColor color;
-} spSkin;
+			public:
+				bool hasNext() {
+					while (true) {
+						if (_slotIndex >= _buckets.size()) return false;
+						if (_bucketIndex >= _buckets[_slotIndex].size()) {
+							_bucketIndex = 0;
+							++_slotIndex;
+							continue;
+						};
+						return true;
+					}
+				}
 
-/* Private structs, needed by Skeleton */
-typedef struct _Entry _Entry;
-typedef struct _Entry spSkinEntry;
-struct _Entry {
-	int slotIndex;
-	char *name;
-	spAttachment *attachment;
-	_Entry *next;
-};
+				Entry &next() {
+					Entry &result = _buckets[_slotIndex][_bucketIndex];
+					++_bucketIndex;
+					return result;
+				}
 
-typedef struct _SkinHashTableEntry _SkinHashTableEntry;
-struct _SkinHashTableEntry {
-	_Entry *entry;
-	_SkinHashTableEntry *next;
-};
+			protected:
+				Entries(Array<Array<Entry>> &buckets) : _buckets(buckets), _slotIndex(0), _bucketIndex(0) {
+				}
 
-typedef struct {
-	spSkin super;
-	_Entry *entries; /* entries list stored for getting attachment name by attachment index */
-	_SkinHashTableEntry *entriesHashTable[SKIN_ENTRIES_HASH_TABLE_SIZE]; /* hashtable for fast attachment lookup */
-} _spSkin;
+			private:
+				Array<Array<Entry>> &_buckets;
+				size_t _slotIndex;
+				size_t _bucketIndex;
+			};
 
-SP_API spSkin *spSkin_create(const char *name);
+			void put(size_t slotIndex, const String &placeholder, Attachment *attachment);
 
-SP_API void spSkin_dispose(spSkin *self);
+			Attachment *get(size_t slotIndex, const String &placeholder);
 
-/* The Skin owns the attachment. */
-SP_API void spSkin_setAttachment(spSkin *self, int slotIndex, const char *name, spAttachment *attachment);
-/* Returns 0 if the attachment was not found. */
-SP_API spAttachment *spSkin_getAttachment(const spSkin *self, int slotIndex, const char *name);
+			void remove(size_t slotIndex, const String &placeholder);
 
-/* Returns 0 if the slot or attachment was not found. */
-SP_API const char *spSkin_getAttachmentName(const spSkin *self, int slotIndex, int attachmentIndex);
+			Entries getEntries();
 
-/** Attach each attachment in this skin if the corresponding attachment in oldSkin is currently attached. */
-SP_API void spSkin_attachAll(const spSkin *self, struct spSkeleton *skeleton, const spSkin *oldspSkin);
+		protected:
+			AttachmentMap();
 
-/** Adds all attachments, bones, and constraints from the specified skin to this skin. */
-SP_API void spSkin_addSkin(spSkin *self, const spSkin *other);
+		private:
+			int findInBucket(Array<Entry> &, const String &placeholder);
 
-/** Adds all attachments, bones, and constraints from the specified skin to this skin. Attachments are deep copied. */
-SP_API void spSkin_copySkin(spSkin *self, const spSkin *other);
+			Array<Array<Entry>> _buckets;
+		};
 
-/** Returns all attachments in this skin. */
-SP_API spSkinEntry *spSkin_getAttachments(const spSkin *self);
+		explicit Skin(const String &name);
 
-/** Clears all attachments, bones, and constraints. */
-SP_API void spSkin_clear(spSkin *self);
+		~Skin();
 
-#ifdef __cplusplus
+		/// Adds an attachment to the skin for the specified slot index and placeholder name.
+		/// If the placeholder name already exists for the slot, the previous value is replaced.
+		void setAttachment(size_t slotIndex, const String &placeholder, Attachment *attachment);
+
+		/// Returns the attachment for the specified slot index and placeholder name, or NULL.
+		Attachment *getAttachment(size_t slotIndex, const String &placeholder);
+
+		// Removes the attachment from the skin.
+		void removeAttachment(size_t slotIndex, const String &placeholder);
+
+		/// Finds the placeholder names for a given slot. The results are added to the passed array.
+		/// @param slotIndex The target slotIndex. To find the slot index, use SkeletonData::findSlot and SlotData::getIndex.
+		/// @param names Found placeholder names will be added to this array.
+		void findNamesForSlot(size_t slotIndex, Array<String> &names);
+
+		/// Finds the attachments for a given slot. The results are added to the passed array of Attachments.
+		/// @param slotIndex The target slotIndex. To find the slot index, use SkeletonData::findSlot and SlotData::getIndex.
+		/// @param attachments Found Attachments will be added to this array.
+		void findAttachmentsForSlot(size_t slotIndex, Array<Attachment *> &attachments);
+
+		const String &getName();
+
+		/// Adds all attachments, bones, and constraints from the specified skin to this skin.
+		void addSkin(Skin &other);
+
+		/// Adds all attachments, bones, and constraints from the specified skin to this skin. Attachments are deep copied.
+		void copySkin(Skin &other);
+
+		AttachmentMap::Entries getAttachments();
+
+		Array<BoneData *> &getBones();
+
+		Array<ConstraintData *> &getConstraints();
+
+		Color &getColor() {
+			return _color;
+		}
+
+	private:
+		const String _name;
+		AttachmentMap _attachments;
+		Array<BoneData *> _bones;
+		Array<ConstraintData *> _constraints;
+		Color _color;
+
+		/// Attach all attachments from this skin if the corresponding attachment from the old skin is currently attached.
+		void attachAll(Skeleton &skeleton, Skin &oldSkin);
+	};
 }
-#endif
 
-#endif /* SPINE_SKIN_H_ */
+#endif /* Spine_Skin_h */

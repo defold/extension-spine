@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated July 28, 2023. Replaces all prior versions.
+ * Last updated April 5, 2025. Replaces all prior versions.
  *
- * Copyright (c) 2013-2023, Esoteric Software LLC
+ * Copyright (c) 2013-2025, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software or
- * otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software
+ * or otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,48 +23,91 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
- * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef SPINE_SLOT_H_
-#define SPINE_SLOT_H_
+#ifndef Spine_Slot_h
+#define Spine_Slot_h
 
-#include <spine/dll.h>
-#include <spine/Bone.h>
-#include <spine/Attachment.h>
+#include <spine/Posed.h>
 #include <spine/SlotData.h>
+#include <spine/SlotPose.h>
+#include <spine/Array.h>
+#include <spine/Color.h>
+#include <spine/Update.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace spine {
+	class Bone;
+	class Skeleton;
+	class Attachment;
 
-typedef struct spSlot {
-	spSlotData *data;
-	spBone *bone;
-	spColor color;
-	spColor *darkColor;
-	spAttachment *attachment;
-	int attachmentState;
+	/// Organizes attachments for Skeleton drawOrder purposes and provide a place to store state for an attachment.
+	///
+	/// State cannot be stored in an attachment itself because attachments are stateless and may be shared across multiple
+	/// skeletons.
+	class SP_API Slot : public PosedGeneric<SlotData, SlotPose, SlotPose> {
+		friend class VertexAttachment;
 
-	int deformCapacity;
-	int deformCount;
-	float *deform;
+		friend class Skeleton;
 
-	int sequenceIndex;
-} spSlot;
+		friend class SkeletonBounds;
 
-SP_API spSlot *spSlot_create(spSlotData *data, spBone *bone);
+		friend class SkeletonClipping;
 
-SP_API void spSlot_dispose(spSlot *self);
+		friend class SlotCurveTimeline;
 
-/* @param attachment May be 0 to clear the attachment for the slot. */
-SP_API void spSlot_setAttachment(spSlot *self, spAttachment *attachment);
+		friend class AttachmentTimeline;
 
-SP_API void spSlot_setToSetupPose(spSlot *self);
+		friend class RGBATimeline;
 
-#ifdef __cplusplus
+		friend class RGBTimeline;
+
+		friend class AlphaTimeline;
+
+		friend class RGBA2Timeline;
+
+		friend class RGB2Timeline;
+
+		friend class DeformTimeline;
+
+		friend class DrawOrderTimeline;
+
+		friend class EventTimeline;
+
+		friend class IkConstraintTimeline;
+
+		friend class PathConstraintMixTimeline;
+
+		friend class PathConstraintPositionTimeline;
+
+		friend class PathConstraintSpacingTimeline;
+
+		friend class ScaleTimeline;
+
+		friend class ShearTimeline;
+
+		friend class TransformConstraintTimeline;
+
+		friend class TranslateTimeline;
+
+		friend class TwoColorTimeline;
+
+		friend class AnimationState;
+
+	public:
+		Slot(SlotData &data, Skeleton &skeleton);
+
+		/// The bone this slot belongs to.
+		Bone &getBone();
+
+		void setupPose() override;
+
+	private:
+		Skeleton &_skeleton;
+		Bone &_bone;
+		int _attachmentState;
+	};
 }
-#endif
 
-#endif /* SPINE_SLOT_H_ */
+#endif /* Spine_Slot_h */

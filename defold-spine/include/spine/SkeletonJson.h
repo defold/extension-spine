@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated July 28, 2023. Replaces all prior versions.
+ * Last updated April 5, 2025. Replaces all prior versions.
  *
- * Copyright (c) 2013-2023, Esoteric Software LLC
+ * Copyright (c) 2013-2025, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software or
- * otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software
+ * or otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,44 +23,100 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
- * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef SPINE_SKELETONJSON_H_
-#define SPINE_SKELETONJSON_H_
+#ifndef Spine_SkeletonJson_h
+#define Spine_SkeletonJson_h
 
-#include <spine/dll.h>
-#include <spine/Attachment.h>
-#include <spine/AttachmentLoader.h>
-#include <spine/SkeletonData.h>
-#include <spine/Atlas.h>
-#include <spine/Animation.h>
+#include <spine/Array.h>
+#include <spine/SpineObject.h>
+#include <spine/SpineString.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace spine {
+	class Timeline;
 
-struct spAtlasAttachmentLoader;
+	class CurveTimeline;
 
-typedef struct spSkeletonJson {
-	float scale;
-	spAttachmentLoader *attachmentLoader;
-	char *error;
-} spSkeletonJson;
+	class CurveTimeline1;
 
-SP_API spSkeletonJson *spSkeletonJson_createWithLoader(spAttachmentLoader *attachmentLoader);
+	class BoneTimeline2;
 
-SP_API spSkeletonJson *spSkeletonJson_create(spAtlas *atlas);
+	class VertexAttachment;
 
-SP_API void spSkeletonJson_dispose(spSkeletonJson *self);
+	class Animation;
 
-SP_API spSkeletonData *spSkeletonJson_readSkeletonData(spSkeletonJson *self, const char *json);
+	class Json;
 
-SP_API spSkeletonData *spSkeletonJson_readSkeletonDataFile(spSkeletonJson *self, const char *path);
+	class SkeletonData;
 
-#ifdef __cplusplus
+	class Atlas;
+
+	class AttachmentLoader;
+
+	class LinkedMesh;
+
+	class String;
+
+	class Sequence;
+
+	class Skin;
+
+	class Attachment;
+
+	class SP_API SkeletonJson : public SpineObject {
+	public:
+		explicit SkeletonJson(Atlas &atlas);
+
+		explicit SkeletonJson(AttachmentLoader &attachmentLoader, bool ownsLoader = false);
+
+		~SkeletonJson();
+
+		SkeletonData *readSkeletonDataFile(const String &path);
+
+		SkeletonData *readSkeletonData(const char *json);
+
+		void setScale(float scale) {
+			_scale = scale;
+		}
+
+		const String &getError() const {
+			return _error;
+		}
+
+	private:
+		AttachmentLoader *_attachmentLoader;
+		Array<LinkedMesh *> _linkedMeshes;
+		float _scale;
+		const bool _ownsLoader;
+		String _error;
+
+		static Sequence *readSequence(Json *sequence);
+
+		static void setBezier(CurveTimeline *timeline, int frame, int value, int bezier, float time1, float value1, float cx1, float cy1, float cx2,
+							  float cy2, float time2, float value2);
+
+		static int readCurve(Json *curve, CurveTimeline *timeline, int bezier, int frame, int value, float time1, float time2, float value1,
+							 float value2, float scale);
+
+		static void readTimeline(Array<Timeline *> &timelines, Json *keyMap, CurveTimeline1 *timeline, float defaultValue, float scale);
+
+		static void readTimeline(Array<Timeline *> &timelines, Json *keyMap, BoneTimeline2 *timeline, const char *name1, const char *name2,
+								 float defaultValue, float scale);
+
+		Animation *readAnimation(Json *root, SkeletonData *skeletonData);
+
+		Attachment *readAttachment(Json *map, Skin *skin, int slotIndex, const char *placeholder, SkeletonData *skeletonData);
+
+		void readVertices(Json *attachmentMap, VertexAttachment *attachment, size_t verticesLength);
+
+		bool readDrawOrder(SkeletonData *skeletonData, Json *keyMap, int slotCount, const Array<int> *folderSlots, Array<int> &drawOrder);
+
+		void setError(Json *root, const String &value1, const String &value2);
+
+		int findSlotIndex(SkeletonData *skeletonData, const String &slotName, Array<Timeline *> timelines);
+	};
 }
-#endif
 
-#endif /* SPINE_SKELETONJSON_H_ */
+#endif /* Spine_SkeletonJson_h */

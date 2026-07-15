@@ -4,6 +4,9 @@ main_collection = /main/main.collectionc
 [script]
 shared_state = 1
 
+[automation_bridge]
+application_api = 1
+
 [spine]
 max_count = 8196
 
@@ -19,6 +22,7 @@ input_method = HiddenInputField
 title = extension-spine
 custom_resources = custom_res
 dependencies#0 = https://github.com/britzl/extension-imgui/archive/refs/heads/master.zip
+dependencies#1 = https://github.com/defold/extension-automation-bridge/archive/refs/heads/improvements.zip
 
 [library]
 include_dirs = defold-spine
@@ -36,4 +40,3 @@ max_count = 24
 
 [collection]
 max_instances = 8192
-

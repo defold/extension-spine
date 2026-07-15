@@ -19,3 +19,4 @@ bob.jar
 /debug.keystore.pass.txt
 /.clj-kondo/.cache
 /.lsp
+/automation-bridge-python/

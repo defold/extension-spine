@@ -1,5 +1,45 @@
 local create_atlas = require("examples.swap_spinescene.create_atlas")
 
+local SHARED_SKIN_MODELS = { "#spine_a", "#spine_a1" }
+
+local function run_shared_skin_regression(self)
+    if self.skin_regression_running then
+        return
+    end
+    self.skin_regression_running = true
+
+    -- spine_a and spine_a1 already share the statically loaded Spineboy scene.
+    -- Clearing its default skin removes the final owning references while the
+    -- second component still has non-owning attachment pointers in its slots.
+    local shared_scene = go.get(SHARED_SKIN_MODELS[1], "spine_scene")
+    assert(go.get(SHARED_SKIN_MODELS[2], "spine_scene") == shared_scene)
+    for _, model in ipairs(SHARED_SKIN_MODELS) do
+        spine.cancel(model)
+    end
+    spine.clear_skin(SHARED_SKIN_MODELS[1], nil)
+    print("GO shared skin last-reference clear completed")
+
+    -- Let at least one update/render use the sibling skeleton's retained raw
+    -- pointers, then rebuild both components from the already-loaded squirrel
+    -- scene so the timed demo can continue with valid attachments.
+    timer.delay(0.1, false, function()
+        local recovery_scene = go.get("#spine_b", "spine_scene")
+        for _, model in ipairs(SHARED_SKIN_MODELS) do
+            go.set(model, "spine_scene", recovery_scene)
+            spine.play_anim(model, "idle", go.PLAYBACK_LOOP_FORWARD)
+        end
+
+        timer.delay(0, false, function()
+            for _, model in ipairs(SHARED_SKIN_MODELS) do
+                assert(go.get(model, "spine_scene") == recovery_scene)
+            end
+            self.skin_regression_running = false
+            print("GO shared skin attachment restored: scene-reset")
+            print("GO shared skin regression passed: instances=2")
+        end)
+    end)
+end
+
 function init(self)
     -- Start both as spineboy
     spine.play_anim("#spine_a", "idle", go.PLAYBACK_LOOP_FORWARD)
@@ -66,3 +106,8 @@ function init(self)
 
 end
 
+function on_message(self, message_id, message, sender)
+    if message_id == hash("run_automation_regression") then
+        run_shared_skin_regression(self)
+    end
+end

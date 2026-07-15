@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated July 28, 2023. Replaces all prior versions.
+ * Last updated April 5, 2025. Replaces all prior versions.
  *
- * Copyright (c) 2013-2023, Esoteric Software LLC
+ * Copyright (c) 2013-2025, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software or
- * otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software
+ * or otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,35 +23,46 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
- * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef SPINE_EVENTDATA_H_
-#define SPINE_EVENTDATA_H_
+#ifndef Spine_EventData_h
+#define Spine_EventData_h
 
-#include <spine/dll.h>
+#include <spine/SpineObject.h>
+#include <spine/SpineString.h>
+#include <spine/Event.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace spine {
+	/// Stores the setup pose values for an Event.
+	class SP_API EventData : public SpineObject {
+		friend class SkeletonBinary;
 
-typedef struct spEventData {
-	char *name;
-	int intValue;
-	float floatValue;
-	char *stringValue;
-	char *audioPath;
-	float volume;
-	float balance;
-} spEventData;
+		friend class SkeletonJson;
 
-SP_API spEventData *spEventData_create(const char *name);
+		friend class Event;
 
-SP_API void spEventData_dispose(spEventData *self);
+	public:
+		explicit EventData(const String &name);
 
-#ifdef __cplusplus
+		/// The name of the event, unique across all events in the skeleton.
+		const String &getName() const;
+
+		/// The setup values that are shared by all events with this data.
+		Event &getSetupPose();
+		const Event &getSetupPose() const;
+
+		/// Path to an audio file relative to the audio folder as defined in Spine.
+		const String &getAudioPath() const;
+
+		void setAudioPath(const String &inValue);
+
+	private:
+		const String _name;
+		String _audioPath;
+		Event _setupPose;
+	};
 }
-#endif
 
-#endif /* SPINE_EVENTDATA_H_ */
+#endif /* Spine_EventData_h */

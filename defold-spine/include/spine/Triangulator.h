@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated July 28, 2023. Replaces all prior versions.
+ * Last updated April 5, 2025. Replaces all prior versions.
  *
- * Copyright (c) 2013-2023, Esoteric Software LLC
+ * Copyright (c) 2013-2025, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software or
- * otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software
+ * or otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,44 +23,42 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
- * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef SPINE_TRIANGULATOR_H
-#define SPINE_TRIANGULATOR_H
+#ifndef Spine_Triangulator_h
+#define Spine_Triangulator_h
 
-#include <spine/dll.h>
 #include <spine/Array.h>
+#include <spine/Pool.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace spine {
+	class SP_API Triangulator : public SpineObject {
+	public:
+		~Triangulator();
 
-typedef struct spTriangulator {
-	spArrayFloatArray *convexPolygons;
-	spArrayShortArray *convexPolygonsIndices;
+		Array<int> &triangulate(Array<float> &vertices);
 
-	spShortArray *indicesArray;
-	spIntArray *isConcaveArray;
-	spShortArray *triangles;
+		Array<Array<float> *> &decompose(Array<float> &vertices, Array<int> &triangles);
 
-	spArrayFloatArray *polygonPool;
-	spArrayShortArray *polygonIndicesPool;
-} spTriangulator;
+	private:
+		Array<Array<float> *> _convexPolygons;
+		Array<Array<int> *> _convexPolygonsIndices;
 
-SP_API spTriangulator *spTriangulator_create(void);
+		Array<int> _indices;
+		Array<bool> _isConcaveArray;
+		Array<int> _triangles;
 
-SP_API spShortArray *spTriangulator_triangulate(spTriangulator *self, spFloatArray *verticesArray);
+		Pool<Array<float>> _polygonPool;
+		Pool<Array<int>> _polygonIndicesPool;
 
-SP_API spArrayFloatArray *
-spTriangulator_decompose(spTriangulator *self, spFloatArray *verticesArray, spShortArray *triangles);
+		static bool isConcave(int index, int vertexCount, const float *vertices, const int *indices);
 
-SP_API void spTriangulator_dispose(spTriangulator *self);
+		static bool positiveArea(float p1x, float p1y, float p2x, float p2y, float p3x, float p3y);
 
-
-#ifdef __cplusplus
+		static int winding(float p1x, float p1y, float p2x, float p2y, float p3x, float p3y);
+	};
 }
-#endif
 
-#endif /* SPINE_TRIANGULATOR_H_ */
+#endif /* Spine_Triangulator_h */

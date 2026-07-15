@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated July 28, 2023. Replaces all prior versions.
+ * Last updated April 5, 2025. Replaces all prior versions.
  *
- * Copyright (c) 2013-2023, Esoteric Software LLC
+ * Copyright (c) 2013-2025, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software or
- * otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software
+ * or otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,48 +23,93 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
- * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef SPINE_BONEDATA_H_
-#define SPINE_BONEDATA_H_
+#ifndef Spine_BoneData_h
+#define Spine_BoneData_h
 
-#include <spine/dll.h>
+#include <spine/PosedData.h>
+#include <spine/BonePose.h>
+#include <spine/SpineString.h>
 #include <spine/Color.h>
+#include <spine/RTTI.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace spine {
+	class SP_API BoneData : public PosedDataGeneric<BonePose> {
+		friend class SkeletonBinary;
 
-typedef enum {
-	SP_INHERIT_NORMAL,
-	SP_INHERIT_ONLYTRANSLATION,
-	SP_INHERIT_NOROTATIONORREFLECTION,
-	SP_INHERIT_NOSCALE,
-	SP_INHERIT_NOSCALEORREFLECTION
-} spInherit;
+		friend class SkeletonJson;
 
-typedef struct spBoneData spBoneData;
-struct spBoneData {
-	int index;
-	char *name;
-	spBoneData *parent;
-	float length;
-	float x, y, rotation, scaleX, scaleY, shearX, shearY;
-	spInherit inherit;
-	int/*bool*/ skinRequired;
-	spColor color;
-    const char *icon;
-    int/*bool*/ visible;
-};
+		friend class AnimationState;
 
-SP_API spBoneData *spBoneData_create(int index, const char *name, spBoneData *parent);
+		friend class RotateTimeline;
 
-SP_API void spBoneData_dispose(spBoneData *self);
+		friend class ScaleTimeline;
 
-#ifdef __cplusplus
+		friend class ScaleXTimeline;
+
+		friend class ScaleYTimeline;
+
+		friend class ShearTimeline;
+
+		friend class ShearXTimeline;
+
+		friend class ShearYTimeline;
+
+		friend class TranslateTimeline;
+
+		friend class TranslateXTimeline;
+
+		friend class TranslateYTimeline;
+
+		friend class Slot;
+
+	public:
+		BoneData(int index, const String &name, BoneData *parent = NULL);
+
+		/// The Skeleton::getBones() index for this bone.
+		int getIndex();
+
+		/// The parent bone, or NULL if this bone is the root.
+		BoneData *getParent();
+
+		float getLength();
+
+		void setLength(float inValue);
+
+		Color &getColor();
+
+		/// The bone icon name as it was in Spine, or empty if nonessential data was not exported.
+		const String &getIcon();
+
+		void setIcon(const String &icon);
+
+		/// The bone icon's display size scale, or 1 if nonessential data was not exported.
+		float getIconSize();
+
+		void setIconSize(float iconSize);
+
+		/// The bone icon's display rotation in degrees, or 0 if nonessential data was not exported.
+		float getIconRotation();
+
+		void setIconRotation(float iconRotation);
+
+		bool getVisible();
+
+		void setVisible(bool inValue);
+
+	private:
+		const int _index;
+		BoneData *_parent;
+		float _length;
+		Color _color;
+		String _icon;
+		float _iconSize;
+		float _iconRotation;
+		bool _visible;
+	};
 }
-#endif
 
-#endif /* SPINE_BONEDATA_H_ */
+#endif /* Spine_BoneData_h */

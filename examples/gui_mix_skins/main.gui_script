@@ -1,5 +1,58 @@
 local tick_count = 0
 
+local function run_shared_skin_regression(self)
+    if self.skin_regression_running then
+        return
+    end
+    self.skin_regression_running = true
+
+    if self.skin_timer then
+        timer.cancel(self.skin_timer)
+        self.skin_timer = nil
+    end
+
+    -- The second node shares the same Spine scene resource, but has its own
+    -- skeleton and slot poses. Keep it offscreen so the normal demo layout is
+    -- unchanged while automation exercises shared attachment ownership.
+    local shared_node = gui.new_spine_node(vmath.vector3(-1000, -1000, 0), "spineboy_mix")
+    self.skin_regression_node = shared_node
+    gui.cancel_spine(self.spine_node)
+    gui.cancel_spine(shared_node)
+
+    gui.clear_spine_skin(self.spine_node, "base_empty")
+    gui.add_spine_skin(self.spine_node, "base_empty", "blue_body")
+    gui.set_spine_skin(self.spine_node, "base_empty")
+    gui.set_spine_skin(shared_node, "base_empty")
+
+    timer.delay(0, false, function()
+        -- Leave base_empty as the final owner, then remove those attachments
+        -- while both skeleton instances still have slot poses for the skin.
+        gui.clear_spine_skin(shared_node, "blue_body")
+        gui.clear_spine_skin(self.spine_node, "base_empty")
+        print("GUI shared skin last-reference clear completed")
+
+        -- Let at least one update/render observe the cleared shared skin before
+        -- repopulating it from an untouched source skin.
+        timer.delay(0.1, false, function()
+            gui.add_spine_skin(self.spine_node, "base_empty", "original_head")
+            gui.set_spine_skin(self.spine_node, "base_empty")
+            gui.set_spine_skin(shared_node, "base_empty")
+            gui.set_spine_attachment(self.spine_node, "mouth", "mouth-smile")
+            gui.set_spine_attachment(shared_node, "mouth", "mouth-smile")
+            gui.play_spine_anim(self.spine_node, "run", gui.PLAYBACK_LOOP_FORWARD)
+            gui.play_spine_anim(shared_node, "run", gui.PLAYBACK_LOOP_FORWARD)
+
+            timer.delay(0, false, function()
+                gui.delete_node(shared_node)
+                self.skin_regression_node = nil
+                self.skin_regression_running = false
+                print("GUI shared skin attachment restored: mouth-smile")
+                print("GUI shared skin regression passed: instances=2")
+            end)
+        end)
+    end)
+end
+
 local function customise_body_repeating(self)
     gui.set_spine_skin(self.spine_node, "base_empty")
     gui.clear_spine_skin(self.spine_node, "base_empty")
@@ -7,7 +60,7 @@ local function customise_body_repeating(self)
     gui.add_spine_skin(self.spine_node, "base_empty", "original_body")
     gui.set_spine_skin(self.spine_node, "base_empty")
     tick_count = 1
-    timer.delay(1, true, function()
+    self.skin_timer = timer.delay(1, true, function()
         if tick_count == 0 then
             gui.clear_spine_skin(self.spine_node, "base_empty")
             gui.add_spine_skin(self.spine_node, "base_empty", "original_head")
@@ -54,7 +107,10 @@ function update(self, dt)
 end
 
 function on_message(self, message_id, message, sender)
+    if message_id == hash("run_automation_regression") then
+        run_shared_skin_regression(self)
+    end
 end
 
 function on_input(self, action_id, action)
-end 
+end

@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated July 28, 2023. Replaces all prior versions.
+ * Last updated April 5, 2025. Replaces all prior versions.
  *
- * Copyright (c) 2013-2023, Esoteric Software LLC
+ * Copyright (c) 2013-2025, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software or
- * otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software
+ * or otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,43 +23,60 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
- * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef SPINE_ATTACHMENTLOADER_H_
-#define SPINE_ATTACHMENTLOADER_H_
+#ifndef Spine_AttachmentLoader_h
+#define Spine_AttachmentLoader_h
 
-#include <spine/dll.h>
-#include <spine/Attachment.h>
-#include <spine/Skin.h>
-#include <spine/Sequence.h>
+#include <spine/RTTI.h>
+#include <spine/SpineObject.h>
+#include <spine/SpineString.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace spine {
+	class Skin;
 
-typedef struct spAttachmentLoader {
-	char *error1;
-	char *error2;
+	class Attachment;
 
-	const void *vtable;
-} spAttachmentLoader;
+	class RegionAttachment;
 
-SP_API void spAttachmentLoader_dispose(spAttachmentLoader *self);
+	class MeshAttachment;
 
-/* Called to create each attachment. Returns 0 to not load an attachment. If 0 is returned and _spAttachmentLoader_setError was
- * called, an error occurred. */
-SP_API spAttachment *
-spAttachmentLoader_createAttachment(spAttachmentLoader *self, spSkin *skin, spAttachmentType type, const char *name,
-									const char *path, spSequence *sequence);
-/* Called after the attachment has been fully configured. */
-SP_API void spAttachmentLoader_configureAttachment(spAttachmentLoader *self, spAttachment *attachment);
-/* Called just before the attachment is disposed. This can release allocations made in spAttachmentLoader_configureAttachment. */
-SP_API void spAttachmentLoader_disposeAttachment(spAttachmentLoader *self, spAttachment *attachment);
+	class BoundingBoxAttachment;
 
-#ifdef __cplusplus
+	class PathAttachment;
+
+	class PointAttachment;
+
+	class ClippingAttachment;
+
+	class Sequence;
+
+	class SP_API AttachmentLoader : public SpineObject {
+	public:
+		AttachmentLoader();
+
+		virtual ~AttachmentLoader();
+
+		/// @return May be NULL to not load any attachment.
+		virtual RegionAttachment *newRegionAttachment(Skin &skin, const String &placeholder, const String &name, const String &path,
+													  Sequence *sequence) = 0;
+
+		/// @return May be NULL to not load any attachment.
+		virtual MeshAttachment *newMeshAttachment(Skin &skin, const String &placeholder, const String &name, const String &path,
+												  Sequence *sequence) = 0;
+
+		/// @return May be NULL to not load any attachment.
+		virtual BoundingBoxAttachment *newBoundingBoxAttachment(Skin &skin, const String &placeholder, const String &name) = 0;
+
+		/// @return May be NULL to not load any attachment
+		virtual PathAttachment *newPathAttachment(Skin &skin, const String &placeholder, const String &name) = 0;
+
+		virtual PointAttachment *newPointAttachment(Skin &skin, const String &placeholder, const String &name) = 0;
+
+		virtual ClippingAttachment *newClippingAttachment(Skin &skin, const String &placeholder, const String &name) = 0;
+	};
 }
-#endif
 
-#endif /* SPINE_ATTACHMENTLOADER_H_ */
+#endif /* Spine_AttachmentLoader_h */

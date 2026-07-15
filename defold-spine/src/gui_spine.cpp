@@ -24,10 +24,29 @@ namespace dmSpine {
     static dmHashTable64<SceneOverrides*> g_SceneOverrides; // (scene_ptr) -> SceneOverrides*
     static dmHashTable64<uint32_t>        g_SceneRefcounts; // (scene_ptr) -> count
     static dmHashTable64< dmArray<dmGui::HNode>* > g_SceneNodes; // (scene_ptr) -> list of spine gui nodes
+    static dmArray<dmGui::HScene>         g_Scenes;
     static dmResource::HFactory           g_ResourceFactory = 0x0;
 
 static inline uint64_t SceneKey(dmGui::HScene scene) {
     return (uint64_t)(uintptr_t)scene;
+}
+
+static void ResourceReloadedCallback(const dmResource::ResourceReloadedParams* params)
+{
+    SpineSceneResource* resource = (SpineSceneResource*)dmResource::GetResource(params->m_Resource);
+    for (uint32_t scene_index = 0; scene_index < g_Scenes.Size(); ++scene_index)
+    {
+        dmGui::HScene scene = g_Scenes[scene_index];
+        dmArray<dmGui::HNode>** nodes_ptr = g_SceneNodes.Get(SceneKey(scene));
+        if (!nodes_ptr)
+            continue;
+
+        dmArray<dmGui::HNode>& nodes = **nodes_ptr;
+        for (uint32_t node_index = 0; node_index < nodes.Size(); ++node_index)
+        {
+            ReloadSceneResource(scene, nodes[node_index], resource);
+        }
+    }
 }
 
 // Property handler implementations
@@ -140,6 +159,12 @@ void GuiSpineInitialize(dmResource::HFactory resource_factory)
     {
         g_SceneNodes.SetCapacity(4, 8);
     }
+    if (g_Scenes.Capacity() == 0)
+    {
+        g_Scenes.SetCapacity(8);
+    }
+
+    dmResource::RegisterResourceReloadedCallback(g_ResourceFactory, ResourceReloadedCallback, 0);
 
     // Register per-property handlers for GUI spine_scene property
     dmGameSystem::CompGuiRegisterSetPropertyFn(SPINE_SCENE, CompSpineGuiSetProperty);
@@ -189,6 +214,10 @@ void GuiSpineSceneRetain(dmGui::HScene scene)
             g_SceneRefcounts.OffsetCapacity(8);
         }
         g_SceneRefcounts.Put(skey, 1);
+        if (g_Scenes.Full()) {
+            g_Scenes.OffsetCapacity(8);
+        }
+        g_Scenes.Push(scene);
     } else {
         (*cnt)++;
     }
@@ -206,12 +235,20 @@ void GuiSpineSceneRelease(dmGui::HScene scene)
     }
     // last reference
     g_SceneRefcounts.Erase(skey);
+    for (uint32_t i = 0; i < g_Scenes.Size(); ++i) {
+        if (g_Scenes[i] == scene) {
+            g_Scenes.EraseSwap(i);
+            break;
+        }
+    }
     CleanupSceneOverrides(scene);
     CleanupSceneNodes(scene);
 }
 
 void GuiSpineFinalize()
 {
+    dmResource::UnregisterResourceReloadedCallback(g_ResourceFactory, ResourceReloadedCallback, 0);
+
     // Unregister per-property handlers for GUI spine_scene property
     dmGameSystem::CompGuiUnregisterSetPropertyFn(SPINE_SCENE);
     dmGameSystem::CompGuiUnregisterGetPropertyFn(SPINE_SCENE);
@@ -220,6 +257,7 @@ void GuiSpineFinalize()
     g_SceneOverrides.Clear();
     g_SceneRefcounts.Clear();
     g_SceneNodes.Clear();
+    g_Scenes.SetSize(0);
 }
 
 void GuiSpineRegisterNode(dmGui::HScene scene, dmGui::HNode node)

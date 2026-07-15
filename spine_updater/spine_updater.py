@@ -4,7 +4,7 @@
 # Workflow:
 # 1. The script takes two arguments:
 #    - The input folder containing `.spinejson` files.
-#    - The target Spine version (e.g., 4.2.37).
+#    - The target Spine version (e.g., 4.3.75).
 #
 # 2. The script scans the folder and subfolders for `.spinejson` files.
 #
@@ -36,10 +36,10 @@
 # python script.py <input_folder> <target_version>
 #
 # - `<input_folder>`: Path to the folder containing `.spinejson` files.
-# - `<target_version>`: The desired Spine version for the conversion (e.g., 4.2.37).
+# - `<target_version>`: The desired Spine version for the conversion (e.g., 4.3.75).
 #
 # Example:
-# python script.py /path/to/spinejson/files 4.2.37
+# python script.py /path/to/spinejson/files 4.3.75
 #
 # Requirements:
 # - Spine CLI should be installed and available at the specified path.

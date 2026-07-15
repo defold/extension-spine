@@ -1,16 +1,22 @@
+#include <common/spine_loader.h>
 
-extern "C" {
-#include <spine/extension.h>
-#include <spine/AttachmentLoader.h>
-#include <spine/Attachment.h>
-#include <spine/SkeletonJson.h>
-}
+#include <math.h>
 
 #include <dmsdk/dlib/hash.h>
 #include <dmsdk/dlib/log.h>
 #include <dmsdk/gamesys/resources/res_textureset.h>
 
-#include <common/spine_loader.h>
+#include <spine/BoundingBoxAttachment.h>
+#include <spine/ClippingAttachment.h>
+#include <spine/Extension.h>
+#include <spine/MeshAttachment.h>
+#include <spine/PathAttachment.h>
+#include <spine/PointAttachment.h>
+#include <spine/RegionAttachment.h>
+#include <spine/Sequence.h>
+#include <spine/SkeletonData.h>
+#include <spine/SkeletonJson.h>
+#include <spine/Skin.h>
 
 #if 0
 #define DEBUGLOG(...) dmLogWarning("DEBUG: " __VA_ARGS__)
@@ -18,367 +24,352 @@ extern "C" {
 #define DEBUGLOG(...)
 #endif
 
-// Heavily borrowing from AtlasAttachmentLoader.c
-
-// These functions are part of the api that the developer must fulfill
-void _spAtlasPage_createTexture(spAtlasPage *self, const char *path) {
-    self->rendererObject = 0; // we're not actually creating a texture here, so we set it to 0
-    self->width = 2048;
-    self->height = 2048;
+namespace spine
+{
+    SpineExtension* getDefaultExtension()
+    {
+        return new DefaultSpineExtension();
+    }
 }
-
-void _spAtlasPage_disposeTexture(spAtlasPage *self) {
-    // no need to dispose of anything
-}
-
-char *_spUtil_readFile(const char *path, int *length) {
-    // We are not reading files through their api
-    return 0;
-}
-
 
 namespace dmSpine
 {
+    static int SignedTextureExtent(float packed_extent, float uv_extent)
+    {
+        if (fabsf(uv_extent) < 1.0e-7f)
+        {
+            return 1;
+        }
+        int extent = (int) roundf(packed_extent / uv_extent);
+        return extent == 0 ? (uv_extent < 0.0f ? -1 : 1) : extent;
+    }
 
-    // static spAtlasRegion* CreateRegionsFromGeometry(dmGameSystem::TextureSetResource* atlas)
-    // {
-    //     dmGameSystemDDF::TextureSet* texture_set_ddf = atlas->m_TextureSet;
-    //     dmGameSystemDDF::TextureSetAnimation* animations = texture_set_ddf->m_Animations.m_Data;
-    //     uint32_t    n_animations = texture_set_ddf->m_Animations.m_Count;
-    //     uint32_t*   frame_indices = texture_set_ddf->m_FrameIndices.m_Data;
-
-    //     spAtlasRegion* regions = new spAtlasRegion[n_animations];
-    //     for (uint32_t i = 0; i < n_animations; ++i)
-    //     {
-    //         const dmGameSystemDDF::TextureSetAnimation* animation_ddf = &animations[i];
-    //         uint32_t frame_index = frame_indices[animation_ddf->m_Start];
-
-    //         uint32_t num_points = geometry->m_Vertices.m_Count / 2;
-
-    //         const float* points = geometry->m_Vertices.m_Data;
-    //         const float* uvs = geometry->m_Uvs.m_Data;
-
-    //         // Depending on the sprite is flipped or not, we loop the vertices forward or backward
-    //         // to respect face winding (and backface culling)
-    //         int flipx = animation_ddf->m_FlipHorizontal ^ component->m_FlipHorizontal;
-    //         int flipy = animation_ddf->m_FlipVertical ^ component->m_FlipVertical;
-    //         int reverse = flipx ^ flipy;
-
-    //         float scaleX = flipx ? -1 : 1;
-    //         float scaleY = flipy ? -1 : 1;
-
-    //         int step = reverse ? -2 : 2;
-    //         points = reverse ? points + num_points*2 - 2 : points;
-    //         uvs = reverse ? uvs + num_points*2 - 2 : uvs;
-
-    //         for (uint32_t vert = 0; vert < num_points; ++vert, ++vertices, points += step, uvs += step)
-    //         {
-    //             float x = points[0] * scaleX; // range -0.5,+0.5
-    //             float y = points[1] * scaleY;
-    //             float u = uvs[0];
-    //             float v = uvs[1];
-
-    //             Vector4 p0 = w * Point3(x, y, 0.0f);
-    //             vertices[0].x = ((float*)&p0)[0];
-    //             vertices[0].y = ((float*)&p0)[1];
-    //             vertices[0].z = ((float*)&p0)[2];
-    //             vertices[0].u = u;
-    //             vertices[0].v = v;
-    //         }
-
-    //         texture_set_ddf->m_Animations[i];
-    //         dmhash_t h = dmHashString64(texture_set_ddf->m_Animations[i].m_Id);
-    //         tile_set->m_AnimationIds.Put(h, i);
-    //     }
-    // }
-
-    static spAtlasRegion* CreateRegionsFromQuads(dmGameSystemDDF::TextureSet* texture_set_ddf)
+    static spine::AtlasRegion* CreateRegionsFromQuads(dmGameSystemDDF::TextureSet* texture_set_ddf)
     {
         const float* tex_coords = (const float*) texture_set_ddf->m_TexCoords.m_Data;
-        uint32_t n_animations = texture_set_ddf->m_Animations.m_Count;
+        uint32_t animation_count = texture_set_ddf->m_Animations.m_Count;
         dmGameSystemDDF::TextureSetAnimation* animations = texture_set_ddf->m_Animations.m_Data;
 
-        spAtlasRegion* regions = new spAtlasRegion[n_animations];
-        for (uint32_t i = 0; i < n_animations; ++i)
+        spine::AtlasRegion* regions = new spine::AtlasRegion[animation_count];
+        for (uint32_t i = 0; i < animation_count; ++i)
         {
-                dmGameSystemDDF::TextureSetAnimation* animation_ddf = &animations[i];
+            dmGameSystemDDF::TextureSetAnimation* animation = &animations[i];
+            uint32_t frame_index = animation->m_Start;
+            const float* tc = &tex_coords[frame_index * 4 * 2];
 
-                DEBUGLOG("region: %d %s", i, animation_ddf->m_Id);
+            // Texture-set quads are either
+            // [(minU,maxV),(minU,minV),(maxU,minV),(maxU,maxV)] or, when
+            // packed rotated, [(minU,maxV),(maxU,maxV),(maxU,minV),(minU,minV)].
+            bool unrotated = tc[1] == tc[7];
+            float min_u;
+            float min_v;
+            float max_u;
+            float max_v;
 
-    // required string id              = 1;
-    // required uint32 width           = 2;
-    // required uint32 height          = 3;
-    // required uint32 start           = 4;
-    // required uint32 end             = 5;
-    // optional uint32 fps             = 6 [default = 30];
-    // optional Playback playback      = 7 [default = PLAYBACK_ONCE_FORWARD];
-    // optional uint32 flip_horizontal = 8 [default = 0];
-    // optional uint32 flip_vertical   = 9 [default = 0];
-    // optional uint32 is_animation    = 10 [default = 0]; // Deprecated
+            spine::AtlasRegion& region = regions[i];
+            if (unrotated)
+            {
+                min_u = tc[0];
+                min_v = tc[1];
+                max_u = tc[4];
+                max_v = tc[5];
 
+                region.setU(min_u);
+                region.setV(max_v);
+                region.setU2(max_u);
+                region.setV2(min_v);
+            }
+            else
+            {
+                min_u = tc[6];
+                min_v = tc[7];
+                max_u = tc[2];
+                max_v = tc[3];
 
-                uint32_t frame_index = animation_ddf->m_Start;
-                const float* tc = &tex_coords[frame_index * 4 * 2];
+                region.setU(max_u);
+                region.setV(min_v);
+                region.setU2(min_u);
+                region.setV2(max_v);
+            }
 
-                DEBUGLOG("  frame_index: %d", frame_index);
-                DEBUGLOG("  tc: %.2f, %.2f,  %.2f, %.2f,  %.2f, %.2f,  %.2f, %.2f,", tc[0], tc[1], tc[2], tc[3], tc[4], tc[5], tc[6], tc[7]);
+            region.setName(animation->m_Id);
+            region.setIndex((int) i);
+            region.setDegrees(unrotated ? 0 : 90);
+            region.setRotate(!unrotated);
+            region.setOffsetX(0.0f);
+            region.setOffsetY(0.0f);
+            region.setOriginalWidth((int) animation->m_Width);
+            region.setOriginalHeight((int) animation->m_Height);
+            region.setPackedWidth(unrotated ? (int) animation->m_Width : (int) animation->m_Height);
+            region.setPackedHeight(unrotated ? (int) animation->m_Height : (int) animation->m_Width);
+            region.setRegionWidth(unrotated ? (int) animation->m_Width : (int) animation->m_Height);
+            region.setRegionHeight(unrotated ? (int) animation->m_Height : (int) animation->m_Width);
+            region.setRendererObject(&region);
 
-                // From comp_sprite.cpp
-                // vertices[0].u = tc[tex_lookup[0] * 2];
-                // vertices[0].v = tc[tex_lookup[0] * 2 + 1];
-                // vertices[1].u = tc[tex_lookup[1] * 2];
-                // vertices[1].v = tc[tex_lookup[1] * 2 + 1];
-                // vertices[2].u = tc[tex_lookup[2] * 2];
-                // vertices[2].v = tc[tex_lookup[2] * 2 + 1];
-                // vertices[3].u = tc[tex_lookup[4] * 2];
-                // vertices[3].v = tc[tex_lookup[4] * 2 + 1];
-
-                // From texture_set_ddf.proto
-                // For unrotated quads, the order is: [(minU,maxV),(minU,minV),(maxU,minV),(maxU,maxV)]
-                // For rotated quads, the order is: [(minU,maxV),(maxU,maxV),(maxU,minV),(minU,minV)]
-                // so we compare the Y from vertex 0 and 3
-                bool unrotated = tc[0 * 2 + 1] == tc[3 * 2 + 1];
-
-                float minU, minV, maxU, maxV;
-
-                // Since this struct is only used as a placeholder to show which values are needed
-                // we only set the ones we care about
-
-                spAtlasRegion* atlasRegion = &regions[i];
-                memset(atlasRegion, 0, sizeof(spAtlasRegion));
-                spTextureRegion* region = SUPER(atlasRegion);
-
-                if (unrotated)
-                {
-                    // E.g. tc: 0.00, 0.71,  0.00, 1.00,  0.27, 1.00,  0.27, 0.71,
-                    //          (minU, minV),(minU, maxV),(maxU,maxV),(maxU,minV)
-                    minU = tc[0 * 2 + 0];
-                    minV = tc[0 * 2 + 1];
-                    maxU = tc[2 * 2 + 0];
-                    maxV = tc[2 * 2 + 1];
-
-                    region->u   = minU;
-                    region->v   = maxV;
-                    region->u2  = maxU;
-                    region->v2  = minV;
-                }
-                else
-                {
-                    // E.g. tc: 0.78, 0.73,  0.84, 0.73,  0.84, 0.64,  0.78, 0.64
-                    // tc: (minU, maxV), (maxU, maxV), (maxU, minV), (minU, minV)
-                    minU = tc[3 * 2 + 0];
-                    minV = tc[3 * 2 + 1];
-                    maxU = tc[1 * 2 + 0];
-                    maxV = tc[1 * 2 + 1];
-
-                    region->u   = maxU;
-                    region->v   = minV;
-                    region->u2  = minU;
-                    region->v2  = maxV;
-                }
-
-                DEBUGLOG("  minU/V: %.2f, %.2f  maxU/V: %.2f, %.2f", minU, minV, maxU, maxV);
-
-                region->degrees = unrotated ? 0 : 90; // The uv's are already rotated
-
-                DEBUGLOG("  degrees: %d", region->degrees);
-
-                // We don't support packing yet
-                region->offsetX = 0;
-                region->offsetY = 0;
-                region->width = region->originalWidth = animation_ddf->m_Width;
-                region->height = region->originalHeight = animation_ddf->m_Height;
+            DEBUGLOG("region %u '%s': uv=(%.3f, %.3f)-(%.3f, %.3f), rotated=%d",
+                     i, animation->m_Id, region.getU(), region.getV(), region.getU2(), region.getV2(), !unrotated);
         }
-
         return regions;
     }
 
-
-    // Create an array or regions given the atlas. Maps 1:1 with the animation count
-    spAtlasRegion* CreateRegions(dmGameSystemDDF::TextureSet* texture_set_ddf)
+    spine::AtlasRegion* CreateRegions(dmGameSystemDDF::TextureSet* texture_set_ddf)
     {
+        if (!texture_set_ddf)
+        {
+            return 0;
+        }
         return CreateRegionsFromQuads(texture_set_ddf);
     }
 
-    static spAtlasRegion* FindAtlasRegion(dmHashTable64<uint32_t>* name_to_index, spAtlasRegion* regions, const char* name)
+    DefoldAtlasAttachmentLoader::DefoldAtlasAttachmentLoader(dmGameSystemDDF::TextureSet* texture_set_ddf,
+                                                               spine::AtlasRegion* regions)
+    : m_Regions(0)
+    , m_NameToIndex(0)
+    , m_Pages(0)
+    , m_PageCount(0)
+    , m_DefaultRegion(0)
+    , m_DefaultPage(0)
+    , m_Error()
     {
-        dmhash_t name_hash = dmHashString64(name);
-        uint32_t* anim_index = name_to_index->Get(name_hash);
-        if (!anim_index)
-            return 0;
-        return &regions[*anim_index];
+        Initialize(texture_set_ddf, regions);
     }
 
-    static bool loadSequence(dmHashTable64<uint32_t>* name_to_index, spAtlasRegion* atlasRegions, const char *basePath, spSequence *sequence, spAtlasRegion* default_region) {
-        bool is_atlas_available = name_to_index != 0;
-
-        // The C runtime seems a bit broken,
-        // and doesn't account for number of digits required regions->size
-        // So, instead, we simply add some extra room for X digits
-        uint32_t region_digits = 8;
-        spTextureRegionArray *regions = sequence->regions;
-        char *path = (char*)MALLOC(char, strlen(basePath) + sequence->digits + region_digits + 1);
-        path[0] = 0;
-        int i;
-        for (i = 0; i < regions->size; i++) {
-            spSequence_getPath(sequence, basePath, i, path);
-            regions->items[i] = is_atlas_available ? SUPER(FindAtlasRegion(name_to_index, atlasRegions, path)) : SUPER(default_region);
-            if (!regions->items[i]) {
-                FREE(path);
-                return false;
-            }
-            regions->items[i]->rendererObject = regions->items[i];
-        }
-        FREE(path);
-        return true;
+    DefoldAtlasAttachmentLoader::DefoldAtlasAttachmentLoader()
+    : m_Regions(0)
+    , m_NameToIndex(0)
+    , m_Pages(0)
+    , m_PageCount(0)
+    , m_DefaultRegion(0)
+    , m_DefaultPage(0)
+    , m_Error()
+    {
+        Initialize(0, 0);
     }
 
-    static spAttachment* spDefoldAtlasAttachmentLoader_createAttachment(spAttachmentLoader* loader, spSkin* skin, spAttachmentType type,
-        const char* name, const char* path, spSequence *sequence)
+    DefoldAtlasAttachmentLoader::~DefoldAtlasAttachmentLoader()
     {
-        spDefoldAtlasAttachmentLoader* self = SUB_CAST(spDefoldAtlasAttachmentLoader, loader);
-        bool is_atlas_available = self->name_to_index != 0;
-
-        // used in the plugin, when loading a spine scene without the atlas available
-        spAtlasRegion default_region;
-        if (!is_atlas_available)
+        delete m_NameToIndex;
+        for (uint32_t i = 0; i < m_PageCount; ++i)
         {
-            spTextureRegion* textureRegion = &default_region.super;
-            textureRegion->u = textureRegion->v = textureRegion->u2 = textureRegion->v2 = textureRegion->degrees = 0;
-            textureRegion->offsetX = textureRegion->offsetY = 0;
-            textureRegion->width = textureRegion->height = 0;
-            textureRegion->originalWidth = textureRegion->originalHeight = 0;
+            delete m_Pages[i];
+        }
+        delete[] m_Pages;
+        delete m_DefaultRegion;
+        delete m_DefaultPage;
+    }
+
+    void DefoldAtlasAttachmentLoader::Initialize(dmGameSystemDDF::TextureSet* texture_set_ddf,
+                                                  spine::AtlasRegion* regions)
+    {
+        m_Regions = regions;
+
+        m_DefaultPage = new spine::AtlasPage("defold-empty-atlas");
+        m_DefaultPage->width = 1;
+        m_DefaultPage->height = 1;
+        m_DefaultRegion = new spine::AtlasRegion();
+        m_DefaultRegion->setPage(m_DefaultPage);
+        m_DefaultRegion->setOriginalWidth(1);
+        m_DefaultRegion->setOriginalHeight(1);
+        m_DefaultRegion->setPackedWidth(1);
+        m_DefaultRegion->setPackedHeight(1);
+        m_DefaultRegion->setRegionWidth(1);
+        m_DefaultRegion->setRegionHeight(1);
+
+        if (!texture_set_ddf || !regions)
+        {
+            return;
         }
 
-        switch (type) {
-            case SP_ATTACHMENT_REGION: {
-                spRegionAttachment* attachment = spRegionAttachment_create(name);
-                if (sequence) {
-                    if (!loadSequence(self->name_to_index, self->regions, path, sequence, &default_region)) {
-                        spAttachment_dispose(SUPER(attachment));
-                        _spAttachmentLoader_setError(loader, "Couldn't load sequence for region attachment: ", path);
-                        return 0;
-                    }
-                } else {
-                    spAtlasRegion* region;
-                    if (is_atlas_available)
-                    {
-                        region = FindAtlasRegion(self->name_to_index, self->regions, path);
-                        if (!region) {
-                            spAttachment_dispose(SUPER(attachment));
-                            _spAttachmentLoader_setError(loader, "Region not found: ", path);
-                            return 0;
-                        }
-                    } else {
-                        region = &default_region;
-                    }
-                    attachment->rendererObject = is_atlas_available ? region : 0;
-                    attachment->region = SUPER(region);
-                    spRegionAttachment_updateRegion(attachment);
+        uint32_t animation_count = texture_set_ddf->m_Animations.m_Count;
+        m_NameToIndex = new dmHashTable64<uint32_t>();
+        m_NameToIndex->SetCapacity(animation_count / 2 + 1, animation_count);
+        m_PageCount = animation_count;
+        m_Pages = new spine::AtlasPage*[animation_count];
+
+        for (uint32_t i = 0; i < animation_count; ++i)
+        {
+            dmGameSystemDDF::TextureSetAnimation& animation = texture_set_ddf->m_Animations[i];
+            dmhash_t name_hash = dmHashString64(animation.m_Id);
+            m_NameToIndex->Put(name_hash, i);
+
+            spine::AtlasRegion& region = regions[i];
+            spine::AtlasPage* page = new spine::AtlasPage(animation.m_Id);
+            if (region.getDegrees() == 90)
+            {
+                page->width = SignedTextureExtent((float) animation.m_Height, region.getU2() - region.getU());
+                page->height = SignedTextureExtent((float) animation.m_Width, region.getV2() - region.getV());
+            }
+            else
+            {
+                page->width = SignedTextureExtent((float) animation.m_Width, region.getU2() - region.getU());
+                page->height = SignedTextureExtent((float) animation.m_Height, region.getV2() - region.getV());
+            }
+            region.setPage(page);
+            m_Pages[i] = page;
+        }
+    }
+
+    spine::AtlasRegion* DefoldAtlasAttachmentLoader::FindRegion(const spine::String& name) const
+    {
+        if (!m_NameToIndex || name.isEmpty())
+        {
+            return 0;
+        }
+        uint32_t* animation_index = m_NameToIndex->Get(dmHashString64(name.buffer()));
+        return animation_index ? &m_Regions[*animation_index] : 0;
+    }
+
+    void DefoldAtlasAttachmentLoader::RecordMissingRegion(const spine::String& path)
+    {
+        if (m_Error.isEmpty())
+        {
+            m_Error = "Region not found: ";
+            if (!path.isEmpty())
+            {
+                m_Error.append(path);
+            }
+        }
+    }
+
+    void DefoldAtlasAttachmentLoader::PopulateSequence(const spine::String& base_path, spine::Sequence& sequence)
+    {
+        spine::Array<spine::TextureRegion*>& sequence_regions = sequence.getRegions();
+        for (size_t i = 0; i < sequence_regions.size(); ++i)
+        {
+            spine::String path = sequence.getPath(base_path, (int) i);
+            spine::AtlasRegion* region = FindRegion(path);
+            if (!region)
+            {
+                if (m_NameToIndex)
+                {
+                    RecordMissingRegion(path);
                 }
-                return SUPER(attachment);
+                region = m_DefaultRegion;
             }
-            case SP_ATTACHMENT_MESH:
-            case SP_ATTACHMENT_LINKED_MESH: {
-                spMeshAttachment* attachment = spMeshAttachment_create(name);
-                if (sequence) {
-                    if (!loadSequence(self->name_to_index, self->regions, path, sequence, &default_region)) {
-                        spAttachment_dispose(SUPER(SUPER(attachment)));
-                        _spAttachmentLoader_setError(loader, "Couldn't load sequence for mesh attachment: ", path);
-                        return 0;
-                    }
-                } else {
-                    spAtlasRegion* region;
-                    if (is_atlas_available)
-                    {
-                        region = FindAtlasRegion(self->name_to_index, self->regions, path);
-                        if (!region) {
-                            spAttachment_dispose(SUPER(SUPER(attachment)));
-                            _spAttachmentLoader_setError(loader, "Region not found: ", path);
-                            return 0;
-                        }
-                    } else {
-                        region = &default_region;
-                    }
-                    attachment->rendererObject = is_atlas_available ? region : 0;
-                    attachment->region = SUPER(region);
-                }
-                return SUPER(SUPER(attachment));
-            }
-            case SP_ATTACHMENT_BOUNDING_BOX:
-                return SUPER(SUPER(spBoundingBoxAttachment_create(name)));
-            case SP_ATTACHMENT_PATH:
-                return SUPER(SUPER(spPathAttachment_create(name)));
-            case SP_ATTACHMENT_POINT:
-                return SUPER(spPointAttachment_create(name));
-            case SP_ATTACHMENT_CLIPPING:
-                return SUPER(SUPER(spClippingAttachment_create(name)));
-            default:
-                _spAttachmentLoader_setUnknownTypeError(loader, type);
-                return 0;
+            sequence_regions[i] = region;
         }
-
-        UNUSED(skin);
     }
 
-    spDefoldAtlasAttachmentLoader* CreateAttachmentLoader(dmGameSystemDDF::TextureSet* texture_set_ddf, spAtlasRegion* regions)
+    spine::RegionAttachment* DefoldAtlasAttachmentLoader::newRegionAttachment(spine::Skin& skin,
+                                                                                const spine::String& placeholder,
+                                                                                const spine::String& name,
+                                                                                const spine::String& path,
+                                                                                spine::Sequence* sequence)
     {
-        spDefoldAtlasAttachmentLoader* self = NEW(spDefoldAtlasAttachmentLoader);
-        _spAttachmentLoader_init(SUPER(self), _spAttachmentLoader_deinit, spDefoldAtlasAttachmentLoader_createAttachment, 0, 0);
+        SP_UNUSED(skin);
+        SP_UNUSED(placeholder);
+        PopulateSequence(path, *sequence);
+        return new spine::RegionAttachment(name, sequence);
+    }
 
-        uint32_t n_animations = texture_set_ddf->m_Animations.m_Count;
-        dmHashTable64<uint32_t>* name_to_index = new dmHashTable64<uint32_t>;
-        name_to_index->SetCapacity(n_animations/2+1, n_animations);
-        for (uint32_t i = 0; i < n_animations; ++i)
+    spine::MeshAttachment* DefoldAtlasAttachmentLoader::newMeshAttachment(spine::Skin& skin,
+                                                                            const spine::String& placeholder,
+                                                                            const spine::String& name,
+                                                                            const spine::String& path,
+                                                                            spine::Sequence* sequence)
+    {
+        SP_UNUSED(skin);
+        SP_UNUSED(placeholder);
+        PopulateSequence(path, *sequence);
+        return new spine::MeshAttachment(name, sequence);
+    }
+
+    spine::BoundingBoxAttachment* DefoldAtlasAttachmentLoader::newBoundingBoxAttachment(spine::Skin& skin,
+                                                                                          const spine::String& placeholder,
+                                                                                          const spine::String& name)
+    {
+        SP_UNUSED(skin);
+        SP_UNUSED(placeholder);
+        return new spine::BoundingBoxAttachment(name);
+    }
+
+    spine::PathAttachment* DefoldAtlasAttachmentLoader::newPathAttachment(spine::Skin& skin,
+                                                                            const spine::String& placeholder,
+                                                                            const spine::String& name)
+    {
+        SP_UNUSED(skin);
+        SP_UNUSED(placeholder);
+        return new spine::PathAttachment(name);
+    }
+
+    spine::PointAttachment* DefoldAtlasAttachmentLoader::newPointAttachment(spine::Skin& skin,
+                                                                              const spine::String& placeholder,
+                                                                              const spine::String& name)
+    {
+        SP_UNUSED(skin);
+        SP_UNUSED(placeholder);
+        return new spine::PointAttachment(name);
+    }
+
+    spine::ClippingAttachment* DefoldAtlasAttachmentLoader::newClippingAttachment(spine::Skin& skin,
+                                                                                    const spine::String& placeholder,
+                                                                                    const spine::String& name)
+    {
+        SP_UNUSED(skin);
+        SP_UNUSED(placeholder);
+        return new spine::ClippingAttachment(name);
+    }
+
+    const char* DefoldAtlasAttachmentLoader::GetError() const
+    {
+        return m_Error.buffer() ? m_Error.buffer() : "";
+    }
+
+    void DefoldAtlasAttachmentLoader::ClearError()
+    {
+        m_Error = "";
+    }
+
+    void DefoldAtlasAttachmentLoader::SetError(const spine::String& error)
+    {
+        m_Error = error;
+    }
+
+    DefoldAtlasAttachmentLoader* CreateAttachmentLoader(dmGameSystemDDF::TextureSet* texture_set_ddf,
+                                                         spine::AtlasRegion* regions)
+    {
+        return new DefoldAtlasAttachmentLoader(texture_set_ddf, regions);
+    }
+
+    DefoldAtlasAttachmentLoader* CreateAttachmentLoader()
+    {
+        return new DefoldAtlasAttachmentLoader();
+    }
+
+    void Dispose(DefoldAtlasAttachmentLoader* loader)
+    {
+        delete loader;
+    }
+
+    spine::SkeletonData* ReadSkeletonJsonData(spine::AttachmentLoader* attachment_loader,
+                                               const char* path,
+                                               void* json_data)
+    {
+        if (!attachment_loader || !json_data)
         {
-            dmhash_t h = dmHashString64(texture_set_ddf->m_Animations[i].m_Id);
-            name_to_index->Put(h, i);
-        }
-
-        self->name_to_index = name_to_index;
-        self->texture_set_ddf = texture_set_ddf;
-        self->regions = regions;
-
-        return self;
-    }
-
-    spDefoldAtlasAttachmentLoader* CreateAttachmentLoader()
-    {
-        spDefoldAtlasAttachmentLoader* self = NEW(spDefoldAtlasAttachmentLoader);
-        _spAttachmentLoader_init(SUPER(self), _spAttachmentLoader_deinit, spDefoldAtlasAttachmentLoader_createAttachment, 0, 0);
-
-        self->name_to_index = 0;
-        self->texture_set_ddf = 0;
-        self->regions = 0;
-        return self;
-    }
-
-    void Dispose(spDefoldAtlasAttachmentLoader* loader)
-    {
-        delete loader->name_to_index;
-        spAttachmentLoader_dispose((spAttachmentLoader*)loader);
-    }
-
-    spSkeletonData* ReadSkeletonJsonData(spAttachmentLoader* loader, const char* path, void* json_data)
-    {
-        spSkeletonJson* skeleton_json = spSkeletonJson_createWithLoader(loader);
-        if (!skeleton_json) {
-            dmLogError("Failed to create spine skeleton for %s", path);
+            dmLogError("Failed to read Spine skeleton for %s: invalid loader or JSON data", path ? path : "<unknown>");
             return 0;
         }
 
-        //DEBUGLOG("%s: %p   json: %p", __FUNCTION__, skeleton_json, json_data);
+        DefoldAtlasAttachmentLoader* loader = static_cast<DefoldAtlasAttachmentLoader*>(attachment_loader);
+        loader->ClearError();
 
-        spSkeletonData* skeletonData = spSkeletonJson_readSkeletonData(skeleton_json, (const char *)json_data);
-        if (!skeletonData)
+        spine::SkeletonJson skeleton_json(*attachment_loader);
+        spine::SkeletonData* skeleton_data = skeleton_json.readSkeletonData((const char*) json_data);
+        if (!skeleton_data)
         {
-            loader->error1 = strdup(skeleton_json->error ? skeleton_json->error : "unknown error");
-            spSkeletonJson_dispose(skeleton_json);
-            dmLogError("Failed to read spine skeleton for %s: %s", path, loader->error1);
+            loader->SetError(skeleton_json.getError());
+            dmLogError("Failed to read Spine skeleton for %s: %s", path ? path : "<unknown>", loader->GetError());
             return 0;
         }
-        spSkeletonJson_dispose(skeleton_json);
-        return skeletonData;
+
+        if (loader->GetError()[0] != 0)
+        {
+            dmLogError("Failed to read Spine skeleton for %s: %s", path ? path : "<unknown>", loader->GetError());
+            delete skeleton_data;
+            return 0;
+        }
+        return skeleton_data;
     }
 
-} // namespace
+} // namespace dmSpine

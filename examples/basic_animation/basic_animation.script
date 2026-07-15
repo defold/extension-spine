@@ -24,8 +24,7 @@ function init(self)
 	self.countdown = 2
 	self.url = "#spinemodel"
 	
-	-- Basic animation setup
-	spine.play_anim(self.url, "ddd", go.PLAYBACK_LOOP_FORWARD)
+	-- Basic skin setup. Track animations are configured below.
 	spine.set_skin(self.url, "default")
 	
 	-- Properties demonstration
@@ -72,10 +71,11 @@ function on_input(self, action_id, action)
 		if self.ik_mode == "follow" then
 			go.set("ik-target", "position", self.mouse_pos)
 		end
-	elseif action_id == hash("mouse_button_right") and action.pressed then
+	elseif (action_id == hash("mouse_button_right") or action_id == hash("key_b")) and action.pressed then
 		if self.is_playing then
 			spine.cancel(self.url, { track = 1 })
 			self.is_playing = false
+			print("GO animation cancelled on track 1")
 		else
 			play_animation(self)
 		end
@@ -117,4 +117,4 @@ function on_input(self, action_id, action)
 end
 
 function on_reload(self)
-end 
+end

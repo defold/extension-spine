@@ -15,6 +15,8 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include <dmsdk/sdk.h>
 #include <dmsdk/dlib/array.h>
@@ -31,9 +33,14 @@
 
 #include <spine/AnimationStateData.h>
 #include <spine/AnimationState.h>
+#include <spine/Animation.h>
+#include <spine/Atlas.h>
+#include <spine/BoneData.h>
+#include <spine/Physics.h>
 #include <spine/SkeletonData.h>
 #include <spine/Skeleton.h>
-#include <spine/SkeletonClipping.h>
+#include <spine/SkeletonRenderer.h>
+#include <spine/Skin.h>
 
 static const dmhash_t UNIFORM_TINT = dmHashString64("tint");
 
@@ -53,15 +60,16 @@ struct SpineFile
 {
     const char*                             m_Path;
     // Base data
-    spAtlasRegion*                          m_AtlasRegions;
-    spSkeletonData*                         m_SkeletonData;
-    spAnimationStateData*                   m_AnimationStateData;
-    dmSpine::spDefoldAtlasAttachmentLoader* m_AttachmentLoader;
+    spine::AtlasRegion*                     m_AtlasRegions;
+    spine::SkeletonData*                    m_SkeletonData;
+    spine::AnimationStateData*              m_AnimationStateData;
+    dmSpine::DefoldAtlasAttachmentLoader*   m_AttachmentLoader;
     dmArray<const char*>                    m_AnimationNames;
     dmArray<const char*>                    m_SkinNames;
     // Instance data
-    spSkeleton*                             m_SkeletonInstance;
-    spAnimationState*                       m_AnimationStateInstance;
+    spine::Skeleton*                        m_SkeletonInstance;
+    spine::AnimationState*                  m_AnimationStateInstance;
+    spine::SkeletonRenderer*                m_SkeletonRenderer;
     dmArray<SpineBone>                      m_Bones;
     // Render data
     dmArray<dmSpine::SpineVertex>           m_VertexBuffer;
@@ -85,6 +93,7 @@ struct SpineFile
     , m_AttachmentLoader(0)
     , m_SkeletonInstance(0)
     , m_AnimationStateInstance(0)
+    , m_SkeletonRenderer(0)
     , m_VertexBufferVersion(0)
     , m_IndexBufferVersion(0)
     , m_CurrentSkin(0)
@@ -176,12 +185,12 @@ static dmVMath::Vector4 ToVector4(const float* v)
     }
 
 
-static int FindBoneIndex(spBoneData** const array, int num_bones, const spBoneData* bone)
+static int FindBoneIndex(const spine::Array<spine::BoneData*>& array, const spine::BoneData* bone)
 {
-    for (int i = 0; i < num_bones; ++i)
+    for (uint32_t i = 0; i < array.size(); ++i)
     {
         if (array[i] == bone)
-            return i;
+            return (int)i;
     }
     return -1;
 }
@@ -192,24 +201,25 @@ static void SetupBones(SpineFile* file)
     if (!file || !file->m_SkeletonData)
         return;
 
-    int num_bones = file->m_SkeletonData->bonesCount;
-    spBoneData** const bones = file->m_SkeletonData->bones;
+    spine::Array<spine::BoneData*>& bones = file->m_SkeletonData->getBones();
+    uint32_t num_bones = (uint32_t)bones.size();
     file->m_Bones.SetCapacity(num_bones);
     file->m_Bones.SetSize(num_bones);
 
-    for (int i = 0; i < num_bones; ++i)
+    for (uint32_t i = 0; i < num_bones; ++i)
     {
-        const spBoneData* bone = bones[i];
-        int parent_index = FindBoneIndex(bones, num_bones, bone->parent);
+        spine::BoneData* bone = bones[i];
+        spine::BonePose& setup_pose = bone->getSetupPose();
+        int parent_index = FindBoneIndex(bones, bone->getParent());
 
         SpineBone& out = file->m_Bones[i];
-        out.name = bone->name;
+        out.name = bone->getName().buffer();
         out.parent = parent_index;
-        out.posX = bone->x;
-        out.posY = bone->y;
-        out.rotation = bone->rotation;
-        out.scaleX = bone->scaleX;
-        out.scaleY = bone->scaleY;
+        out.posX = setup_pose.getX();
+        out.posY = setup_pose.getY();
+        out.rotation = setup_pose.getRotation();
+        out.scaleX = setup_pose.getScaleX();
+        out.scaleY = setup_pose.getScaleY();
         out.length = 1.0f; // TODO: Calculate the length to the parent
     }
 }
@@ -225,12 +235,6 @@ extern "C" DM_DLLEXPORT const char* SPINE_GetLastError()
 static void SPINE_SetLastError(const char* str)
 {
     dmSnPrintf(g_LastSpineError, sizeof(g_LastSpineError), "%s", str);
-    dmLogError("%s", g_LastSpineError);
-}
-
-static void SPINE_SetLastError(spAttachmentLoader* loader)
-{
-    dmSnPrintf(g_LastSpineError, sizeof(g_LastSpineError), "%s %s", loader->error1?loader->error1:"", loader->error2?loader->error2:"");
     dmLogError("%s", g_LastSpineError);
 }
 
@@ -253,6 +257,12 @@ static void DestroyAtlas(dmGameSystemDDF::TextureSet* texture_set_ddf)
 
 extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* json, size_t json_size, const char* path, void* atlas_buffer, size_t atlas_size, const char* atlas_path)
 {
+    if (!json)
+    {
+        SPINE_SetLastError("Spine JSON buffer is null");
+        return 0;
+    }
+
     dmGameSystemDDF::TextureSet* texture_set_ddf = 0;
     if (atlas_buffer)
     {
@@ -278,31 +288,44 @@ extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* json, size_t json_size,
         file->m_AttachmentLoader = dmSpine::CreateAttachmentLoader();
     }
 
-    // Create the spine resource
-    spAttachmentLoader* attachment_loader = (spAttachmentLoader*)file->m_AttachmentLoader;
-    file->m_SkeletonData = dmSpine::ReadSkeletonJsonData(attachment_loader, path, json);
+    // The Java/editor bridge supplies a sized byte buffer, which is not guaranteed
+    // to have the NUL terminator expected by SkeletonJson::readSkeletonData().
+    char* json_text = (char*)malloc(json_size + 1);
+    if (!json_text)
+    {
+        SPINE_SetLastError("Failed to allocate Spine JSON buffer");
+        SPINE_Destroy(file);
+        return 0;
+    }
+    memcpy(json_text, json, json_size);
+    json_text[json_size] = '\0';
+
+    // Create the spine resource.
+    file->m_SkeletonData = dmSpine::ReadSkeletonJsonData(file->m_AttachmentLoader, path, json_text);
+    free(json_text);
     if (!file->m_SkeletonData)
     {
-        if (attachment_loader->error1 || attachment_loader->error2)
-            SPINE_SetLastError(attachment_loader);
+        const char* loader_error = file->m_AttachmentLoader->GetError();
+        if (loader_error && loader_error[0])
+            SPINE_SetLastError(loader_error);
 
         dmLogError("Failed to load Spine skeleton from json file %s", path);
         SPINE_Destroy(file);
         return 0;
     }
 
-    file->m_AnimationStateData = spAnimationStateData_create(file->m_SkeletonData);
+    file->m_AnimationStateData = new spine::AnimationStateData(*file->m_SkeletonData);
 
-    file->m_SkeletonInstance = spSkeleton_create(file->m_SkeletonData);
+    file->m_SkeletonInstance = new spine::Skeleton(*file->m_SkeletonData);
     if (!file->m_SkeletonInstance)
     {
         dmLogError("Failed to create skeleton instance");
         SPINE_Destroy(file);
         return 0;
     }
-    spSkeleton_setSkin(file->m_SkeletonInstance, file->m_SkeletonData->defaultSkin);
+    file->m_SkeletonInstance->setSkin(file->m_SkeletonData->getDefaultSkin());
 
-    file->m_AnimationStateInstance = spAnimationState_create(file->m_AnimationStateData);
+    file->m_AnimationStateInstance = new spine::AnimationState(*file->m_AnimationStateData);
     if (!file->m_AnimationStateInstance)
     {
         dmLogError("Failed to create animation state instance");
@@ -310,23 +333,26 @@ extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* json, size_t json_size,
         return 0;
     }
 
-    spSkeleton_setToSetupPose(file->m_SkeletonInstance);
-    spSkeleton_updateWorldTransform(file->m_SkeletonInstance, SP_PHYSICS_POSE);
+    file->m_SkeletonRenderer = new spine::SkeletonRenderer();
+    file->m_SkeletonInstance->setupPose();
+    file->m_SkeletonInstance->updateWorldTransform(spine::Physics_Pose);
 
     file->m_Path = strdup(path);
 
-    file->m_AnimationNames.SetCapacity(file->m_SkeletonData->animationsCount);
-    file->m_AnimationNames.SetSize(file->m_SkeletonData->animationsCount);
-    for (int i = 0; i < file->m_SkeletonData->animationsCount; ++i)
+    spine::Array<spine::Animation*>& animations = file->m_SkeletonData->getAnimations();
+    file->m_AnimationNames.SetCapacity((uint32_t)animations.size());
+    file->m_AnimationNames.SetSize((uint32_t)animations.size());
+    for (uint32_t i = 0; i < animations.size(); ++i)
     {
-        file->m_AnimationNames[i] = strdup(file->m_SkeletonData->animations[i]->name);
+        file->m_AnimationNames[i] = strdup(animations[i]->getName().buffer());
     }
 
-    file->m_SkinNames.SetCapacity(file->m_SkeletonData->skinsCount);
-    file->m_SkinNames.SetSize(file->m_SkeletonData->skinsCount);
-    for (int i = 0; i < file->m_SkeletonData->skinsCount; ++i)
+    spine::Array<spine::Skin*>& skins = file->m_SkeletonData->getSkins();
+    file->m_SkinNames.SetCapacity((uint32_t)skins.size());
+    file->m_SkinNames.SetSize((uint32_t)skins.size());
+    for (uint32_t i = 0; i < skins.size(); ++i)
     {
-        file->m_SkinNames[i] = strdup(file->m_SkeletonData->skins[i]->name);
+        file->m_SkinNames[i] = strdup(skins[i]->getName().buffer());
     }
 
     file->m_CurrentSkin = 0;
@@ -348,10 +374,15 @@ extern "C" DM_DLLEXPORT void* SPINE_LoadFromPath(const char* path, const char* a
     }
 
     size_t atlas_buffer_size = 0;
-    uint8_t* atlas_buffer = ReadFile(atlas_path, &atlas_buffer_size);
-    if (!buffer) {
-        dmLogError("%s: Failed to read atlas file %s", __FUNCTION__, atlas_path);
-        return 0;
+    uint8_t* atlas_buffer = 0;
+    if (atlas_path)
+    {
+        atlas_buffer = ReadFile(atlas_path, &atlas_buffer_size);
+        if (!atlas_buffer) {
+            dmLogError("%s: Failed to read atlas file %s", __FUNCTION__, atlas_path);
+            free(buffer);
+            return 0;
+        }
     }
 
     void* p = SPINE_LoadFromBuffer(buffer, buffer_size, path, atlas_buffer, atlas_buffer_size, atlas_path);
@@ -367,16 +398,18 @@ extern "C" DM_DLLEXPORT void SPINE_Destroy(void* _file) {
         return;
     }
 
-    if (file->m_AnimationStateInstance)
-        spAnimationState_dispose(file->m_AnimationStateInstance);
-    if (file->m_SkeletonInstance)
-        spSkeleton_dispose(file->m_SkeletonInstance);
+    for (uint32_t i = 0; i < file->m_AnimationNames.Size(); ++i)
+        free((void*)file->m_AnimationNames[i]);
+    for (uint32_t i = 0; i < file->m_SkinNames.Size(); ++i)
+        free((void*)file->m_SkinNames[i]);
 
-    if (file->m_AnimationStateData)
-        spAnimationStateData_dispose(file->m_AnimationStateData);
-    if (file->m_SkeletonData)
-        spSkeletonData_dispose(file->m_SkeletonData);
+    delete file->m_AnimationStateInstance;
+    delete file->m_SkeletonRenderer;
+    delete file->m_SkeletonInstance;
+    delete file->m_AnimationStateData;
+    delete file->m_SkeletonData;
     dmSpine::Dispose(file->m_AttachmentLoader);
+    delete[] file->m_AtlasRegions;
 
     free((void*)file->m_Path);
 
@@ -387,7 +420,7 @@ extern "C" DM_DLLEXPORT int32_t SPINE_GetNumAnimations(void* _file) {
     SpineFile* file = TO_SPINE_FILE(_file);
     CHECK_FILE_RETURN(file);
 
-    return file->m_SkeletonInstance ? file->m_SkeletonData->animationsCount : 0;
+    return file->m_SkeletonInstance ? (int32_t)file->m_SkeletonData->getAnimations().size() : 0;
 }
 
 extern "C" DM_DLLEXPORT const char* SPINE_GetAnimation(void* _file, int i) {
@@ -397,12 +430,13 @@ extern "C" DM_DLLEXPORT const char* SPINE_GetAnimation(void* _file, int i) {
     if (!file->m_SkeletonInstance)
         return 0;
 
-    if (i < 0 || i >= file->m_SkeletonData->animationsCount) {
-        dmLogError("%s: Animation index %d is not in range [0, %d]", __FUNCTION__, i, file->m_SkeletonData->animationsCount);
+    spine::Array<spine::Animation*>& animations = file->m_SkeletonData->getAnimations();
+    if (i < 0 || i >= (int)animations.size()) {
+        dmLogError("%s: Animation index %d is not in range [0, %u)", __FUNCTION__, i, (uint32_t)animations.size());
         return 0;
     }
 
-    return file->m_SkeletonData->animations[i]->name;
+    return animations[i]->getName().buffer();
 }
 
 
@@ -494,17 +528,20 @@ extern "C" DM_DLLEXPORT void SPINE_UpdateVertices(void* _file, float dt, const f
 
 static void UpdateVertices(SpineFile* file, float dt, const dmVMath::Matrix4& transform, const dmVMath::Vector4& color_tint, bool use_index_buffer)
 {
-    if (!file || !file->m_AnimationStateInstance) {
+    if (!file)
+        return;
+
+    if (!file->m_AnimationStateInstance) {
         if (file->m_VertexBuffer.Empty()) {
             CreateAABB(file);
         }
         return;
     }
 
-    spAnimationState_update(file->m_AnimationStateInstance, dt);
-    spAnimationState_apply(file->m_AnimationStateInstance, file->m_SkeletonInstance);
-    spSkeleton_update(file->m_SkeletonInstance, dt);
-    spSkeleton_updateWorldTransform(file->m_SkeletonInstance, SP_PHYSICS_UPDATE);
+    file->m_AnimationStateInstance->update(dt);
+    file->m_AnimationStateInstance->apply(*file->m_SkeletonInstance);
+    file->m_SkeletonInstance->update(dt);
+    file->m_SkeletonInstance->updateWorldTransform(spine::Physics_Update);
 
     UpdateRenderData(file, transform, color_tint, use_index_buffer); // Update the draw call list
 }
@@ -572,31 +609,47 @@ extern "C" DM_DLLEXPORT void SPINE_SetSkin(void* _file, const char* skin)
 {
     SpineFile* file = TO_SPINE_FILE(_file);
     CHECK_FILE_RETURN_VOID(file);
+    if (!skin)
+        return;
+
     dmhash_t name_hash = dmHashString64(skin);
     if (name_hash == file->m_CurrentSkin)
         return;
 
-    file->m_CurrentSkin = name_hash;
-    if (!spSkeleton_setSkinByName(file->m_SkeletonInstance, skin))
+    spine::Skin* new_skin = file->m_SkeletonData->findSkin(skin);
+    if (!new_skin)
     {
         dmLogError("Failed to set skin '%s' to spine instance '%s'", skin, file->m_Path);
         return;
     }
-    spSkeleton_setSlotsToSetupPose(file->m_SkeletonInstance);
+
+    file->m_CurrentSkin = name_hash;
+    file->m_SkeletonInstance->setSkin(new_skin);
+    file->m_SkeletonInstance->setupPoseSlots();
 }
 
 extern "C" DM_DLLEXPORT void SPINE_SetAnimation(void* _file, const char* animation)
 {
     SpineFile* file = TO_SPINE_FILE(_file);
     CHECK_FILE_RETURN_VOID(file);
+    if (!animation)
+        return;
+
     dmhash_t name_hash = dmHashString64(animation);
     if (name_hash == file->m_CurrentAnimation)
         return;
-    file->m_CurrentAnimation = name_hash;
 
-    int loop = 1; // we're in the editor, so we want it to loop
-    int track = 0; // In the editor, we're only playing a single animation
-    spAnimationState_setAnimationByName(file->m_AnimationStateInstance, track, animation, loop);
+    spine::Animation* new_animation = file->m_SkeletonData->findAnimation(animation);
+    if (!new_animation)
+    {
+        dmLogError("Failed to set animation '%s' to spine instance '%s'", animation, file->m_Path);
+        return;
+    }
+
+    file->m_CurrentAnimation = name_hash;
+    bool loop = true; // we're in the editor, so we want it to loop
+    uint32_t track = 0; // In the editor, we're only playing a single animation
+    file->m_AnimationStateInstance->setAnimation(track, *new_animation, loop);
 }
 
 extern "C" DM_DLLEXPORT AABB SPINE_GetAABB(void* _file)
@@ -736,8 +789,6 @@ static void UpdateRenderData(SpineFile* file, const dmVMath::Matrix4& transform,
     file->m_VertexBuffer.SetSize(0);
     file->m_IndexBuffer.SetSize(0);
 
-    spSkeletonClipping* clipper = spSkeletonClipping_create();
-
     uint32_t draw_desc_count = dmSpine::CalcDrawDescCount(file->m_SkeletonInstance);
 
     if (use_index_buffer)
@@ -749,7 +800,7 @@ static void UpdateRenderData(SpineFile* file, const dmVMath::Matrix4& transform,
             file->m_DrawDescScratch.SetCapacity(new_capacity);
         }
 
-        dmSpine::GenerateIndexedVertexData(file->m_VertexBuffer, file->m_IndexBuffer, file->m_SkeletonInstance, clipper, transform, color_tint, &file->m_DrawDescScratch, file->m_GeometryScratch);
+        dmSpine::GenerateIndexedVertexData(file->m_VertexBuffer, file->m_IndexBuffer, file->m_SkeletonInstance, file->m_SkeletonRenderer, transform, color_tint, &file->m_DrawDescScratch, file->m_GeometryScratch);
 
         MergeIndexedDrawDescs(file->m_DrawDescScratch, file->m_MergedDrawDescScratch);
 
@@ -767,11 +818,10 @@ static void UpdateRenderData(SpineFile* file, const dmVMath::Matrix4& transform,
     }
     else
     {
-        dmSpine::GenerateVertexData(file->m_VertexBuffer, file->m_SkeletonInstance, clipper, transform, color_tint, 0);
+        dmSpine::GenerateVertexData(file->m_VertexBuffer, file->m_SkeletonInstance, file->m_SkeletonRenderer, transform, color_tint, 0);
     }
 
     file->m_VertexBufferVersion++;
     file->m_IndexBufferVersion++;
 
-    spSkeletonClipping_dispose(clipper);
 }

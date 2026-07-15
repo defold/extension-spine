@@ -17,13 +17,99 @@ local examples = {
 	{ name = "Performance Test", proxy_id = "performance_test_proxy", description = "Spawns a 20x10 grid of Spineboy instances and reports FPS" }
 }
 
+local automation = rawget(_G, "automation_bridge")
+local AUTOMATION_STATE = "extension_spine.examples"
+local AUTOMATION_LOAD_COMMAND = "extension_spine.load_example"
+local AUTOMATION_EXERCISE_COMMAND = "extension_spine.exercise_current"
+
+local automation_exercise_receivers = {
+	[8] = "gui_mix_skins:/go_gui#main",
+	[13] = "swap_spinescene:/root#controller",
+}
+
 local current_example = 1
 local current_proxy_id = nil
 local all_loaded = false
 local loaded_proxies = {}
 
+local function publish_automation_state(status, error_message)
+	if not automation then
+		return
+	end
+
+	local example = examples[current_example]
+	local state = {
+		status = status,
+		index = current_example,
+		name = example and example.name or "",
+		proxy_id = example and example.proxy_id or "",
+		example_count = #examples,
+	}
+	if error_message then
+		state.error = error_message
+	end
+	automation.publish(AUTOMATION_STATE, state)
+end
+
+local function find_example_index(data)
+	if type(data) ~= "table" then
+		return nil
+	end
+
+	local index = tonumber(data.index)
+	if index and index == math.floor(index) and examples[index] then
+		return index
+	end
+
+	for i, example in ipairs(examples) do
+		if data.name == example.name or data.proxy_id == example.proxy_id then
+			return i
+		end
+	end
+	return nil
+end
+
+local function register_automation_commands()
+	if not automation then
+		return
+	end
+
+	automation.command(AUTOMATION_LOAD_COMMAND, function(data)
+		local index = find_example_index(data)
+		if not index then
+			error("load_example requires a valid index, name, or proxy_id")
+		end
+
+		current_example = index
+		publish_automation_state("selected")
+		load_example(examples[index].proxy_id)
+		return {
+			accepted = true,
+			index = index,
+			name = examples[index].name,
+			proxy_id = examples[index].proxy_id,
+		}
+	end)
+
+	automation.command(AUTOMATION_EXERCISE_COMMAND, function()
+		local receiver = automation_exercise_receivers[current_example]
+		if not receiver then
+			error("the current example has no automation-only exercise")
+		end
+
+		msg.post(receiver, "run_automation_regression")
+		return {
+			accepted = true,
+			index = current_example,
+			name = examples[current_example].name,
+		}
+	end)
+end
+
 function init(self)
 	msg.post(".", "acquire_input_focus")
+	register_automation_commands()
+	publish_automation_state("selected")
 	
 	-- Get display scale and apply it to ImGui scaling
 	local display_scale = window.get_display_scale()
@@ -100,6 +186,7 @@ function update(self, dt)
 		
 		if imgui.selectable(example.name, is_selected, flags) and not is_loaded then
 			current_example = i
+			publish_automation_state("selected")
 		end
 		
 		-- Show description on hover
@@ -195,6 +282,7 @@ function on_message(self, message_id, message, sender)
 			-- Initialize and enable the loaded collection
 			msg.post(sender, "init")
 			msg.post(sender, "enable")
+			publish_automation_state("ready")
 		end
 	elseif message_id == hash("proxy_unloaded") then
 		print("Collection unloaded successfully")
@@ -204,6 +292,7 @@ function on_message(self, message_id, message, sender)
 		else
 			print("Failed to load collection: " .. examples[current_example].name)
 			current_proxy_id = nil
+			publish_automation_state("failed", "collection proxy failed to load")
 		end
 	end
 end
@@ -221,7 +310,8 @@ function load_example(proxy_id)
 	-- Check if this collection is already loaded
 	if current_proxy_id == proxy_id then
 		print("Collection already loaded: " .. examples[current_example].name)
-		return
+		publish_automation_state("ready")
+		return false
 	end
 	
 	-- Unload current example if any
@@ -233,9 +323,11 @@ function load_example(proxy_id)
 	end
 	
 	current_proxy_id = proxy_id
+	publish_automation_state("loading")
 	-- Load the new collection
 	msg.post(proxy_id, "load")
 	msg.post(proxy_id, "acquire_input_focus")
+	return true
 end
 
 function load_main_menu()
@@ -246,6 +338,7 @@ function load_main_menu()
 		msg.post(current_proxy_id, "unload")
 		current_proxy_id = nil
 	end
+	publish_automation_state("selected")
 end
 
 function load_all_examples()

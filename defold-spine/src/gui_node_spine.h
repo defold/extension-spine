@@ -9,18 +9,22 @@
 #include <dmsdk/dlib/vmath.h>
 #include <dmsdk/dlib/array.h>
 
-// Forward declarations for Spine types (global namespace, not dmSpine)
-struct spIkConstraint;
-struct spTrackEntry;
+namespace spine
+{
+    class IkConstraint;
+    class TrackEntry;
+}
 
 namespace dmSpine
 {
+
+struct SpineSceneResource;
 
 // IK Target structure for GUI spine nodes
 struct GuiIKTarget
 {
     dmhash_t                                m_ConstraintHash;
-    spIkConstraint*                         m_Constraint;
+    spine::IkConstraint*                    m_Constraint;
     dmGui::HNode                            m_TargetNode;     // for following a GUI node
     dmVMath::Point3                         m_Position;       // for fixed position
 };
@@ -28,7 +32,7 @@ struct GuiIKTarget
 // Animation track structure for GUI spine nodes
 struct GuiSpineAnimationTrack 
 {
-    spTrackEntry*                           m_AnimationInstance;
+    spine::TrackEntry*                      m_AnimationInstance;
     dmhash_t                                m_AnimationId;
     dmGui::Playback                         m_Playback;
     dmScript::LuaCallbackInfo*              m_CallbackInfo;
@@ -37,6 +41,7 @@ struct GuiSpineAnimationTrack
 
 bool        SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene);
 dmhash_t    GetScene(dmGui::HScene scene, dmGui::HNode hnode);
+bool        ReloadSceneResource(dmGui::HScene scene, dmGui::HNode hnode, SpineSceneResource* resource);
 
 bool        PlayAnimation(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t animation_id, dmGui::Playback playback,
                             float blend_duration, float offset, float playback_rate, int32_t track, dmScript::LuaCallbackInfo* callback);

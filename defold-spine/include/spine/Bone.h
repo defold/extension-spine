@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated July 28, 2023. Replaces all prior versions.
+ * Last updated April 5, 2025. Replaces all prior versions.
  *
- * Copyright (c) 2013-2023, Esoteric Software LLC
+ * Copyright (c) 2013-2025, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software or
- * otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software
+ * or otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,86 +23,89 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
- * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef SPINE_BONE_H_
-#define SPINE_BONE_H_
+#ifndef Spine_Bone_h
+#define Spine_Bone_h
 
-#include <spine/dll.h>
+#include <spine/Posed.h>
+#include <spine/PosedActive.h>
 #include <spine/BoneData.h>
-#include <spine/Physics.h>
+#include <spine/BonePose.h>
+#include <spine/Array.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace spine {
+	/// A node in a skeleton's hierarchy with a transform that affects its children and their attachments. A bone has a number of
+	/// poses:
+	/// - getData(): The setup pose data.
+	/// - getPose(): The unconstrained local pose. Set by animations and application code.
+	/// - getAppliedPose(): The local pose to use for rendering. Possibly modified by constraints.
+	/// - World transform: the local pose combined with the parent world transform. Computed on a pose by
+	///   BonePose::updateWorldTransform(Skeleton) and Skeleton::updateWorldTransform(Physics).
+	class SP_API Bone : public PosedGeneric<BoneData, BonePose, BonePose>, public PosedActive, public Update {
+		friend class AnimationState;
+		friend class RotateTimeline;
+		friend class IkConstraint;
+		friend class TransformConstraint;
+		friend class VertexAttachment;
+		friend class PathConstraint;
+		friend class PhysicsConstraint;
+		friend class Skeleton;
+		friend class Slider;
+		friend class RegionAttachment;
+		friend class PointAttachment;
+		friend class AttachmentTimeline;
+		friend class RGBATimeline;
+		friend class RGBTimeline;
+		friend class AlphaTimeline;
+		friend class RGBA2Timeline;
+		friend class RGB2Timeline;
+		friend class ScaleTimeline;
+		friend class ScaleXTimeline;
+		friend class ScaleYTimeline;
+		friend class ShearTimeline;
+		friend class ShearXTimeline;
+		friend class ShearYTimeline;
+		friend class TranslateTimeline;
+		friend class TranslateXTimeline;
+		friend class TranslateYTimeline;
+		friend class InheritTimeline;
 
-struct spSkeleton;
+		RTTI_DECL
 
-typedef struct spBone spBone;
-struct spBone {
-	spBoneData *data;
-	struct spSkeleton *skeleton;
-	spBone *parent;
-	int childrenCount;
-	spBone **children;
-	float x, y, rotation, scaleX, scaleY, shearX, shearY;
-	float ax, ay, arotation, ascaleX, ascaleY, ashearX, ashearY;
+	public:
+		/// @param parent May be NULL.
+		Bone(BoneData &data, Bone *parent);
 
-	float a, b, worldX;
-	float c, d, worldY;
+		/// Copy constructor. Does not copy the child bones.
+		Bone(Bone &bone, Bone *parent);
 
-	int/*bool*/ sorted;
-	int/*bool*/ active;
+		/// The parent bone, or null if this is the root bone.
+		Bone *getParent();
 
-    spInherit inherit;
-};
+		/// The immediate children of this bone.
+		Array<Bone *> &getChildren();
 
-SP_API void spBone_setYDown(int/*bool*/yDown);
+		static bool isYDown() {
+			return yDown;
+		}
+		static void setYDown(bool value) {
+			yDown = value;
+		}
 
-SP_API int/*bool*/spBone_isYDown(void);
+		virtual void update(Skeleton &skeleton, Physics physics) override {
+			// No-op, need to extend Update so we can stuff Bone into Skeleton.updateCache temporarily.
+			// See Skeleton::updateCache().
+		}
 
-/* @param parent May be 0. */
-SP_API spBone *spBone_create(spBoneData *data, struct spSkeleton *skeleton, spBone *parent);
-
-SP_API void spBone_dispose(spBone *self);
-
-SP_API void spBone_setToSetupPose(spBone *self);
-
-SP_API void spBone_update(spBone *self);
-
-SP_API void spBone_updateWorldTransform(spBone *self);
-
-SP_API void spBone_updateWorldTransformWith(spBone *self, float x, float y, float rotation, float scaleX, float scaleY,
-											float shearX, float shearY);
-
-SP_API float spBone_getWorldRotationX(spBone *self);
-
-SP_API float spBone_getWorldRotationY(spBone *self);
-
-SP_API float spBone_getWorldScaleX(spBone *self);
-
-SP_API float spBone_getWorldScaleY(spBone *self);
-
-SP_API void spBone_updateAppliedTransform(spBone *self);
-
-SP_API void spBone_worldToLocal(spBone *self, float worldX, float worldY, float *localX, float *localY);
-
-SP_API void spBone_worldToParent(spBone *self, float worldX, float worldY, float *parentX, float *parentY);
-
-SP_API void spBone_localToWorld(spBone *self, float localX, float localY, float *worldX, float *worldY);
-
-SP_API void spBone_localToParent(spBone *self, float localX, float localY, float *parentX, float *parentY);
-
-SP_API float spBone_worldToLocalRotation(spBone *self, float worldRotation);
-
-SP_API float spBone_localToWorldRotation(spBone *self, float localRotation);
-
-SP_API void spBone_rotateWorld(spBone *self, float degrees);
-
-#ifdef __cplusplus
+	private:
+		static bool yDown;
+		Bone *const _parent;
+		Array<Bone *> _children;
+		bool _sorted;
+	};
 }
-#endif
 
-#endif /* SPINE_BONE_H_ */
+#endif /* Spine_Bone_h */

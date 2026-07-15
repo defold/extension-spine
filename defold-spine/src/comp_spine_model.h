@@ -28,19 +28,24 @@
 
 #include "res_spine_model.h"
 
-struct spAnimationState;
-struct spBone;
-struct spSkeleton;
-struct spTrackEntry;
-struct spIkConstraint;
+namespace spine
+{
+    class AnimationState;
+    class Bone;
+    class Skeleton;
+    class TrackEntry;
+    class IkConstraint;
+}
 struct lua_State;
 
 namespace dmSpine
 {
+    struct SpineSceneData;
+
     const int32_t ALL_TRACKS = -1;
 
     struct SpineAnimationTrack {
-        spTrackEntry*                           m_AnimationInstance;
+        spine::TrackEntry*                      m_AnimationInstance;
         dmhash_t                                m_AnimationId;
         dmGameObject::Playback                  m_Playback;
         dmMessage::URL                          m_Listener;
@@ -53,7 +58,7 @@ namespace dmSpine
     struct IKTarget
     {
         dmhash_t                                m_ConstraintHash;
-        spIkConstraint*                         m_Constraint;
+        spine::IkConstraint*                    m_Constraint;
         dmGameObject::HInstance                 m_Target;
         dmVMath::Point3                         m_Position;
     };
@@ -64,15 +69,16 @@ namespace dmSpine
         dmTransform::Transform                  m_Transform;
         dmVMath::Matrix4                        m_World;
         SpineModelResource*                     m_Resource;
-        spSkeleton*                             m_SkeletonInstance;
-        spAnimationState*                       m_AnimationStateInstance;
+        SpineSceneData*                         m_SceneData;
+        spine::Skeleton*                        m_SkeletonInstance;
+        spine::AnimationState*                  m_AnimationStateInstance;
         dmArray<dmSpine::SpineAnimationTrack>   m_AnimationTracks;
         dmGameSystem::HComponentRenderConstants m_RenderConstants;
         dmGameSystem::MaterialResource*         m_Material;
         SpineSceneResource*                     m_SpineScene;
         /// Node instances corresponding to the bones
         dmArray<dmGameObject::HInstance>        m_BoneInstances;
-        dmArray<spBone*>                        m_Bones;                        // We shouldn't really have to have a duplicate array of these
+        dmArray<spine::Bone*>                   m_Bones;                        // We shouldn't really have to have a duplicate array of these
         dmHashTable64<uint32_t>                 m_BoneNameToNodeInstanceIndex;  // should really be in the spine_scene
 
         dmArray<dmSpine::IKTarget>              m_IKTargets;

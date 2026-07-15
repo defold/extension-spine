@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated July 28, 2023. Replaces all prior versions.
+ * Last updated April 5, 2025. Replaces all prior versions.
  *
- * Copyright (c) 2013-2023, Esoteric Software LLC
+ * Copyright (c) 2013-2025, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software or
- * otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software
+ * or otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,46 +23,134 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
- * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef SPINE_COLOR_H_
-#define SPINE_COLOR_H_
+#ifndef SPINE_COLOR_H
+#define SPINE_COLOR_H
 
-#include <spine/dll.h>
+#include <spine/MathUtil.h>
+#include <string.h>
+#include <stdlib.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace spine {
+	class SP_API Color : public SpineObject {
+	public:
+		Color() : r(0), g(0), b(0), a(0) {
+		}
 
-typedef struct spColor {
-	float r, g, b, a;
-} spColor;
+		Color(float r, float g, float b, float a) : r(r), g(g), b(b), a(a) {
+			clamp();
+		}
 
-/* @param attachmentName May be 0 for no setup pose attachment. */
-SP_API spColor *spColor_create(void);
+		inline Color &set(float _r, float _g, float _b, float _a) {
+			this->r = _r;
+			this->g = _g;
+			this->b = _b;
+			this->a = _a;
+			clamp();
+			return *this;
+		}
 
-SP_API void spColor_dispose(spColor *self);
+		inline Color &set(float _r, float _g, float _b) {
+			this->r = _r;
+			this->g = _g;
+			this->b = _b;
+			clamp();
+			return *this;
+		}
 
-SP_API void spColor_setFromFloats(spColor *color, float r, float g, float b, float a);
+		inline Color &set(const Color &other) {
+			r = other.r;
+			g = other.g;
+			b = other.b;
+			a = other.a;
+			clamp();
+			return *this;
+		}
 
-SP_API void spColor_setFromFloats3(spColor *self, float r, float g, float b);
+		inline Color &add(float _r, float _g, float _b, float _a) {
+			this->r += _r;
+			this->g += _g;
+			this->b += _b;
+			this->a += _a;
+			clamp();
+			return *this;
+		}
 
-SP_API void spColor_setFromColor(spColor *color, spColor *otherColor);
+		inline Color &add(float _r, float _g, float _b) {
+			this->r += _r;
+			this->g += _g;
+			this->b += _b;
+			clamp();
+			return *this;
+		}
 
-SP_API void spColor_setFromColor3(spColor *self, spColor *otherColor);
+		inline Color &add(const Color &other) {
+			r += other.r;
+			g += other.g;
+			b += other.b;
+			a += other.a;
+			clamp();
+			return *this;
+		}
 
-SP_API void spColor_addFloats(spColor *color, float r, float g, float b, float a);
+		inline Color &clamp() {
+			r = MathUtil::clamp(this->r, 0, 1);
+			g = MathUtil::clamp(this->g, 0, 1);
+			b = MathUtil::clamp(this->b, 0, 1);
+			a = MathUtil::clamp(this->a, 0, 1);
+			return *this;
+		}
 
-SP_API void spColor_addFloats3(spColor *color, float r, float g, float b);
+		// Parse hex color string like "ff0000ff" (RRGGBBAA) or "ff0000" (RRGGBB)
+		static Color valueOf(const char *hexString) {
+			Color color;
+			valueOf(hexString, color);
+			return color;
+		}
 
-SP_API void spColor_addColor(spColor *color, spColor *otherColor);
+		// Parse hex color string into existing Color object
+		static void valueOf(const char *hexString, Color &color) {
+			size_t len = strlen(hexString);
+			if (len >= 6) {
+				color.r = parseHex(hexString, 0);
+				color.g = parseHex(hexString, 1);
+				color.b = parseHex(hexString, 2);
+				color.a = len >= 8 ? parseHex(hexString, 3) : 1.0f;
+			}
+		}
 
-SP_API void spColor_clamp(spColor *color);
+		static float parseHex(const char *value, size_t index) {
+			char digits[3];
+			digits[0] = value[index * 2];
+			digits[1] = value[index * 2 + 1];
+			digits[2] = '\0';
+			return strtoul(digits, NULL, 16) / 255.0f;
+		}
 
-#ifdef __cplusplus
+		// Convert packed RGBA8888 integer to Color
+		static void rgba8888ToColor(Color &color, int value) {
+			unsigned int rgba = (unsigned int) value;
+			color.r = ((rgba & 0xff000000) >> 24) / 255.0f;
+			color.g = ((rgba & 0x00ff0000) >> 16) / 255.0f;
+			color.b = ((rgba & 0x0000ff00) >> 8) / 255.0f;
+			color.a = (rgba & 0x000000ff) / 255.0f;
+		}
+
+		// Convert packed RGB888 integer to Color (no alpha)
+		static void rgb888ToColor(Color &color, int value) {
+			unsigned int rgb = (unsigned int) value;
+			color.r = ((rgb & 0xff0000) >> 16) / 255.0f;
+			color.g = ((rgb & 0x00ff00) >> 8) / 255.0f;
+			color.b = (rgb & 0x0000ff) / 255.0f;
+			color.a = 1.0f;
+		}
+
+		float r, g, b, a;
+	};
 }
-#endif
 
-#endif /* SPINE_COLOR_H_ */
+
+#endif//SPINE_COLOR_H

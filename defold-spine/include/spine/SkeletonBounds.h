@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated July 28, 2023. Replaces all prior versions.
+ * Last updated April 5, 2025. Replaces all prior versions.
  *
- * Copyright (c) 2013-2023, Esoteric Software LLC
+ * Copyright (c) 2013-2025, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software or
- * otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software
+ * or otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,75 +23,113 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
- * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef SPINE_SKELETONBOUNDS_H_
-#define SPINE_SKELETONBOUNDS_H_
+#ifndef Spine_SkeletonBounds_h
+#define Spine_SkeletonBounds_h
 
-#include <spine/dll.h>
-#include <spine/BoundingBoxAttachment.h>
-#include <spine/Skeleton.h>
+#include <spine/Array.h>
+#include <spine/Pool.h>
+#include <spine/SpineObject.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace spine {
+	class Skeleton;
 
-typedef struct spPolygon {
-	float *vertices;
-	int count;
-	int capacity;
-} spPolygon;
+	class BoundingBoxAttachment;
 
-SP_API spPolygon *spPolygon_create(int capacity);
+	class Polygon;
 
-SP_API void spPolygon_dispose(spPolygon *self);
+	/// Collects each BoundingBoxAttachment that is visible and computes the world vertices for its polygon.
+	/// The polygon vertices are provided along with convenience methods for doing hit detection.
+	class SP_API SkeletonBounds : public SpineObject {
+	public:
+		SkeletonBounds();
 
-SP_API int/*bool*/spPolygon_containsPoint(spPolygon *polygon, float x, float y);
+		~SkeletonBounds();
 
-SP_API int/*bool*/spPolygon_intersectsSegment(spPolygon *polygon, float x1, float y1, float x2, float y2);
+		/// Clears any previous polygons, finds all visible bounding box attachments,
+		/// and computes the world vertices for each bounding box's polygon.
+		/// @param skeleton The skeleton.
+		/// @param updateAabb
+		/// If true, the axis aligned bounding box containing all the polygons is computed.
+		/// If false, the SkeletonBounds AABB methods will always return true.
+		///
+		void update(Skeleton &skeleton, bool updateAabb);
 
-/**/
+		/// Returns true if the axis aligned bounding box contains the point.
+		bool aabbContainsPoint(float x, float y);
 
-typedef struct spSkeletonBounds {
-	int count;
-	spBoundingBoxAttachment **boundingBoxes;
-	spPolygon **polygons;
+		/// Returns true if the axis aligned bounding box intersects the line segment.
+		bool aabbIntersectsSegment(float x1, float y1, float x2, float y2);
 
-	float minX, minY, maxX, maxY;
-} spSkeletonBounds;
+		/// Returns true if the axis aligned bounding box intersects the axis aligned bounding box of the specified bounds.
+		bool aabbIntersectsSkeleton(SkeletonBounds &bounds);
 
-SP_API spSkeletonBounds *spSkeletonBounds_create(void);
+		/// Returns true if the polygon contains the point.
+		bool containsPoint(Polygon &polygon, float x, float y);
 
-SP_API void spSkeletonBounds_dispose(spSkeletonBounds *self);
+		/// Returns the first bounding box attachment that contains the point, or null. When doing many checks, it is usually more
+		/// efficient to only call this method if aabbContainsPoint(float, float) returns true.
+		BoundingBoxAttachment *containsPoint(float x, float y);
 
-SP_API void spSkeletonBounds_update(spSkeletonBounds *self, spSkeleton *skeleton, int/*bool*/updateAabb);
+		/// Returns the first bounding box attachment that contains any part of the line segment, or null. When doing many checks, it
+		/// is usually more efficient to only call this method if aabbIntersectsSegment(float, float, float, float) returns true.
+		BoundingBoxAttachment *intersectsSegment(float x1, float y1, float x2, float y2);
 
-/** Returns true if the axis aligned bounding box contains the point. */
-SP_API int/*bool*/spSkeletonBounds_aabbContainsPoint(spSkeletonBounds *self, float x, float y);
+		/// Returns true if the polygon contains any part of the line segment.
+		bool intersectsSegment(Polygon &polygon, float x1, float y1, float x2, float y2);
 
-/** Returns true if the axis aligned bounding box intersects the line segment. */
-SP_API int/*bool*/
-spSkeletonBounds_aabbIntersectsSegment(spSkeletonBounds *self, float x1, float y1, float x2, float y2);
+		/// Returns the polygon for the given bounding box attachment or null if no
+		/// polygon can be found for the attachment. Requires a call to update() first.
+		Polygon *getPolygon(BoundingBoxAttachment *attachment);
 
-/** Returns true if the axis aligned bounding box intersects the axis aligned bounding box of the specified bounds. */
-SP_API int/*bool*/spSkeletonBounds_aabbIntersectsSkeleton(spSkeletonBounds *self, spSkeletonBounds *bounds);
+		/// Returns the bounding box for the given polygon or null. Requires a call to update() first.
+		BoundingBoxAttachment *getBoundingBox(Polygon *polygon);
 
-/** Returns the first bounding box attachment that contains the point, or null. When doing many checks, it is usually more
- * efficient to only call this method if spSkeletonBounds_aabbContainsPoint returns true. */
-SP_API spBoundingBoxAttachment *spSkeletonBounds_containsPoint(spSkeletonBounds *self, float x, float y);
+		/// Returns all polygons or an empty array. Requires a call to update() first.
+		Array<Polygon *> &getPolygons();
 
-/** Returns the first bounding box attachment that contains the line segment, or null. When doing many checks, it is usually
- * more efficient to only call this method if spSkeletonBounds_aabbIntersectsSegment returns true. */
-SP_API spBoundingBoxAttachment *
-spSkeletonBounds_intersectsSegment(spSkeletonBounds *self, float x1, float y1, float x2, float y2);
+		/// Returns all bounding boxes. Requires a call to update() first.
+		Array<BoundingBoxAttachment *> &getBoundingBoxes();
 
-/** Returns the polygon for the specified bounding box, or null. */
-SP_API spPolygon *spSkeletonBounds_getPolygon(spSkeletonBounds *self, spBoundingBoxAttachment *boundingBox);
+		/// The left edge of the axis aligned bounding box.
+		float getMinX();
 
-#ifdef __cplusplus
+		/// The bottom edge of the axis aligned bounding box.
+		float getMinY();
+
+		/// The right edge of the axis aligned bounding box.
+		float getMaxX();
+
+		/// The top edge of the axis aligned bounding box.
+		float getMaxY();
+
+		/// The width of the axis aligned bounding box.
+		float getWidth();
+
+		/// The height of the axis aligned bounding box.
+		float getHeight();
+
+	private:
+		Pool<Polygon> _polygonPool;
+		Array<BoundingBoxAttachment *> _boundingBoxes;
+		Array<Polygon *> _polygons;
+		float _minX, _minY, _maxX, _maxY;
+
+		void aabbCompute();
+	};
+
+	class Polygon : public SpineObject {
+	public:
+		Array<float> _vertices;
+		int _count;
+
+		Polygon() : _count(0) {
+			_vertices.ensureCapacity(16);
+		}
+	};
 }
-#endif
 
-#endif /* SPINE_SKELETONBOUNDS_H_ */
+#endif /* Spine_SkeletonBounds_h */

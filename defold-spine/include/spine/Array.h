@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated July 28, 2023. Replaces all prior versions.
+ * Last updated April 5, 2025. Replaces all prior versions.
  *
- * Copyright (c) 2013-2023, Esoteric Software LLC
+ * Copyright (c) 2013-2025, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software or
- * otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software
+ * or otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,174 +23,227 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
- * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef SPINE_ARRAY_H
-#define SPINE_ARRAY_H
+#ifndef Spine_Array_h
+#define Spine_Array_h
 
-#include <spine/dll.h>
+#include <spine/Extension.h>
+#include <spine/SpineObject.h>
+#include <spine/SpineString.h>
+#include <assert.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace spine {
+	template<typename T>
+	class SP_API Array : public SpineObject {
+	public:
+		using size_type = size_t;
+		using value_type = T;
 
-#define _SP_ARRAY_DECLARE_TYPE(name, itemType) \
-    typedef struct name { int size; int capacity; itemType* items; } name; \
-    SP_API name* name##_create(int initialCapacity); \
-    SP_API void name##_dispose(name* self); \
-    SP_API void name##_clear(name* self); \
-    SP_API name* name##_setSize(name* self, int newSize); \
-    SP_API void name##_ensureCapacity(name* self, int newCapacity); \
-    SP_API void name##_add(name* self, itemType value); \
-    SP_API void name##_addAll(name* self, name* other); \
-    SP_API void name##_addAllValues(name* self, itemType* values, int offset, int count); \
-    SP_API void name##_removeAt(name* self, int index); \
-    SP_API int name##_contains(name* self, itemType value); \
-    SP_API itemType name##_pop(name* self); \
-    SP_API itemType name##_peek(name* self);
+		Array() : _size(0), _capacity(0), _buffer(NULL) {
+		}
 
-#define _SP_ARRAY_IMPLEMENT_TYPE(name, itemType) \
-    name* name##_create(int initialCapacity) { \
-        name* array = CALLOC(name, 1); \
-        array->size = 0; \
-        array->capacity = initialCapacity; \
-        array->items = CALLOC(itemType, initialCapacity); \
-        return array; \
-    } \
-    void name##_dispose(name* self) { \
-        FREE(self->items); \
-        FREE(self); \
-    } \
-    void name##_clear(name* self) { \
-        self->size = 0; \
-    } \
-    name* name##_setSize(name* self, int newSize) { \
-        self->size = newSize; \
-        if (self->capacity < newSize) { \
-            self->capacity = MAX(8, (int)(self->size * 1.75f)); \
-            self->items = REALLOC(self->items, itemType, self->capacity); \
-        } \
-        return self; \
-    } \
-    void name##_ensureCapacity(name* self, int newCapacity) { \
-        if (self->capacity >= newCapacity) return; \
-        self->capacity = newCapacity; \
-        self->items = REALLOC(self->items, itemType, self->capacity); \
-    } \
-    void name##_add(name* self, itemType value) { \
-        if (self->size == self->capacity) { \
-            self->capacity = MAX(8, (int)(self->size * 1.75f)); \
-            self->items = REALLOC(self->items, itemType, self->capacity); \
-        } \
-        self->items[self->size++] = value; \
-    } \
-    void name##_addAll(name* self, name* other) { \
-        int i = 0; \
-        for (; i < other->size; i++) { \
-            name##_add(self, other->items[i]); \
-        } \
-    } \
-    void name##_addAllValues(name* self, itemType* values, int offset, int count) { \
-        int i = offset, n = offset + count; \
-        for (; i < n; i++) { \
-            name##_add(self, values[i]); \
-        } \
-    } \
-    void name##_removeAt(name* self, int index) { \
-        self->size--; \
-        memmove(self->items + index, self->items + index + 1, sizeof(itemType) * (self->size - index)); \
-    } \
-    int name##_contains(name* self, itemType value) { \
-        itemType* items = self->items; \
-        int i, n; \
-        for (i = 0, n = self->size; i < n; i++) { \
-            if (items[i] == value) return -1; \
-        } \
-        return 0; \
-    } \
-    itemType name##_pop(name* self) { \
-        itemType item = self->items[--self->size]; \
-        return item; \
-    } \
-    itemType name##_peek(name* self) { \
-        return self->items[self->size - 1]; \
-    }
+		Array(size_t capacity) : _size(0), _capacity(0), _buffer(NULL) {
+			ensureCapacity(capacity);
+		}
 
-#define _SP_ARRAY_IMPLEMENT_TYPE_NO_CONTAINS(name, itemType) \
-    name* name##_create(int initialCapacity) { \
-        name* array = CALLOC(name, 1); \
-        array->size = 0; \
-        array->capacity = initialCapacity; \
-        array->items = CALLOC(itemType, initialCapacity); \
-        return array; \
-    } \
-    void name##_dispose(name* self) { \
-        FREE(self->items); \
-        FREE(self); \
-    } \
-    void name##_clear(name* self) { \
-        self->size = 0; \
-    } \
-    name* name##_setSize(name* self, int newSize) { \
-        self->size = newSize; \
-        if (self->capacity < newSize) { \
-            self->capacity = MAX(8, (int)(self->size * 1.75f)); \
-            self->items = REALLOC(self->items, itemType, self->capacity); \
-        } \
-        return self; \
-    } \
-    void name##_ensureCapacity(name* self, int newCapacity) { \
-        if (self->capacity >= newCapacity) return; \
-        self->capacity = newCapacity; \
-        self->items = REALLOC(self->items, itemType, self->capacity); \
-    } \
-    void name##_add(name* self, itemType value) { \
-        if (self->size == self->capacity) { \
-            self->capacity = MAX(8, (int)(self->size * 1.75f)); \
-            self->items = REALLOC(self->items, itemType, self->capacity); \
-        } \
-        self->items[self->size++] = value; \
-    } \
-    void name##_addAll(name* self, name* other) { \
-        int i = 0; \
-        for (; i < other->size; i++) { \
-            name##_add(self, other->items[i]); \
-        } \
-    } \
-    void name##_addAllValues(name* self, itemType* values, int offset, int count) { \
-        int i = offset, n = offset + count; \
-        for (; i < n; i++) { \
-            name##_add(self, values[i]); \
-        } \
-    } \
-    void name##_removeAt(name* self, int index) { \
-        self->size--; \
-        memmove(self->items + index, self->items + index + 1, sizeof(itemType) * (self->size - index)); \
-    } \
-    itemType name##_pop(name* self) { \
-        itemType item = self->items[--self->size]; \
-        return item; \
-    } \
-    itemType name##_peek(name* self) { \
-        return self->items[self->size - 1]; \
-    }
+		Array(const Array &inArray) : _size(inArray._size), _capacity(inArray._capacity), _buffer(NULL) {
+			if (_capacity > 0) {
+				_buffer = allocate(_capacity);
+				for (size_t i = 0; i < _size; ++i) {
+					construct(_buffer + i, inArray._buffer[i]);
+				}
+			}
+		}
 
-_SP_ARRAY_DECLARE_TYPE(spFloatArray, float)
+		~Array() {
+			clear();
+			deallocate(_buffer);
+		}
 
-_SP_ARRAY_DECLARE_TYPE(spIntArray, int)
+		inline void clear() {
+			for (size_t i = 0; i < _size; ++i) {
+				destroy(_buffer + (_size - 1 - i));
+			}
 
-_SP_ARRAY_DECLARE_TYPE(spShortArray, short)
+			_size = 0;
+		}
 
-_SP_ARRAY_DECLARE_TYPE(spUnsignedShortArray, unsigned short)
+		inline size_t getCapacity() const {
+			return _capacity;
+		}
 
-_SP_ARRAY_DECLARE_TYPE(spArrayFloatArray, spFloatArray*)
+		inline size_t size() const {
+			return _size;
+		}
 
-_SP_ARRAY_DECLARE_TYPE(spArrayShortArray, spShortArray*)
+		inline Array<T> &setSize(size_t newSize, const T &defaultValue) {
+			size_t oldSize = _size;
+			_size = newSize;
+			if (_capacity < newSize) {
+				if (_capacity == 0) {
+					_capacity = _size;
+				} else {
+					_capacity = (int) (_size * 1.75f);
+				}
+				if (_capacity < 8) _capacity = 8;
+				_buffer = SpineExtension::realloc<T>(_buffer, _capacity, __FILE__, __LINE__);
+			}
+			if (oldSize < _size) {
+				for (size_t i = oldSize; i < _size; i++) {
+					construct(_buffer + i, defaultValue);
+				}
+			} else {
+				for (size_t i = _size; i < oldSize; i++) {
+					destroy(_buffer + i);
+				}
+			}
+			return *this;
+		}
 
-#ifdef __cplusplus
+		inline void ensureCapacity(size_t newCapacity = 0) {
+			if (_capacity >= newCapacity) return;
+			_capacity = newCapacity;
+			_buffer = SpineExtension::realloc<T>(_buffer, newCapacity, __FILE__, __LINE__);
+		}
+
+		inline void add(const T &inValue) {
+			if (_size == _capacity) {
+				// inValue might reference an element in this buffer
+				// When we reallocate, the reference becomes invalid.
+				// We thus need to create a defensive copy before
+				// reallocating.
+				T valueCopy = inValue;
+				_capacity = (int) (_size * 1.75f);
+				if (_capacity < 8) _capacity = 8;
+				_buffer = SpineExtension::realloc<T>(_buffer, _capacity, __FILE__, __LINE__);
+				construct(_buffer + _size++, valueCopy);
+			} else {
+				construct(_buffer + _size++, inValue);
+			}
+		}
+
+		inline void addAll(const Array<T> &inValue) {
+			ensureCapacity(this->size() + inValue.size());
+			for (size_t i = 0; i < inValue.size(); i++) {
+				add(inValue[i]);
+			}
+		}
+
+		inline void clearAndAddAll(const Array<T> &inValue) {
+			ensureCapacity(inValue.size());
+			for (size_t i = 0; i < inValue.size(); i++) _buffer[i] = inValue[i];
+			_size = inValue.size();
+		}
+
+		inline void removeAt(size_t inIndex) {
+			assert(inIndex < _size);
+
+			--_size;
+
+			if (inIndex != _size) {
+				for (size_t i = inIndex; i < _size; ++i) {
+					T tmp(_buffer[i]);
+					_buffer[i] = _buffer[i + 1];
+					_buffer[i + 1] = tmp;
+				}
+			}
+
+			destroy(_buffer + _size);
+		}
+
+		inline bool contains(const T &inValue) {
+			for (size_t i = 0; i < _size; ++i) {
+				if (_buffer[i] == inValue) {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		inline int indexOf(const T &inValue) {
+			for (size_t i = 0; i < _size; ++i) {
+				if (_buffer[i] == inValue) {
+					return (int) i;
+				}
+			}
+
+			return -1;
+		}
+
+		inline T &operator[](size_t inIndex) {
+			assert(inIndex < _size);
+
+			return _buffer[inIndex];
+		}
+
+		inline const T &operator[](size_t inIndex) const {
+			assert(inIndex < _size);
+
+			return _buffer[inIndex];
+		}
+
+		inline friend bool operator==(Array<T> &lhs, Array<T> &rhs) {
+			if (lhs.size() != rhs.size()) {
+				return false;
+			}
+
+			for (size_t i = 0, n = lhs.size(); i < n; ++i) {
+				if (lhs[i] != rhs[i]) {
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		inline friend bool operator!=(Array<T> &lhs, Array<T> &rhs) {
+			return !(lhs == rhs);
+		}
+
+		Array &operator=(const Array &inArray) {
+			if (this != &inArray) {
+				clearAndAddAll(inArray);
+			}
+			return *this;
+		}
+
+		inline T *buffer() {
+			return _buffer;
+		}
+
+	private:
+		size_t _size;
+		size_t _capacity;
+		T *_buffer;
+
+		inline T *allocate(size_t n) {
+			assert(n > 0);
+
+			T *ptr = SpineExtension::calloc<T>(n, __FILE__, __LINE__);
+
+			assert(ptr);
+
+			return ptr;
+		}
+
+		inline void deallocate(T *buffer) {
+			if (_buffer) {
+				SpineExtension::free(buffer, __FILE__, __LINE__);
+			}
+		}
+
+		inline void construct(T *buffer, const T &val) {
+			new (buffer) T(val);
+		}
+
+		inline void destroy(T *buffer) {
+			buffer->~T();
+		}
+	};
 }
-#endif
 
-#endif /* SPINE_ARRAY_H */
+#endif /* Spine_Array_h */

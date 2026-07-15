@@ -2,7 +2,7 @@
 
 # Spine animations for Defold
 
-> ### **Current Spine Runtime Version Supported: 4.2.xx**
+> ### **Current Spine Runtime Version Supported: 4.3.xx**
 
 Defold [native extension](https://www.defold.com/manuals/extensions/) for interacting with Spine animations.
 
@@ -12,7 +12,9 @@ Defold [native extension](https://www.defold.com/manuals/extensions/) for intera
 We happily accept [pull requests](https://github.com/defold/extension-spine/compare) that solve [reported issues](https://github.com/defold/extension-spine/issues).
 
 ## Updating the Spine runtime version
-Updating the Spine runtime version requires a rebuild of the runtime for all supported platforms. There is a build script to rebuild the runtime library in [extension-spine/utils/runtime](https://github.com/defold/extension-spine/tree/main/utils/runtime). The version is defined in the [build_runtime_lib.sh file](https://github.com/defold/extension-spine/blob/main/utils/runtime/build_runtime_lib.sh#L5).
+The extension vendors the official `spine-cpp` sources in `defold-spine/include/spine` and `defold-spine/commonsrc/spine`; they are compiled together with the native extension. Record the exact upstream branch and commit whenever those sources are updated. The currently imported revision is documented in [`defold-spine/SPINE_RUNTIME.md`](defold-spine/SPINE_RUNTIME.md).
+
+Spine JSON is tied to its runtime generation. Re-export project data with Spine 4.3 before using it with this version of the extension; older 4.2 exports are intentionally rejected by the 4.3 runtime.
 
 ⚠️ __Make sure to check the change log for breaking changes!__
 
