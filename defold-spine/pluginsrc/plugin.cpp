@@ -35,6 +35,7 @@
 #include <spine/AnimationState.h>
 #include <spine/Animation.h>
 #include <spine/Atlas.h>
+#include <spine/Bone.h>
 #include <spine/BoneData.h>
 #include <spine/Physics.h>
 #include <spine/SkeletonData.h>
@@ -262,6 +263,9 @@ extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* json, size_t json_size,
         SPINE_SetLastError("Spine JSON buffer is null");
         return 0;
     }
+
+    // Spine's C++ runtime defaults to Y-down; Defold uses Y-up coordinates.
+    spine::Bone::setYDown(false);
 
     dmGameSystemDDF::TextureSet* texture_set_ddf = 0;
     if (atlas_buffer)
