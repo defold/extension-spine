@@ -799,7 +799,7 @@ namespace dmSpine
     }
 
 
-    dmGameObject::UpdateResult CompSpineModelUpdate(const dmGameObject::ComponentsUpdateParams& params, dmGameObject::ComponentsUpdateResult& update_result)
+    dmGameObject::UpdateResult CompSpineModelLateUpdate(const dmGameObject::ComponentsUpdateParams& params, dmGameObject::ComponentsUpdateResult& update_result)
     {
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
 
@@ -1569,7 +1569,7 @@ namespace dmSpine
             // ComponentTypeSetInitFn(type, CompSpineModelInit);
             // ComponentTypeSetFinalFn(type, CompSpineModelFinal);
         ComponentTypeSetAddToUpdateFn(type, CompSpineModelAddToUpdate);
-        ComponentTypeSetUpdateFn(type, CompSpineModelUpdate);
+        ComponentTypeSetLateUpdateFn(type, CompSpineModelLateUpdate);
         ComponentTypeSetPostUpdateFn(type, CompSpineModelPostUpdate);
         ComponentTypeSetRenderFn(type, CompSpineModelRender);
         ComponentTypeSetOnMessageFn(type, CompSpineModelOnMessage);
