@@ -947,6 +947,31 @@ namespace dmSpine
         }
     }
 
+    // Render object submission and storage:
+    //
+    // Visible geometry is generated during RENDER_LIST_OPERATION_BATCH, after
+    // frustum culling. Render objects must also be submitted during BATCH to
+    // preserve their sorted order relative to sprites and other components.
+    //
+    // Precomputing exact buffer and render-object requirements before BATCH
+    // would require another traversal of the visible Spine geometry. That work
+    // can be expensive, so geometry and draw descriptors are generated only
+    // once, while unpredictable render-object growth is handled by overflow.
+    //
+    // AddToRender retains RenderObject pointers until drawing, while the final
+    // 16/32-bit index type is only known after all visible batches are complete.
+    // Storage must therefore remain stable during BATCH, and retained objects
+    // are patched with their final index type and byte offset during END.
+    //
+    // m_RenderObjects is the contiguous steady-state storage. It reserves one
+    // entry per possible Spine component before rendering starts and never grows
+    // during BATCH. Inherited slot blend modes can produce more than one render
+    // object per component, so excess objects use stable blocks of 32. On the
+    // next frame's BEGIN, after previous pointers have been consumed, the primary
+    // array grows to the previous high-water mark (rounded to 32), the overflow
+    // blocks are released, and subsequent frames are contiguous again. The
+    // primary array keeps that capacity and repeats this flow only after a new
+    // high-water mark.
     static void FillRenderObject(SpineModelWorld*  world,
         dmRender::HRenderContext                   render_context,
         dmRender::RenderObject&                    ro,
@@ -1004,8 +1029,7 @@ namespace dmSpine
             break;
         }
 
-        // AddToRender stores a pointer to the render object. Its final index type
-        // and byte offset are patched in RENDER_LIST_OPERATION_END, before drawing.
+        // Submit in BATCH for correct sorting; END completes the retained object.
         dmRender::AddToRender(render_context, &ro);
     }
 
@@ -1013,9 +1037,7 @@ namespace dmSpine
     {
         uint32_t render_object_index = world->m_RenderObjectsInUse;
 
-        // Never grow this array here. AddToRender retains RenderObject pointers,
-        // so reallocating the primary array during a later batch would invalidate
-        // pointers submitted by earlier batches in the same frame.
+        // SetSize cannot relocate here because it remains within reserved capacity.
         if (render_object_index < world->m_RenderObjects.Capacity())
         {
             if (render_object_index == world->m_RenderObjects.Size())
@@ -1027,9 +1049,7 @@ namespace dmSpine
             return world->m_RenderObjects[render_object_index];
         }
 
-        // A frame can unexpectedly need more than one render object per model,
-        // for example with inherited Spine slot blend modes. Stable overflow
-        // blocks handle that spike without moving already-submitted objects.
+        // Overflow blocks do not move when the block-pointer array grows.
         uint32_t overflow_index = render_object_index - world->m_RenderObjects.Capacity();
         uint32_t block_index = overflow_index >> RENDER_OBJECT_OVERFLOW_BLOCK_SHIFT;
         uint32_t block_offset = overflow_index & RENDER_OBJECT_OVERFLOW_BLOCK_MASK;
@@ -1049,10 +1069,8 @@ namespace dmSpine
 
     static void PrepareRenderObjectsForFrame(SpineModelWorld* world)
     {
-        // RENDER_LIST_OPERATION_BEGIN happens before this frame submits any
-        // RenderObject pointers, so this is the only safe point to relocate the
-        // primary array. Absorb the previous frame's high-water mark, rounded to
-        // one overflow block, so stable overflow storage is only a spike path.
+        // BEGIN is the safe relocation point described above. Absorb the previous
+        // high-water mark so overflow storage remains a one-frame spike path.
         if (world->m_RenderObjectsInUse > world->m_RenderObjects.Capacity())
         {
             uint32_t new_capacity = (world->m_RenderObjectsInUse + RENDER_OBJECT_OVERFLOW_BLOCK_MASK) & ~RENDER_OBJECT_OVERFLOW_BLOCK_MASK;
