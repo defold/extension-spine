@@ -71,6 +71,8 @@ namespace dmSpine
     static const dmhash_t MATERIAL_EXT_HASH = dmHashString64("materialc");
 
     static const uint32_t INVALID_ANIMATION_INDEX = 0xFFFFFFFF;
+    // 1 << 5 gives 32 render objects per overflow block. Keeping the block size
+    // a power of two lets us map an overflow index with a shift and a mask.
     static const uint32_t RENDER_OBJECT_OVERFLOW_BLOCK_SHIFT = 5;
     static const uint32_t RENDER_OBJECT_OVERFLOW_BLOCK_SIZE = 1U << RENDER_OBJECT_OVERFLOW_BLOCK_SHIFT;
     static const uint32_t RENDER_OBJECT_OVERFLOW_BLOCK_MASK = RENDER_OBJECT_OVERFLOW_BLOCK_SIZE - 1;
