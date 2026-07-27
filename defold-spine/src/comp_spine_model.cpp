@@ -69,6 +69,11 @@ namespace dmSpine
     static const dmhash_t MATERIAL_EXT_HASH = dmHashString64("materialc");
 
     static const uint32_t INVALID_ANIMATION_INDEX = 0xFFFFFFFF;
+    // 1 << 5 gives 32 render objects per overflow block. Keeping the block size
+    // a power of two lets us map an overflow index with a shift and a mask.
+    static const uint32_t RENDER_OBJECT_OVERFLOW_BLOCK_SHIFT = 5;
+    static const uint32_t RENDER_OBJECT_OVERFLOW_BLOCK_SIZE = 1U << RENDER_OBJECT_OVERFLOW_BLOCK_SHIFT;
+    static const uint32_t RENDER_OBJECT_OVERFLOW_BLOCK_MASK = RENDER_OBJECT_OVERFLOW_BLOCK_SIZE - 1;
 
     static void ResourceReloadedCallback(const dmResource::ResourceReloadedParams* params);
     static void DestroyComponent(struct SpineModelWorld* world, uint32_t index);
@@ -79,6 +84,7 @@ namespace dmSpine
     {
         dmObjectPool<SpineModelComponent*>      m_Components;
         dmArray<dmRender::RenderObject>         m_RenderObjects;
+        dmArray<dmRender::RenderObject*>        m_RenderObjectOverflowBlocks;
         dmArray<dmSpine::SpineModelBounds>      m_BoundingBoxes;
         dmArray<float>                           m_GeometryScratch;
         dmGraphics::HVertexDeclaration          m_VertexDeclaration;
@@ -91,6 +97,7 @@ namespace dmSpine
         dmArray<SpineIndexedDrawDesc>           m_MergedDrawDescBuffer;
         dmResource::HFactory                    m_Factory;
         spine::SkeletonRenderer*                m_SkeletonRenderer;
+        uint32_t                                m_RenderObjectsInUse;
         uint8_t                                 m_Is16BitIndex : 1;
     };
 
@@ -116,9 +123,13 @@ namespace dmSpine
         uint32_t comp_count = dmMath::Min(params.m_MaxComponentInstances, context->m_MaxSpineModelCount);
 
         world->m_Components.SetCapacity(comp_count);
+        // The common case produces at most one render object per component.
+        // Reserving that storage before rendering keeps it contiguous and means
+        // it cannot move after AddToRender has retained pointers into it.
         world->m_RenderObjects.SetCapacity(comp_count);
         world->m_BoundingBoxes.SetCapacity(comp_count);
         world->m_BoundingBoxes.SetSize(comp_count);
+        world->m_RenderObjectsInUse = 0;
 
         dmGraphics::HVertexStreamDeclaration stream_declaration = dmGraphics::NewVertexStreamDeclaration(context->m_GraphicsContext);
         dmGraphics::AddVertexStream(stream_declaration, "position", 3, dmGraphics::TYPE_FLOAT, false);
@@ -145,6 +156,10 @@ namespace dmSpine
     dmGameObject::CreateResult CompSpineModelDeleteWorld(const dmGameObject::ComponentDeleteWorldParams& params)
     {
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
+        for (uint32_t i = 0; i < world->m_RenderObjectOverflowBlocks.Size(); ++i)
+        {
+            delete[] world->m_RenderObjectOverflowBlocks[i];
+        }
         dmGraphics::DeleteVertexDeclaration(world->m_VertexDeclaration);
         dmGraphics::DeleteVertexBuffer(world->m_VertexBuffer);
         dmGraphics::DeleteIndexBuffer(world->m_IndexBuffer);
@@ -952,7 +967,33 @@ namespace dmSpine
         }
     }
 
+    // Render object submission and storage:
+    //
+    // Visible geometry is generated during RENDER_LIST_OPERATION_BATCH, after
+    // frustum culling. Render objects must also be submitted during BATCH to
+    // preserve their sorted order relative to sprites and other components.
+    //
+    // Precomputing exact buffer and render-object requirements before BATCH
+    // would require another traversal of the visible Spine geometry. That work
+    // can be expensive, so geometry and draw descriptors are generated only
+    // once, while unpredictable render-object growth is handled by overflow.
+    //
+    // AddToRender retains RenderObject pointers until drawing, while the final
+    // 16/32-bit index type is only known after all visible batches are complete.
+    // Storage must therefore remain stable during BATCH, and retained objects
+    // are patched with their final index type and byte offset during END.
+    //
+    // m_RenderObjects is the contiguous steady-state storage. It reserves one
+    // entry per possible Spine component before rendering starts and never grows
+    // during BATCH. Inherited slot blend modes can produce more than one render
+    // object per component, so excess objects use stable blocks of 32. On the
+    // next frame's BEGIN, after previous pointers have been consumed, the primary
+    // array grows to the previous high-water mark (rounded to 32), the overflow
+    // blocks are released, and subsequent frames are contiguous again. The
+    // primary array keeps that capacity and repeats this flow only after a new
+    // high-water mark.
     static void FillRenderObject(SpineModelWorld*  world,
+        dmRender::HRenderContext                   render_context,
         dmRender::RenderObject&                    ro,
         dmGameSystem::HComponentRenderConstants    constants,
         dmGraphics::HTexture                       texture,
@@ -1007,9 +1048,65 @@ namespace dmSpine
                 assert(0);
             break;
         }
+
+        // Submit in BATCH for correct sorting; END completes the retained object.
+        dmRender::AddToRender(render_context, &ro);
     }
 
-    static void RenderBatch(SpineModelWorld* world, dmRender::RenderListEntry *buf, uint32_t* begin, uint32_t* end)
+    static dmRender::RenderObject& AcquireRenderObject(SpineModelWorld* world)
+    {
+        uint32_t render_object_index = world->m_RenderObjectsInUse;
+
+        // SetSize cannot relocate here because it remains within reserved capacity.
+        if (render_object_index < world->m_RenderObjects.Capacity())
+        {
+            if (render_object_index == world->m_RenderObjects.Size())
+            {
+                world->m_RenderObjects.SetSize(render_object_index + 1);
+            }
+
+            ++world->m_RenderObjectsInUse;
+            return world->m_RenderObjects[render_object_index];
+        }
+
+        // Overflow blocks do not move when the block-pointer array grows.
+        uint32_t overflow_index = render_object_index - world->m_RenderObjects.Capacity();
+        uint32_t block_index = overflow_index >> RENDER_OBJECT_OVERFLOW_BLOCK_SHIFT;
+        uint32_t block_offset = overflow_index & RENDER_OBJECT_OVERFLOW_BLOCK_MASK;
+        if (block_index == world->m_RenderObjectOverflowBlocks.Size())
+        {
+            if (world->m_RenderObjectOverflowBlocks.Full())
+            {
+                uint32_t new_capacity = dmMath::Max(4U, world->m_RenderObjectOverflowBlocks.Capacity() * 2);
+                world->m_RenderObjectOverflowBlocks.SetCapacity(new_capacity);
+            }
+            world->m_RenderObjectOverflowBlocks.Push(new dmRender::RenderObject[RENDER_OBJECT_OVERFLOW_BLOCK_SIZE]);
+        }
+
+        ++world->m_RenderObjectsInUse;
+        return world->m_RenderObjectOverflowBlocks[block_index][block_offset];
+    }
+
+    static void PrepareRenderObjectsForFrame(SpineModelWorld* world)
+    {
+        // BEGIN is the safe relocation point described above. Absorb the previous
+        // high-water mark so overflow storage remains a one-frame spike path.
+        if (world->m_RenderObjectsInUse > world->m_RenderObjects.Capacity())
+        {
+            uint32_t new_capacity = (world->m_RenderObjectsInUse + RENDER_OBJECT_OVERFLOW_BLOCK_MASK) & ~RENDER_OBJECT_OVERFLOW_BLOCK_MASK;
+            world->m_RenderObjects.SetCapacity(new_capacity);
+
+            for (uint32_t i = 0; i < world->m_RenderObjectOverflowBlocks.Size(); ++i)
+            {
+                delete[] world->m_RenderObjectOverflowBlocks[i];
+            }
+            world->m_RenderObjectOverflowBlocks.SetSize(0);
+        }
+
+        world->m_RenderObjectsInUse = 0;
+    }
+
+    static void RenderBatch(SpineModelWorld* world, dmRender::HRenderContext render_context, dmRender::RenderListEntry *buf, uint32_t* begin, uint32_t* end)
     {
         //DM_PROFILE(SpineModel, "RenderBatch");
 
@@ -1068,19 +1165,10 @@ namespace dmSpine
                 MergeIndexedDrawDescs(world->m_DrawDescBuffer, world->m_MergedDrawDescBuffer);
 
                 uint32_t merged_size = world->m_MergedDrawDescBuffer.Size();
-                uint32_t ro_count_begin = world->m_RenderObjects.Size();
-                uint32_t expected_size = world->m_RenderObjects.Size() + merged_size;
-                if (world->m_RenderObjects.Capacity() < expected_size)
-                {
-                    uint32_t new_capacity = dmMath::Max(expected_size, dmMath::Max(32U, world->m_RenderObjects.Capacity() * 2));
-                    world->m_RenderObjects.SetCapacity(new_capacity);
-                }
-                world->m_RenderObjects.SetSize(expected_size);
-
                 for (int i = 0; i < merged_size; ++i)
                 {
-                    dmRender::RenderObject& ro = world->m_RenderObjects[ro_count_begin + i];
-                    FillRenderObject(world, ro, first->m_RenderConstants, texture, material,
+                    dmRender::RenderObject& ro = AcquireRenderObject(world);
+                    FillRenderObject(world, render_context, ro, first->m_RenderConstants, texture, material,
                         SpineBlendModeToRenderBlendMode((spine::BlendMode) world->m_MergedDrawDescBuffer[i].m_BlendMode),
                         world->m_MergedDrawDescBuffer[i].m_IndexStart,
                         world->m_MergedDrawDescBuffer[i].m_IndexCount);
@@ -1089,10 +1177,8 @@ namespace dmSpine
         }
         else
         {
-            uint32_t ro_index = world->m_RenderObjects.Size();
-            world->m_RenderObjects.SetSize(ro_index + 1);
-            dmRender::RenderObject& ro = world->m_RenderObjects[ro_index];
-            FillRenderObject(world, ro, first->m_RenderConstants, texture, material, blend_mode, index_start, index_count);
+            dmRender::RenderObject& ro = AcquireRenderObject(world);
+            FillRenderObject(world, render_context, ro, first->m_RenderConstants, texture, material, blend_mode, index_start, index_count);
         }
     }
 
@@ -1145,7 +1231,7 @@ namespace dmSpine
         {
             case dmRender::RENDER_LIST_OPERATION_BEGIN:
             {
-                world->m_RenderObjects.SetSize(0);
+                PrepareRenderObjectsForFrame(world);
                 world->m_VertexBufferData.SetSize(0);
                 world->m_IndexBufferData.SetSize(0);
                 world->m_PackedIndexBufferData.SetSize(0);
@@ -1153,7 +1239,7 @@ namespace dmSpine
             }
             case dmRender::RENDER_LIST_OPERATION_BATCH:
             {
-                RenderBatch(world, params.m_Buf, params.m_Begin, params.m_End);
+                RenderBatch(world, params.m_Context, params.m_Buf, params.m_Begin, params.m_End);
                 break;
             }
             case dmRender::RENDER_LIST_OPERATION_END:
@@ -1171,12 +1257,24 @@ namespace dmSpine
 
                     uint32_t index_type_size = GetIndexTypeSize(world);
                     dmGraphics::Type index_type = GetIndexType(world);
-                    for (uint32_t i = 0; i < world->m_RenderObjects.Size(); ++i)
+                    uint32_t primary_render_object_count = dmMath::Min(world->m_RenderObjectsInUse, world->m_RenderObjects.Capacity());
+                    for (uint32_t i = 0; i < primary_render_object_count; ++i)
                     {
-                        dmRender::RenderObject& ro = world->m_RenderObjects[i];
-                        ro.m_IndexType = index_type;
-                        ro.m_VertexStart *= index_type_size;
-                        dmRender::AddToRender(params.m_Context, &ro);
+                        world->m_RenderObjects[i].m_IndexType = index_type;
+                        world->m_RenderObjects[i].m_VertexStart *= index_type_size;
+                    }
+
+                    uint32_t render_objects_left = world->m_RenderObjectsInUse - primary_render_object_count;
+                    for (uint32_t block_index = 0; render_objects_left > 0; ++block_index)
+                    {
+                        dmRender::RenderObject* block = world->m_RenderObjectOverflowBlocks[block_index];
+                        uint32_t render_objects_in_block = dmMath::Min(RENDER_OBJECT_OVERFLOW_BLOCK_SIZE, render_objects_left);
+                        for (uint32_t i = 0; i < render_objects_in_block; ++i)
+                        {
+                            block[i].m_IndexType = index_type;
+                            block[i].m_VertexStart *= index_type_size;
+                        }
+                        render_objects_left -= render_objects_in_block;
                     }
 
                     DM_PROPERTY_ADD_U32(rmtp_SpineVertexCount, world->m_VertexBufferData.Size());
