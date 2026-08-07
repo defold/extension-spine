@@ -138,6 +138,7 @@
   - name: get_go
     type: function
     desc: Returns the id of the game object that corresponds to a specified skeleton bone.
+    Before using this function, make sure the "Create Go Bones" option is enabled in your Spine model.
 
     parameters:
       - name: url
