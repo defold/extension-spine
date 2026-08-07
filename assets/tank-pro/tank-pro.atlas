@@ -1,0 +1,73 @@
+images {
+  image: "/assets/tank-pro/images/antenna.png"
+}
+images {
+  image: "/assets/tank-pro/images/cannon-connector.png"
+}
+images {
+  image: "/assets/tank-pro/images/cannon.png"
+}
+images {
+  image: "/assets/tank-pro/images/ground.png"
+}
+images {
+  image: "/assets/tank-pro/images/guntower.png"
+}
+images {
+  image: "/assets/tank-pro/images/machinegun-mount.png"
+}
+images {
+  image: "/assets/tank-pro/images/machinegun.png"
+}
+images {
+  image: "/assets/tank-pro/images/rock.png"
+}
+images {
+  image: "/assets/tank-pro/images/smoke-glow.png"
+}
+images {
+  image: "/assets/tank-pro/images/smoke-puff01-bg.png"
+}
+images {
+  image: "/assets/tank-pro/images/smoke-puff01-fg.png"
+}
+images {
+  image: "/assets/tank-pro/images/smoke-puff02-fg.png"
+}
+images {
+  image: "/assets/tank-pro/images/smoke-puff03-fg.png"
+}
+images {
+  image: "/assets/tank-pro/images/smoke-puff04-fg.png"
+}
+images {
+  image: "/assets/tank-pro/images/tank-bottom-shadow.png"
+}
+images {
+  image: "/assets/tank-pro/images/tank-bottom.png"
+}
+images {
+  image: "/assets/tank-pro/images/tank-top.png"
+}
+images {
+  image: "/assets/tank-pro/images/tread-inside.png"
+}
+images {
+  image: "/assets/tank-pro/images/tread.png"
+}
+images {
+  image: "/assets/tank-pro/images/wheel-big-overlay.png"
+}
+images {
+  image: "/assets/tank-pro/images/wheel-big.png"
+}
+images {
+  image: "/assets/tank-pro/images/wheel-mid-overlay.png"
+}
+images {
+  image: "/assets/tank-pro/images/wheel-mid.png"
+}
+images {
+  image: "/assets/tank-pro/images/wheel-small.png"
+}
+extrude_borders: 2

@@ -37,7 +37,24 @@ namespace dmSpine
         return true;
     }
 
-static inline void addVertex(dmSpine::SpineVertex* vertex, float x, float y, float z, float u, float v, float r, float g, float b, float a, float page_index)
+static inline void addVertex(dmSpine::SpineVertex* vertex, float x, float y, float z, float u, float v, float r, float g, float b, float a, float dark_r, float dark_g, float dark_b, float page_index)
+{
+   vertex->x = x;
+   vertex->y = y;
+   vertex->z = z;
+   vertex->u = u;
+   vertex->v = v;
+   vertex->r = r;
+   vertex->g = g;
+   vertex->b = b;
+   vertex->a = a;
+   vertex->dark_r = dark_r;
+   vertex->dark_g = dark_g;
+   vertex->dark_b = dark_b;
+   vertex->page_index = page_index;
+}
+
+static inline void addVertex(dmSpine::GuiSpineVertex* vertex, float x, float y, float z, float u, float v, float r, float g, float b, float a, float, float, float, float page_index)
 {
    vertex->x = x;
    vertex->y = y;
@@ -319,7 +336,8 @@ uint32_t CalcDrawDescCount(const spSkeleton* skeleton)
     return count;
 }
 
-uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, const dmVMath::Matrix4& world, const dmVMath::Vector4& color_tint, dmArray<SpineDrawDesc>* draw_descs_out)
+template <typename VertexType>
+static uint32_t GenerateVertexDataInternal(dmArray<VertexType>& vertex_buffer, const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, const dmVMath::Matrix4& world, const dmVMath::Vector4& color_tint, dmArray<SpineDrawDesc>* draw_descs_out)
 {
     dmArray<float> scratch_vertex_floats;
     int vindex                  = vertex_buffer.Size();
@@ -362,6 +380,17 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
         float tintG = skeleton_color->g * slot_color->g;
         float tintB = skeleton_color->b * slot_color->b;
         float tintA = skeleton_color->a * slot_color->a;
+
+        float blackTintR = 0;
+        float blackTintG = 0;
+        float blackTintB = 0;
+        const spColor* slot_dark_color = slot->darkColor;
+        if (slot_dark_color)
+        {
+            blackTintR = skeleton_color->r * slot_dark_color->r;
+            blackTintG = skeleton_color->g * slot_dark_color->g;
+            blackTintB = skeleton_color->b * slot_dark_color->b;
+        }
 
         float page_index       = 0;
         spColor* color         = 0x0;
@@ -408,7 +437,7 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
             {
                 continue;
             }
-            
+
             spVertexAttachment_computeWorldVertices(SUPER(mesh), slot, 0, mesh->super.worldVerticesLength, scratch_vertex_floats.Begin(), 0, 2);
 
             vertex_count  = SUPER(mesh)->worldVerticesLength / 2;
@@ -447,11 +476,15 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
         const float colorB = tintB * color->b * color_tint.getZ();
         const float colorA = tintA * color->a * color_tint.getW();
 
+        const float darkColorR = blackTintR * color->r * color_tint.getX();
+        const float darkColorG = blackTintG * color->g * color_tint.getY();
+        const float darkColorB = blackTintB * color->b * color_tint.getZ();
+
         for (int i = 0; i < indices_count; ++i)
         {
             int index = indices[i] << 1;
             const dmVMath::Vector4 p = world * dmVMath::Point3(vertices[index], vertices[index + 1], 0.0f);
-            addVertex(&vertex_buffer[vindex++], p.getX(), p.getY(), p.getZ(), uvs[index], uvs[index + 1], colorR, colorG, colorB, colorA, page_index);
+            addVertex(&vertex_buffer[vindex++], p.getX(), p.getY(), p.getZ(), uvs[index], uvs[index + 1], colorR, colorG, colorB, colorA, darkColorR, darkColorG, darkColorB, page_index);
         }
 
         if (draw_descs_out)
@@ -474,6 +507,16 @@ uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleto
     }
 
     return vcount;
+}
+
+uint32_t GenerateVertexData(dmArray<GuiSpineVertex>& vertex_buffer, const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, const dmVMath::Matrix4& world, const dmVMath::Vector4& color_tint, dmArray<SpineDrawDesc>* draw_descs_out)
+{
+    return GenerateVertexDataInternal(vertex_buffer, skeleton, skeleton_clipper, world, color_tint, draw_descs_out);
+}
+
+uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, const dmVMath::Matrix4& world, const dmVMath::Vector4& color_tint, dmArray<SpineDrawDesc>* draw_descs_out)
+{
+    return GenerateVertexDataInternal(vertex_buffer, skeleton, skeleton_clipper, world, color_tint, draw_descs_out);
 }
 
 uint32_t GenerateIndexedVertexData(dmArray<SpineVertex>& vertex_buffer, dmArray<uint32_t>& index_buffer, const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, const dmVMath::Matrix4& world, const dmVMath::Vector4& color_tint, dmArray<SpineIndexedDrawDesc>* draw_descs_out, dmArray<float>& scratch_vertex_floats)
@@ -502,6 +545,17 @@ uint32_t GenerateIndexedVertexData(dmArray<SpineVertex>& vertex_buffer, dmArray<
         float tintG = skeleton_color->g * slot_color->g;
         float tintB = skeleton_color->b * slot_color->b;
         float tintA = skeleton_color->a * slot_color->a;
+
+        float blackTintR = 0;
+        float blackTintG = 0;
+        float blackTintB = 0;
+        const spColor* slot_dark_color = slot->darkColor;
+        if (slot_dark_color)
+        {
+            blackTintR = skeleton_color->r * slot_dark_color->r;
+            blackTintG = skeleton_color->g * slot_dark_color->g;
+            blackTintB = skeleton_color->b * slot_dark_color->b;
+        }
 
         float page_index = 0;
         spColor* color = 0;
@@ -577,13 +631,17 @@ uint32_t GenerateIndexedVertexData(dmArray<SpineVertex>& vertex_buffer, dmArray<
         const float colorB = tintB * color->b * color_tint.getZ();
         const float colorA = tintA * color->a * color_tint.getW();
 
+        const float darkColorR = blackTintR * color->r * color_tint.getX();
+        const float darkColorG = blackTintG * color->g * color_tint.getY();
+        const float darkColorB = blackTintB * color->b * color_tint.getZ();
+
         uint32_t vertex_base = EnsureArrayFitsNumberGeometric(vertex_buffer, vertex_count);
         uint32_t batch_index_start = EnsureArrayFitsNumberGeometric(index_buffer, indices_count);
         for (uint32_t i = 0; i < vertex_count; ++i)
         {
             uint32_t index = i << 1;
             const dmVMath::Vector4 p = world * dmVMath::Point3(vertices[index], vertices[index + 1], 0.0f);
-            addVertex(&vertex_buffer[vertex_base + i], p.getX(), p.getY(), p.getZ(), uvs[index], uvs[index + 1], colorR, colorG, colorB, colorA, page_index);
+            addVertex(&vertex_buffer[vertex_base + i], p.getX(), p.getY(), p.getZ(), uvs[index], uvs[index + 1], colorR, colorG, colorB, colorA, darkColorR, darkColorG, darkColorB, page_index);
         }
 
         for (uint32_t i = 0; i < indices_count; ++i)

@@ -50,7 +50,7 @@ struct InternalGuiNode
     spSkeleton*         m_SkeletonInstance;
     spAnimationState*   m_AnimationStateInstance;
     dmArray<dmSpine::GuiSpineAnimationTrack> m_AnimationTracks;
-    
+
     dmhash_t            m_SkinId;
 
     dmVMath::Matrix4    m_Transform; // the world transform
@@ -278,7 +278,7 @@ static void SendSpineEvent(InternalGuiNode* node, const spAnimationState* state,
             dmScript::PCall(L, 4, 0); // instance + 3
             dmScript::TeardownCallback(cbk);
         }
-        
+
         // Note: For spine events, we don't clear the callback since events can occur multiple times
         // during an animation. The callback will be cleared when the animation completes or is cancelled.
     }
@@ -319,7 +319,7 @@ static void SpineEventListener(spAnimationState* state, spEventType type, spTrac
             {
                 entry->reverse = !entry->reverse;
             }
-            
+
         }
         break;
     case SP_ANIMATION_DISPOSE:
@@ -403,8 +403,8 @@ static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::P
     targetTrack.m_AnimationInstance->timeScale = playback_rate;
     targetTrack.m_AnimationInstance->reverse = IsReverse(playback);
     targetTrack.m_AnimationInstance->mixDuration = blend_duration;
-    targetTrack.m_AnimationInstance->trackTime = dmMath::Clamp(offset, 
-        targetTrack.m_AnimationInstance->animationStart, 
+    targetTrack.m_AnimationInstance->trackTime = dmMath::Clamp(offset,
+        targetTrack.m_AnimationInstance->animationStart,
         targetTrack.m_AnimationInstance->animationEnd);
 
 
@@ -518,7 +518,7 @@ void CancelAnimation(dmGui::HScene scene, dmGui::HNode hnode)
 void CancelAnimation(dmGui::HScene scene, dmGui::HNode hnode, int32_t track)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    
+
     int trackIndex = track - 1; // Convert from 1-based to 0-based indexing
     CancelTrackAnimation(node, trackIndex);
 }
@@ -634,7 +634,7 @@ dmhash_t GetSkin(dmGui::HScene scene, dmGui::HNode hnode)
 dmhash_t GetAnimation(dmGui::HScene scene, dmGui::HNode hnode, int32_t track)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    
+
     int trackIndex = track - 1;
     GuiSpineAnimationTrack* targetTrack = GetTrackFromIndex(node, trackIndex);
     return targetTrack ? targetTrack->m_AnimationId : 0;
@@ -643,7 +643,7 @@ dmhash_t GetAnimation(dmGui::HScene scene, dmGui::HNode hnode, int32_t track)
 bool SetCursor(dmGui::HScene scene, dmGui::HNode hnode, float cursor, int32_t track)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    
+
     int trackIndex = track - 1;
     GuiSpineAnimationTrack* targetTrack = GetTrackFromIndex(node, trackIndex);
     if (!targetTrack || !targetTrack->m_AnimationInstance)
@@ -663,14 +663,14 @@ bool SetCursor(dmGui::HScene scene, dmGui::HNode hnode, float cursor, int32_t tr
 float GetCursor(dmGui::HScene scene, dmGui::HNode hnode, int32_t track)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    
+
     int trackIndex = track - 1;
     GuiSpineAnimationTrack* targetTrack = GetTrackFromIndex(node, trackIndex);
     if (!targetTrack || !targetTrack->m_AnimationInstance)
     {
         return 0.0f;
     }
-    
+
     spTrackEntry* entry = targetTrack->m_AnimationInstance;
     float unit = 0.0f;
     if (entry)
@@ -687,12 +687,12 @@ float GetCursor(dmGui::HScene scene, dmGui::HNode hnode, int32_t track)
 bool SetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode, float playback_rate, int32_t track)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    
+
     int trackIndex = track - 1;
     GuiSpineAnimationTrack* targetTrack = GetTrackFromIndex(node, trackIndex);
     if (!targetTrack || !targetTrack->m_AnimationInstance)
         return false;
-    
+
     targetTrack->m_AnimationInstance->timeScale = playback_rate;
     return true;
 }
@@ -700,12 +700,12 @@ bool SetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode, float playback_rat
 float GetPlaybackRate(dmGui::HScene scene, dmGui::HNode hnode, int32_t track)
 {
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
-    
+
     int trackIndex = track - 1;
     GuiSpineAnimationTrack* targetTrack = GetTrackFromIndex(node, trackIndex);
     if (!targetTrack || !targetTrack->m_AnimationInstance)
         return 1.0f;
-    
+
     return targetTrack->m_AnimationInstance->timeScale;
 }
 
@@ -1142,9 +1142,9 @@ static void GuiGetVertices(const dmGameSystem::CustomNodeCtx* nodectx, uint32_t 
 {
     InternalGuiNode* node = (InternalGuiNode*) nodectx->m_NodeData;
 
-    if (sizeof(dmSpine::SpineVertex) != struct_size)
+    if (sizeof(dmSpine::GuiSpineVertex) != struct_size)
     {
-        dmLogOnceError("Size of SpineVertex is %u, but sizeof of gui BoxVertex is %u. Skipping GUI rendering\n", (uint32_t)sizeof(dmSpine::SpineVertex), struct_size);
+        dmLogOnceError("Size of GuiSpineVertex is %u, but sizeof of gui BoxVertex is %u. Skipping GUI rendering\n", (uint32_t)sizeof(dmSpine::GuiSpineVertex), struct_size);
         return;
     }
 
@@ -1153,7 +1153,7 @@ static void GuiGetVertices(const dmGameSystem::CustomNodeCtx* nodectx, uint32_t 
     //TODO: Verify the vertex declaration
     // In theory, we can check the vertex format to see which components to output
     // We currently know it's xyz-uv-rgba
-    dmArray<dmSpine::SpineVertex>* vbdata = (dmArray<dmSpine::SpineVertex>*)&vertices;
+    dmArray<dmSpine::GuiSpineVertex>* vbdata = (dmArray<dmSpine::GuiSpineVertex>*)&vertices;
 
     uint32_t num_vertices = dmSpine::GenerateVertexData(*vbdata, node->m_SkeletonInstance, type_context->m_SkeletonClipper, node->m_Transform, dmVMath::Vector4(1.0f), 0);
     (void)num_vertices;
@@ -1237,11 +1237,11 @@ static void GuiUpdate(const dmGameSystem::CustomNodeCtx* nodectx, float dt)
     else
     {
         spSkeleton_updateWorldTransform(node->m_SkeletonInstance, SP_PHYSICS_NONE);
-    }   
-    
+    }
+
     // Apply IK targets
     ApplyIKTargets(node);
-    
+
     DM_PROPERTY_ADD_U32(rmtp_SpineGuiNodes, 1);
     UpdateBones(node);
 }

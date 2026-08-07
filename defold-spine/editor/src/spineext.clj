@@ -227,17 +227,20 @@
 ;;                                           (.transform transform p)
 ;;                                           [(.x p) (.y p) (.z p)])))))))
 
-; See SpineVertex
+; Must match the engine-owned GUI BoxVertex layout. darkcolor is intentionally
+; omitted so the editor preview matches GUI runtime rendering.
 (vtx/defvertex vtx-pos-tex-col-index
   (vec3 position)
   (vec2 texcoord0)
   (vec4 color)
   (vec1 page_index))
 
+; Must match dmSpine::SpineVertex.
 (vtx2/defvertex native-vtx-pos-tex-col-index
   (vec3 position)
   (vec2 texcoord0)
   (vec4 color)
+  (vec3 darkcolor)
   (vec1 page_index))
 
 (defn generate-vertex-buffer [verts]
