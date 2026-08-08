@@ -50,6 +50,7 @@ struct InternalGuiNode
     spSkeleton*         m_SkeletonInstance;
     spAnimationState*   m_AnimationStateInstance;
     dmArray<dmSpine::GuiSpineAnimationTrack> m_AnimationTracks;
+    dmArray<dmScript::LuaCallbackInfo*> m_DeferredCallbacks;
     
     dmhash_t            m_SkinId;
 
@@ -69,6 +70,8 @@ struct InternalGuiNode
     dmArray<GuiIKTarget>    m_IKTargets;           // targets that follow GUI nodes
     dmArray<GuiIKTarget>    m_IKTargetPositions;   // targets with fixed positions
 
+    uint32_t            m_CallbackInvocationDepth;
+
     uint8_t             m_FindBones : 1;
     uint8_t             m_FirstUpdate : 1;
     uint8_t             : 6;
@@ -80,6 +83,7 @@ struct InternalGuiNode
     , m_AnimationStateInstance(0)
     , m_SkinId(0)
     , m_Id(0)
+    , m_CallbackInvocationDepth(0)
     , m_FindBones(0)
     , m_FirstUpdate(1)
     {}
@@ -188,12 +192,57 @@ static GuiSpineAnimationTrack* GetTrackFromIndex(InternalGuiNode* node, int trac
     return &node->m_AnimationTracks[track_index];
 }
 
-static void ClearTrackCallback(GuiSpineAnimationTrack* track)
+static void DestroyDeferredCallbacks(InternalGuiNode* node)
+{
+    for (uint32_t i = 0; i < node->m_DeferredCallbacks.Size(); ++i)
+    {
+        dmScript::DestroyCallback(node->m_DeferredCallbacks[i]);
+    }
+    node->m_DeferredCallbacks.SetSize(0);
+}
+
+static void DestroyOrDeferCallback(InternalGuiNode* node, dmScript::LuaCallbackInfo* callback)
+{
+    if (!callback)
+        return;
+
+    // A callback can replace or cancel its own track while it is running. Keep
+    // its Lua userdata alive until callback teardown has completed.
+    if (node->m_CallbackInvocationDepth == 0)
+    {
+        dmScript::DestroyCallback(callback);
+        return;
+    }
+
+    if (node->m_DeferredCallbacks.Full())
+    {
+        node->m_DeferredCallbacks.SetCapacity(node->m_DeferredCallbacks.Capacity() + 4);
+    }
+    node->m_DeferredCallbacks.Push(callback);
+}
+
+static void ClearTrackCallback(InternalGuiNode* node, GuiSpineAnimationTrack* track)
 {
     if (track->m_CallbackInfo)
     {
-        dmScript::DestroyCallback(track->m_CallbackInfo);
+        dmScript::LuaCallbackInfo* callback = track->m_CallbackInfo;
         track->m_CallbackInfo = 0x0;
+        DestroyOrDeferCallback(node, callback);
+    }
+}
+
+static void BeginCallback(InternalGuiNode* node)
+{
+    ++node->m_CallbackInvocationDepth;
+}
+
+static void EndCallback(InternalGuiNode* node)
+{
+    assert(node->m_CallbackInvocationDepth > 0);
+    --node->m_CallbackInvocationDepth;
+    if (node->m_CallbackInvocationDepth == 0)
+    {
+        DestroyDeferredCallbacks(node);
     }
 }
 
@@ -222,6 +271,7 @@ static void SendAnimationDone(InternalGuiNode* node, const spAnimationState* sta
         lua_State* L = dmScript::GetCallbackLuaContext(cbk);
         DM_LUA_STACK_CHECK(L, 0);
 
+        BeginCallback(node);
         if (dmScript::SetupCallback(cbk))
         {
             dmGui::LuaPushNode(L, node->m_GuiScene, node->m_GuiNode);
@@ -231,12 +281,13 @@ static void SendAnimationDone(InternalGuiNode* node, const spAnimationState* sta
             dmScript::PCall(L, 4, 0); // instance + 3
             dmScript::TeardownCallback(cbk);
         }
+        EndCallback(node);
 
         // Only clear callback if it hasn't been replaced during callback execution
         // (user might have called gui.play_spine_anim from within the callback)
         if (callbackId == track->m_CallbackId)
         {
-            ClearTrackCallback(track);
+            ClearTrackCallback(node, track);
         }
     }
 }
@@ -269,6 +320,7 @@ static void SendSpineEvent(InternalGuiNode* node, const spAnimationState* state,
         lua_State* L = dmScript::GetCallbackLuaContext(cbk);
         DM_LUA_STACK_CHECK(L, 0);
 
+        BeginCallback(node);
         if (dmScript::SetupCallback(cbk))
         {
             dmGui::LuaPushNode(L, node->m_GuiScene, node->m_GuiNode);
@@ -278,6 +330,7 @@ static void SendSpineEvent(InternalGuiNode* node, const spAnimationState* state,
             dmScript::PCall(L, 4, 0); // instance + 3
             dmScript::TeardownCallback(cbk);
         }
+        EndCallback(node);
         
         // Note: For spine events, we don't clear the callback since events can occur multiple times
         // during an animation. The callback will be cleared when the animation completes or is cancelled.
@@ -326,7 +379,7 @@ static void SpineEventListener(spAnimationState* state, spEventType type, spTrac
         {
             if (track && track->m_AnimationInstance == entry)
             {
-                ClearTrackCallback(track);
+                ClearTrackCallback(node, track);
                 track->m_AnimationInstance = nullptr;
                 track->m_AnimationId = 0;
             }
@@ -390,7 +443,7 @@ static bool PlayAnimation(InternalGuiNode* node, dmhash_t animation_id, dmGui::P
     GuiSpineAnimationTrack& targetTrack = node->m_AnimationTracks[trackIndex];
 
     // Clear any existing callback for this track
-    ClearTrackCallback(&targetTrack);
+    ClearTrackCallback(node, &targetTrack);
 
     // Set up the track
     targetTrack.m_AnimationId = animation_id;
@@ -446,7 +499,7 @@ bool SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene)
     // Clean up all track callbacks since we're changing scenes
     for (int32_t i = 0; i < node->m_AnimationTracks.Size(); i++)
     {
-        ClearTrackCallback(&node->m_AnimationTracks[i]);
+        ClearTrackCallback(node, &node->m_AnimationTracks[i]);
     }
     node->m_AnimationTracks.SetSize(0);
 
@@ -497,7 +550,7 @@ static void CancelTrackAnimation(InternalGuiNode* node, int32_t track_index)
 
     spAnimationState_clearTrack(node->m_AnimationStateInstance, track->m_AnimationInstance->trackIndex);
 
-    ClearTrackCallback(track);
+    ClearTrackCallback(node, track);
     track->m_AnimationInstance = nullptr;
     track->m_AnimationId = 0;
 }
@@ -931,9 +984,12 @@ static void DestroyNode(InternalGuiNode* node)
     // Clean up all track callbacks
     for (int32_t i = 0; i < node->m_AnimationTracks.Size(); i++)
     {
-        ClearTrackCallback(&node->m_AnimationTracks[i]);
+        ClearTrackCallback(node, &node->m_AnimationTracks[i]);
     }
+    assert(node->m_CallbackInvocationDepth == 0);
+    DestroyDeferredCallbacks(node);
     node->m_AnimationTracks.SetCapacity(0);
+    node->m_DeferredCallbacks.SetCapacity(0);
 
     if (node->m_AnimationStateInstance)
         spAnimationState_dispose(node->m_AnimationStateInstance);
@@ -961,10 +1017,10 @@ static void GuiDestroy(const dmGameSystem::CompGuiNodeContext* ctx, const dmGame
     // Clean up all track callbacks
     for (int32_t i = 0; i < node->m_AnimationTracks.Size(); i++)
     {
-        ClearTrackCallback(&node->m_AnimationTracks[i]);
+        ClearTrackCallback(node, &node->m_AnimationTracks[i]);
     }
-
-    // Track callbacks are already cleaned up above
+    assert(node->m_CallbackInvocationDepth == 0);
+    DestroyDeferredCallbacks(node);
 
     delete node;
     dmSpine::GuiSpineSceneRelease(nodectx->m_Scene);

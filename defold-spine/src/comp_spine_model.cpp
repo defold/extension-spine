@@ -349,12 +349,56 @@ namespace dmSpine
         return &component->m_AnimationTracks[track_index];
     }
 
-    static void ClearCompletionCallback(SpineAnimationTrack* track)
+    static void DestroyDeferredCallbacks(SpineModelComponent* component)
+    {
+        for (uint32_t i = 0; i < component->m_DeferredCallbacks.Size(); ++i)
+        {
+            dmScript::DestroyCallback(component->m_DeferredCallbacks[i]);
+        }
+        component->m_DeferredCallbacks.SetSize(0);
+    }
+
+    static void DestroyOrDeferCallback(SpineModelComponent* component, dmScript::LuaCallbackInfo* callback)
+    {
+        if (!callback)
+            return;
+
+        // A callback can replace or cancel its own track while it is running. Keep
+        // its Lua userdata alive until RunTrackCallback() has finished teardown.
+        if (component->m_CallbackInvocationDepth == 0)
+        {
+            dmScript::DestroyCallback(callback);
+            return;
+        }
+
+        if (component->m_DeferredCallbacks.Full())
+        {
+            component->m_DeferredCallbacks.SetCapacity(component->m_DeferredCallbacks.Capacity() + 4);
+        }
+        component->m_DeferredCallbacks.Push(callback);
+    }
+
+    static void ClearCompletionCallback(SpineModelComponent* component, SpineAnimationTrack* track)
     {
         if (track->m_CallbackInfo)
         {
-            dmScript::DestroyCallback(track->m_CallbackInfo);
+            dmScript::LuaCallbackInfo* callback = track->m_CallbackInfo;
             track->m_CallbackInfo = 0x0;
+            DestroyOrDeferCallback(component, callback);
+        }
+    }
+
+    static void RunComponentTrackCallback(SpineModelComponent* component, dmScript::LuaCallbackInfo* callback,
+        const dmDDF::Descriptor* desc, const char* data, const dmMessage::URL* sender)
+    {
+        ++component->m_CallbackInvocationDepth;
+        RunTrackCallback(callback, desc, data, sender);
+        assert(component->m_CallbackInvocationDepth > 0);
+        --component->m_CallbackInvocationDepth;
+
+        if (component->m_CallbackInvocationDepth == 0)
+        {
+            DestroyDeferredCallbacks(component);
         }
     }
 
@@ -419,7 +463,7 @@ namespace dmSpine
         }
         SpineAnimationTrack& track = component->m_AnimationTracks[track_index];
 
-        ClearCompletionCallback(&track);
+        ClearCompletionCallback(component, &track);
 
         track.m_AnimationId = animation_id;
         track.m_AnimationInstance = spAnimationState_setAnimation(component->m_AnimationStateInstance, track_index, animation, loop);
@@ -500,7 +544,7 @@ namespace dmSpine
 
         spAnimationState_clearTrack(component->m_AnimationStateInstance, track->m_AnimationInstance->trackIndex);
 
-        ClearCompletionCallback(track);
+        ClearCompletionCallback(component, track);
         track->m_AnimationInstance = nullptr;
     }
 
@@ -549,14 +593,14 @@ namespace dmSpine
         if (track.m_CallbackInfo)
         {
             uint32_t id = track.m_CallbackId;
-            RunTrackCallback(track.m_CallbackInfo, dmGameSystemDDF::SpineAnimationDone::m_DDFDescriptor, (const char*)&message, &sender);
+            RunComponentTrackCallback(component, track.m_CallbackInfo, dmGameSystemDDF::SpineAnimationDone::m_DDFDescriptor, (const char*)&message, &sender);
             // If, in a Lua callback, the user calls spine.play_anim(),
             // it will destroy the current callback and create a new one (if specified).
             // Therefore, we need to check whether we are going to remove the same callback
             // that we are running. If not, it has already been removed.
             if (id == track.m_CallbackId)
             {
-                ClearCompletionCallback(&track);
+                ClearCompletionCallback(component, &track);
             }
 
         }
@@ -603,7 +647,7 @@ namespace dmSpine
 
         if (track.m_CallbackInfo)
         {
-            RunTrackCallback(track.m_CallbackInfo, dmGameSystemDDF::SpineEvent::m_DDFDescriptor, (const char*)&message, &sender);
+            RunComponentTrackCallback(component, track.m_CallbackInfo, dmGameSystemDDF::SpineEvent::m_DDFDescriptor, (const char*)&message, &sender);
         }
         else
         {
@@ -667,7 +711,7 @@ namespace dmSpine
                 SpineAnimationTrack* track = GetTrackFromIndex(component, entry->trackIndex);
                 if (track && track->m_AnimationInstance == entry)
                 {
-                    ClearCompletionCallback(track);
+                    ClearCompletionCallback(component, track);
                     track->m_AnimationInstance = nullptr;
                 }
                 break;
@@ -721,9 +765,16 @@ namespace dmSpine
     {
         SpineModelComponent* component = world->m_Components.Get(index);
         dmGameObject::DeleteBones(component->m_Instance);
+        assert(component->m_CallbackInvocationDepth == 0);
+        for (uint32_t i = 0; i < component->m_AnimationTracks.Size(); ++i)
+        {
+            ClearCompletionCallback(component, &component->m_AnimationTracks[i]);
+        }
+        DestroyDeferredCallbacks(component);
         // If we're going to use memset, then we should explicitly clear pose and instance arrays.
         component->m_BoneInstances.SetCapacity(0);
         component->m_AnimationTracks.SetCapacity(0);
+        component->m_DeferredCallbacks.SetCapacity(0);
         if (component->m_Material)
         {
             dmResource::Release(world->m_Factory, (void*)component->m_Material);

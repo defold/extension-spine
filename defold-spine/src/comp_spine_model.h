@@ -67,6 +67,7 @@ namespace dmSpine
         spSkeleton*                             m_SkeletonInstance;
         spAnimationState*                       m_AnimationStateInstance;
         dmArray<dmSpine::SpineAnimationTrack>   m_AnimationTracks;
+        dmArray<dmScript::LuaCallbackInfo*>      m_DeferredCallbacks;
         dmGameSystem::HComponentRenderConstants m_RenderConstants;
         dmGameSystem::MaterialResource*         m_Material;
         SpineSceneResource*                     m_SpineScene;
@@ -78,6 +79,7 @@ namespace dmSpine
         dmArray<dmSpine::IKTarget>              m_IKTargets;
         dmArray<dmSpine::IKTarget>              m_IKTargetPositions;
         uint32_t                                m_MixedHash;
+        uint32_t                                m_CallbackInvocationDepth;
         uint16_t                                m_ComponentIndex;
         uint8_t                                 m_Enabled : 1;
         uint8_t                                 m_DoRender : 1;
