@@ -264,8 +264,8 @@
                   _node-id
                   (:spine-json-resource spine-info)
                   (:spine-json-content spine-info)
-                  (:atlas-resource spine-info)
                   (:texture-set-pb spine-info)
+                  (:spine-scene-pb spine-info)
                   (if (str/blank? spine-default-animation)
                     (first spine-anim-ids)
                     spine-default-animation)
@@ -322,7 +322,7 @@
     {name {:spine-anim-ids (into (sorted-set) spine-anim-ids)
            :spine-skin-ids (into (sorted-set) spine-skins)}}))
 
-(g/defnk produce-spine-scene-costly-info [_node-id name spine-data-handle spine-scene spine-json-resource atlas-resource texture-set-pb spine-json-content spine-bones spine-scene-pb spine-scene-scene spine-skin-aabbs]
+(g/defnk produce-spine-scene-costly-info [_node-id name spine-data-handle spine-scene spine-json-resource texture-set-pb spine-json-content spine-bones spine-scene-pb spine-scene-scene spine-skin-aabbs]
   ;; If the referenced spine-scene-resource is missing, we don't return an entry.
   ;; This will cause every usage to fall back on the no-spine-scene entry for "".
   ;; NOTE: the no-spine-scene entry uses an instance of SpineSceneNode with an empty name.
@@ -331,7 +331,6 @@
             (every? some? [spine-data-handle spine-scene-pb spine-scene-scene]))
     {name {:spine-data-handle spine-data-handle
            :spine-json-resource spine-json-resource
-           :atlas-resource atlas-resource
            :texture-set-pb texture-set-pb
            :spine-json-content spine-json-content
            :spine-bones spine-bones
@@ -353,7 +352,6 @@
                     [:build-targets :dep-build-targets]
                     [:scene :spine-scene-scene]
                     [:spine-json-resource :spine-json-resource]
-                    [:atlas-resource :atlas-resource]
                     [:texture-set-pb :texture-set-pb]
                     [:spine-json-content :spine-json-content]
                     [:skin-aabbs :spine-skin-aabbs]
@@ -372,7 +370,6 @@
   (input name-counts gui/NameCounts)
   (input spine-scene-resource resource/Resource)
   (input spine-json-resource resource/Resource :substitute nil)
-  (input atlas-resource resource/Resource :substitute nil)
   (input texture-set-pb g/Any :substitute (constantly nil))
   (input spine-json-content g/Any :substitute (constantly nil))
 

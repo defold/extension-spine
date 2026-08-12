@@ -64,5 +64,15 @@ function init(self)
         msg.post("/gui#swap", "set_spine_scene_gui", { scene = self.dynamic_scene2, key = "spineboy"})
     end)
 
-end
+    -- Dynamically create a spineboy scene from binary skeleton data.
+    timer.delay(4.0, false, function()
+        local skel = sys.load_resource("/assets/spineboy/spineboy-pro.skel")
+        self.dynamic_scene3 = resource.create_spinescene("/dyn/spineboy_binary.spinescenec", {
+            spine_data = skel,
+            atlas_path = "/assets/spineboy/spineboy.a.texturesetc"})
 
+        go.set("#spine_a", "spine_scene", self.dynamic_scene3)
+        spine.play_anim("#spine_a", "idle", go.PLAYBACK_LOOP_FORWARD)
+    end)
+
+end

@@ -3,8 +3,12 @@ extern "C" {
 #include <spine/extension.h>
 #include <spine/AttachmentLoader.h>
 #include <spine/Attachment.h>
+#include <spine/SkeletonBinary.h>
 #include <spine/SkeletonJson.h>
 }
+
+#include <limits.h>
+#include <string.h>
 
 #include <dmsdk/dlib/hash.h>
 #include <dmsdk/dlib/log.h>
@@ -239,22 +243,11 @@ namespace dmSpine
         spDefoldAtlasAttachmentLoader* self = SUB_CAST(spDefoldAtlasAttachmentLoader, loader);
         bool is_atlas_available = self->name_to_index != 0;
 
-        // used in the plugin, when loading a spine scene without the atlas available
-        spAtlasRegion default_region;
-        if (!is_atlas_available)
-        {
-            spTextureRegion* textureRegion = &default_region.super;
-            textureRegion->u = textureRegion->v = textureRegion->u2 = textureRegion->v2 = textureRegion->degrees = 0;
-            textureRegion->offsetX = textureRegion->offsetY = 0;
-            textureRegion->width = textureRegion->height = 0;
-            textureRegion->originalWidth = textureRegion->originalHeight = 0;
-        }
-
         switch (type) {
             case SP_ATTACHMENT_REGION: {
                 spRegionAttachment* attachment = spRegionAttachment_create(name);
                 if (sequence) {
-                    if (!loadSequence(self->name_to_index, self->regions, path, sequence, &default_region)) {
+                    if (!loadSequence(self->name_to_index, self->regions, path, sequence, self->default_region)) {
                         spAttachment_dispose(SUPER(attachment));
                         _spAttachmentLoader_setError(loader, "Couldn't load sequence for region attachment: ", path);
                         return 0;
@@ -270,7 +263,7 @@ namespace dmSpine
                             return 0;
                         }
                     } else {
-                        region = &default_region;
+                        region = self->default_region;
                     }
                     attachment->rendererObject = is_atlas_available ? region : 0;
                     attachment->region = SUPER(region);
@@ -282,7 +275,7 @@ namespace dmSpine
             case SP_ATTACHMENT_LINKED_MESH: {
                 spMeshAttachment* attachment = spMeshAttachment_create(name);
                 if (sequence) {
-                    if (!loadSequence(self->name_to_index, self->regions, path, sequence, &default_region)) {
+                    if (!loadSequence(self->name_to_index, self->regions, path, sequence, self->default_region)) {
                         spAttachment_dispose(SUPER(SUPER(attachment)));
                         _spAttachmentLoader_setError(loader, "Couldn't load sequence for mesh attachment: ", path);
                         return 0;
@@ -298,7 +291,7 @@ namespace dmSpine
                             return 0;
                         }
                     } else {
-                        region = &default_region;
+                        region = self->default_region;
                     }
                     attachment->rendererObject = is_atlas_available ? region : 0;
                     attachment->region = SUPER(region);
@@ -336,6 +329,7 @@ namespace dmSpine
         }
 
         self->name_to_index = name_to_index;
+        self->default_region = 0;
         self->texture_set_ddf = texture_set_ddf;
         self->regions = regions;
 
@@ -348,6 +342,15 @@ namespace dmSpine
         _spAttachmentLoader_init(SUPER(self), _spAttachmentLoader_deinit, spDefoldAtlasAttachmentLoader_createAttachment, 0, 0);
 
         self->name_to_index = 0;
+        self->default_region = spAtlasRegion_create();
+        self->default_region->super.u = 0;
+        self->default_region->super.v = 0;
+        self->default_region->super.u2 = 1;
+        self->default_region->super.v2 = 1;
+        self->default_region->super.width = 1;
+        self->default_region->super.height = 1;
+        self->default_region->super.originalWidth = 1;
+        self->default_region->super.originalHeight = 1;
         self->texture_set_ddf = 0;
         self->regions = 0;
         return self;
@@ -356,7 +359,26 @@ namespace dmSpine
     void Dispose(spDefoldAtlasAttachmentLoader* loader)
     {
         delete loader->name_to_index;
+        if (loader->default_region)
+            spAtlasRegion_dispose(loader->default_region);
         spAttachmentLoader_dispose((spAttachmentLoader*)loader);
+    }
+
+    static bool HasExtension(const char* path, const char* extension)
+    {
+        if (!path)
+            return false;
+        const char* path_extension = strrchr(path, '.');
+        return path_extension && strcmp(path_extension, extension) == 0;
+    }
+
+    static void SetLoaderError(spAttachmentLoader* loader, const char* error)
+    {
+        FREE(loader->error1);
+        FREE(loader->error2);
+        loader->error1 = 0;
+        loader->error2 = 0;
+        MALLOC_STR(loader->error1, error ? error : "unknown error");
     }
 
     spSkeletonData* ReadSkeletonJsonData(spAttachmentLoader* loader, const char* path, void* json_data)
@@ -372,13 +394,58 @@ namespace dmSpine
         spSkeletonData* skeletonData = spSkeletonJson_readSkeletonData(skeleton_json, (const char *)json_data);
         if (!skeletonData)
         {
-            loader->error1 = strdup(skeleton_json->error ? skeleton_json->error : "unknown error");
+            SetLoaderError(loader, skeleton_json->error);
             spSkeletonJson_dispose(skeleton_json);
             dmLogError("Failed to read spine skeleton for %s: %s", path, loader->error1);
             return 0;
         }
         spSkeletonJson_dispose(skeleton_json);
         return skeletonData;
+    }
+
+    static spSkeletonData* ReadSkeletonBinaryData(spAttachmentLoader* loader, const char* path, const void* binary_data, size_t binary_data_size)
+    {
+        if (!binary_data || binary_data_size < 9)
+        {
+            SetLoaderError(loader, "binary skeleton is truncated");
+            dmLogError("Failed to read spine skeleton for %s: %s", path, loader->error1);
+            return 0;
+        }
+        if (binary_data_size > INT_MAX)
+        {
+            SetLoaderError(loader, "binary skeleton is too large");
+            dmLogError("Failed to read spine skeleton for %s: %s", path, loader->error1);
+            return 0;
+        }
+
+        spSkeletonBinary* skeleton_binary = spSkeletonBinary_createWithLoader(loader);
+        if (!skeleton_binary)
+        {
+            dmLogError("Failed to create spine skeleton for %s", path);
+            return 0;
+        }
+
+        spSkeletonData* skeleton_data = spSkeletonBinary_readSkeletonData(skeleton_binary, (const unsigned char*)binary_data, (int)binary_data_size);
+        if (!skeleton_data)
+        {
+            SetLoaderError(loader, skeleton_binary->error);
+            spSkeletonBinary_dispose(skeleton_binary);
+            dmLogError("Failed to read spine skeleton for %s: %s", path, loader->error1);
+            return 0;
+        }
+        spSkeletonBinary_dispose(skeleton_binary);
+        return skeleton_data;
+    }
+
+    spSkeletonData* ReadSkeletonData(spAttachmentLoader* loader, const char* path, const void* data, size_t data_size)
+    {
+        FREE(loader->error1);
+        FREE(loader->error2);
+        loader->error1 = 0;
+        loader->error2 = 0;
+        if (HasExtension(path, ".skel") || HasExtension(path, ".skelc"))
+            return ReadSkeletonBinaryData(loader, path, data, data_size);
+        return ReadSkeletonJsonData(loader, path, (void*)data);
     }
 
 } // namespace

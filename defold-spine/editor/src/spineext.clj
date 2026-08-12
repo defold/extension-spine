@@ -40,7 +40,8 @@
             [editor.shaders :as shaders]
             [editor.types :as types]
             [editor.validation :as validation]
-            [editor.workspace :as workspace])
+            [editor.workspace :as workspace]
+            [util.coll :as coll])
   (:import [com.dynamo.bob.textureset TextureSetGenerator$UVTransform]
            [com.jogamp.opengl GL GL2]
            [editor.gl.shader ShaderLifecycle]
@@ -59,6 +60,8 @@
 (def spine-material-path "/defold-spine/assets/spine.material")
 
 (def spine-json-ext "spinejson")
+(def spine-skel-ext "skel")
+(def spine-data-exts [spine-json-ext spine-skel-ext])
 (def spine-scene-ext "spinescene")
 (def spine-model-ext "spinemodel")
 
@@ -92,14 +95,14 @@
 
 (defn- plugin-load-file-from-buffer
   ; The instance is garbage collected by Java
-  ([bytes-json path-json bytes-texture-set path-texture-set]
-   (if (instance? byte-array-cls bytes-json)
-     (plugin-invoke-static spine-plugin-cls "SPINE_LoadFileFromBuffer" (into-array Class [byte-array-cls String byte-array-cls String]) [bytes-json path-json bytes-texture-set path-texture-set])
-     (throw (IOException. (str "Couldn't read data from " path-json)))))
-  ([bytes-json path-json]
-   (if (instance? byte-array-cls bytes-json)
-     (plugin-invoke-static spine-plugin-cls "SPINE_LoadFileFromBuffer" (into-array Class [byte-array-cls String]) [bytes-json path-json])
-     (throw (IOException. (str "Couldn't read data from " path-json))))))
+  ([bytes path bytes-texture-set path-texture-set]
+   (if (instance? byte-array-cls bytes)
+     (plugin-invoke-static spine-plugin-cls "SPINE_LoadFileFromBuffer" (into-array Class [byte-array-cls String byte-array-cls String]) [bytes path bytes-texture-set path-texture-set])
+     (throw (IOException. (str "Couldn't read data from " path)))))
+  ([bytes path]
+   (if (instance? byte-array-cls bytes)
+     (plugin-invoke-static spine-plugin-cls "SPINE_LoadFileFromBuffer" (into-array Class [byte-array-cls String]) [bytes path])
+     (throw (IOException. (str "Couldn't read data from " path))))))
 
 (defn- plugin-get-animations [handle]
   (plugin-invoke-static spine-plugin-cls "SPINE_GetAnimations" (into-array Class [spine-plugin-pointer-cls]) [handle]))
@@ -179,14 +182,14 @@
 (defn- validate-scene-atlas [_node-id atlas]
   (prop-resource-error :fatal _node-id :atlas atlas "Atlas"))
 
-(defn- is-spine-scene-json-name? [resource prop-name]
+(defn- validate-spine-scene-data-name [resource prop-name]
   (let [path (resource/resource->proj-path resource)]
-    (when (not (str/ends-with? path spine-json-ext))
-      (format "%s file '%s' doesn't end with '.%s'" prop-name path spine-json-ext))))
+    (when-not (coll/any? #(str/ends-with? path (str "." %)) spine-data-exts)
+      (format "%s file '%s' must end with '.%s' or '.%s'" prop-name path spine-json-ext spine-skel-ext))))
 
-(defn- validate-scene-spine-json [_node-id spine-json]
-  (or (prop-resource-error :fatal _node-id :spine-json spine-json "Spine Json")
-      (validation/prop-error :fatal _node-id :spine-json is-spine-scene-json-name? spine-json "Spine Json")))
+(defn- validate-scene-spine-data [_node-id spine-data]
+  (or (prop-resource-error :fatal _node-id :spine-json spine-data "Spine Data")
+      (validation/prop-error :fatal _node-id :spine-json validate-spine-scene-data-name spine-data "Spine Data")))
 
 ;; (g/defnk produce-scene-build-targets
 ;;   [_node-id own-build-errors resource spine-scene-pb atlas dep-build-targets]
@@ -496,9 +499,9 @@
       (g/->error node-id :resource :fatal resource (format "Failed reading %s: %s" path msg))
 
       :else
-      (g/->error node-id :resource :fatal resource (format "Couldn't read %s file %s: %s" spine-json-ext path msg)))))
+      (g/->error node-id :resource :fatal resource (format "Couldn't read Spine Data file %s: %s" path msg)))))
 
-; Loads the .spinejson file
+; Loads the Spine JSON or binary data file.
 (defn- load-spine-json
   ([node-id resource]
    (load-spine-json nil node-id resource))
@@ -551,13 +554,15 @@
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
 (defn make-spine-data-handle
-  [_node-id spine-json-resource spine-json-content atlas-resource texture-set-pb default-animation skin]
+  [_node-id spine-data-resource spine-data-content texture-set-pb spine-scene-pb default-animation skin]
   ; The paths are used for error reporting if any loading goes wrong
   (try
     (when texture-set-pb
-      (let [spine-json-path (resource/resource->proj-path spine-json-resource)
-            atlas-path (resource/resource->proj-path atlas-resource)
-            spine-data-handle (plugin-load-file-from-buffer spine-json-content spine-json-path texture-set-pb atlas-path) ; it throws if it fails to load
+      (let [spine-data-handle (plugin-load-file-from-buffer
+                                spine-data-content
+                                (:spine-json spine-scene-pb)
+                                texture-set-pb
+                                (:atlas spine-scene-pb)) ; it throws if it fails to load
             _ (when-not (str/blank? default-animation)
                 (plugin-set-animation spine-data-handle default-animation))
             _ (when-not (str/blank? skin)
@@ -565,10 +570,17 @@
             _ (plugin-update-vertices spine-data-handle 0.0 geom/Identity4d identity-color false)]
         spine-data-handle))
     (catch Exception error
-      (handle-read-error error _node-id spine-json-resource))))
+      (handle-read-error error _node-id spine-data-resource))))
 
-(g/defnk load-spine-data-handle [_node-id spine-json-resource spine-json-content atlas-resource texture-set-pb default-animation skin]
-  (make-spine-data-handle _node-id spine-json-resource spine-json-content atlas-resource texture-set-pb default-animation skin))
+(g/defnk load-spine-data-handle [_node-id spine-json-resource spine-json-content texture-set-pb spine-scene-pb default-animation skin]
+  (make-spine-data-handle
+    _node-id
+    spine-json-resource
+    spine-json-content
+    texture-set-pb
+    spine-scene-pb
+    default-animation
+    skin))
 
 (defn- sanitize-spine-scene [spine-scene-desc]
   {:pre [(map? spine-scene-desc)]} ; Spine$SpineSceneDesc in map format.
@@ -612,7 +624,7 @@
 (g/defnk produce-spine-scene-own-build-errors [_node-id atlas spine-json texture-set-pb spine-json-content]
   (g/package-errors _node-id
                     (validate-scene-atlas _node-id atlas)
-                    (validate-scene-spine-json _node-id spine-json)
+                    (validate-scene-spine-data _node-id spine-json)
                     (when (and texture-set-pb spine-json-content)
                       (try
                         (plugin-load-file-from-buffer
@@ -658,9 +670,10 @@
                                             [:bones :bones]
                                             [:node-outline :source-outline]
                                             [:build-targets :dep-build-targets])))
-            (dynamic edit-type (g/constantly {:type resource/Resource :ext spine-json-ext}))
+            (dynamic label (g/constantly "Spine Data"))
+            (dynamic edit-type (g/constantly {:type resource/Resource :ext spine-data-exts}))
             (dynamic error (g/fnk [_node-id spine-json]
-                             (validate-scene-spine-json _node-id spine-json))))
+                             (validate-scene-spine-data _node-id spine-json))))
 
   (property atlas resource/Resource
             (value (gu/passthrough atlas-resource))
@@ -834,10 +847,10 @@
                    (project/resource-setter evaluation-context self old-value new-value
                                             [:resource :spine-scene-resource]
                                             [:spine-json-resource :spine-json-resource]
-                                            [:atlas-resource :atlas-resource]
                                             [:main-scene :spine-main-scene]
                                             [:texture-set-pb :texture-set-pb]
                                             [:spine-json-content :spine-json-content]
+                                            [:spine-scene-pb :spine-scene-pb]
                                             [:animations :animations]
                                             [:skins :skins]
                                             [:bones :bones]
@@ -877,7 +890,6 @@
                                               :precision 0.01})))
 
   (input spine-json-resource resource/Resource)
-  (input atlas-resource resource/Resource)
 
   (input dep-build-targets g/Any :array)
   (input spine-scene-resource resource/Resource)
@@ -891,6 +903,7 @@
   (input bones g/Any)
   (input texture-set-pb g/Any)
   (input spine-json-content g/Any)
+  (input spine-scene-pb g/Any)
 
   (output spine-data-handle g/Any :cached load-spine-data-handle) ; The c++ pointer
   (output aabb AABB :cached (g/fnk [spine-data-handle] (if (not (nil? spine-data-handle))
@@ -973,6 +986,13 @@
       :ext spine-json-ext
       :node-type SpineSceneJson
       :textual? true
+      :load-fn load-spine-json
+      :icon spine-json-icon
+      :view-types [:default])
+    (workspace/register-resource-type workspace
+      :ext spine-skel-ext
+      :node-type SpineSceneJson
+      :textual? false
       :load-fn load-spine-json
       :icon spine-json-icon
       :view-types [:default])))

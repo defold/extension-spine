@@ -251,7 +251,7 @@ static void DestroyAtlas(dmGameSystemDDF::TextureSet* texture_set_ddf)
     dmDDF::FreeMessage(texture_set_ddf);
 }
 
-extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* json, size_t json_size, const char* path, void* atlas_buffer, size_t atlas_size, const char* atlas_path)
+extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* spine_data, size_t spine_data_size, const char* path, void* atlas_buffer, size_t atlas_size, const char* atlas_path)
 {
     dmGameSystemDDF::TextureSet* texture_set_ddf = 0;
     if (atlas_buffer)
@@ -280,13 +280,13 @@ extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* json, size_t json_size,
 
     // Create the spine resource
     spAttachmentLoader* attachment_loader = (spAttachmentLoader*)file->m_AttachmentLoader;
-    file->m_SkeletonData = dmSpine::ReadSkeletonJsonData(attachment_loader, path, json);
+    file->m_SkeletonData = dmSpine::ReadSkeletonData(attachment_loader, path, spine_data, spine_data_size);
     if (!file->m_SkeletonData)
     {
         if (attachment_loader->error1 || attachment_loader->error2)
             SPINE_SetLastError(attachment_loader);
 
-        dmLogError("Failed to load Spine skeleton from json file %s", path);
+        dmLogError("Failed to load Spine skeleton file %s", path);
         SPINE_Destroy(file);
         return 0;
     }

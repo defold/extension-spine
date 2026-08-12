@@ -293,13 +293,13 @@ public class Spine {
 
     ////////////////////////////////////////////////////////////////////////////////
 
-    public static SpinePointer SPINE_LoadFileFromBuffer(byte[] json_buffer, String path, byte[] atlas_buffer, String atlas_path) throws SpineException {
-        if (json_buffer == null || atlas_buffer == null)
+    public static SpinePointer SPINE_LoadFileFromBuffer(byte[] spine_data, String path, byte[] atlas_buffer, String atlas_path) throws SpineException {
+        if (spine_data == null || atlas_buffer == null)
         {
-            System.out.printf("One of the buffers is null (%s)\n", json_buffer == null ? "json_buffer":"atlas_buffer");
+            System.out.printf("One of the buffers is null (%s)\n", spine_data == null ? "spine_data":"atlas_buffer");
             return null;
         }
-        Buffer b = ByteBuffer.wrap(json_buffer);
+        Buffer b = ByteBuffer.wrap(spine_data);
         Buffer a = ByteBuffer.wrap(atlas_buffer);
         Pointer p = SPINE_LoadFromBuffer(b, b.capacity(), path, a, a.capacity(), atlas_path);
         if (p == null) {
@@ -308,13 +308,13 @@ public class Spine {
         return new SpinePointer(p);
     }
 
-    public static SpinePointer SPINE_LoadFileFromBuffer(byte[] json_buffer, String path) throws SpineException {
-        if (json_buffer == null)
+    public static SpinePointer SPINE_LoadFileFromBuffer(byte[] spine_data, String path) throws SpineException {
+        if (spine_data == null)
         {
-            System.out.printf("The json buffer is null\n");
+            System.out.printf("The Spine data buffer is null\n");
             return null;
         }
-        Buffer b = ByteBuffer.wrap(json_buffer);
+        Buffer b = ByteBuffer.wrap(spine_data);
         Pointer p = SPINE_LoadFromBuffer(b, b.capacity(), path, null, 0, null);
         if (p == null) {
             throw new SpineException(String.format("Failed to load spine scene '%s': %s", path, SPINE_GetLastError()));
@@ -328,7 +328,7 @@ public class Spine {
     // }
 
     private static void Usage() {
-        System.out.printf("Usage: pluginSpineExt.jar <.spinejson> <.texturesetc>\n");
+        System.out.printf("Usage: pluginSpineExt.jar <.spinejson|.skel> <.texturesetc>\n");
         System.out.printf("\n");
     }
 
@@ -363,7 +363,7 @@ public class Spine {
             return;
         }
 
-        String path = args[0];       // .spinejson
+        String path = args[0];       // .spinejson or .skel
         String atlas_path = args[1]; // .texturesetc
         Pointer spine_file = SPINE_LoadFromPath(path, atlas_path);
 

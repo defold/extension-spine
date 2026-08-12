@@ -26,7 +26,7 @@ namespace dmSpine
         dmGameSystemDDF::SpineSceneDesc*    m_Ddf;
         dmGameSystem::TextureSetResource*   m_TextureSet;   // The atlas
         spAtlasRegion*                      m_Regions;      // Maps 1:1 with the atlas animations array
-        spSkeletonData*                     m_Skeleton;     // the .spinejson file
+        spSkeletonData*                     m_Skeleton;     // the .spinejson or .skel file
         spAnimationStateData*               m_AnimationStateData;
         spDefoldAtlasAttachmentLoader*      m_AttachmentLoader;
         dmHashTable64<uint32_t>             m_AnimationNameToIndex;
