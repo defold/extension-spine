@@ -387,9 +387,9 @@ static uint32_t GenerateVertexDataInternal(dmArray<VertexType>& vertex_buffer, c
         const spColor* slot_dark_color = slot->darkColor;
         if (slot_dark_color)
         {
-            blackTintR = skeleton_color->r * slot_dark_color->r;
-            blackTintG = skeleton_color->g * slot_dark_color->g;
-            blackTintB = skeleton_color->b * slot_dark_color->b;
+            blackTintR = slot_dark_color->r;
+            blackTintG = slot_dark_color->g;
+            blackTintB = slot_dark_color->b;
         }
 
         float page_index       = 0;
@@ -476,9 +476,9 @@ static uint32_t GenerateVertexDataInternal(dmArray<VertexType>& vertex_buffer, c
         const float colorB = tintB * color->b * color_tint.getZ();
         const float colorA = tintA * color->a * color_tint.getW();
 
-        const float darkColorR = blackTintR * color->r * color_tint.getX();
-        const float darkColorG = blackTintG * color->g * color_tint.getY();
-        const float darkColorB = blackTintB * color->b * color_tint.getZ();
+        const float darkColorR = blackTintR;
+        const float darkColorG = blackTintG;
+        const float darkColorB = blackTintB;
 
         for (int i = 0; i < indices_count; ++i)
         {
@@ -552,9 +552,9 @@ uint32_t GenerateIndexedVertexData(dmArray<SpineVertex>& vertex_buffer, dmArray<
         const spColor* slot_dark_color = slot->darkColor;
         if (slot_dark_color)
         {
-            blackTintR = skeleton_color->r * slot_dark_color->r;
-            blackTintG = skeleton_color->g * slot_dark_color->g;
-            blackTintB = skeleton_color->b * slot_dark_color->b;
+            blackTintR = slot_dark_color->r;
+            blackTintG = slot_dark_color->g;
+            blackTintB = slot_dark_color->b;
         }
 
         float page_index = 0;
@@ -631,9 +631,9 @@ uint32_t GenerateIndexedVertexData(dmArray<SpineVertex>& vertex_buffer, dmArray<
         const float colorB = tintB * color->b * color_tint.getZ();
         const float colorA = tintA * color->a * color_tint.getW();
 
-        const float darkColorR = blackTintR * color->r * color_tint.getX();
-        const float darkColorG = blackTintG * color->g * color_tint.getY();
-        const float darkColorB = blackTintB * color->b * color_tint.getZ();
+        const float darkColorR = blackTintR;
+        const float darkColorG = blackTintG;
+        const float darkColorB = blackTintB;
 
         uint32_t vertex_base = EnsureArrayFitsNumberGeometric(vertex_buffer, vertex_count);
         uint32_t batch_index_start = EnsureArrayFitsNumberGeometric(index_buffer, indices_count);
