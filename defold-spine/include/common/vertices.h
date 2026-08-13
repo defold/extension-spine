@@ -11,11 +11,21 @@ struct spSkeletonClipping;
 namespace dmSpine
 {
 
+// Must match the engine-owned GUI BoxVertex layout.
+struct GuiSpineVertex
+{
+    float x, y, z;
+    float u, v;
+    float r, g, b, a;
+    float page_index;
+};
+
 struct SpineVertex
 {
     float x, y, z;
     float u, v;
     float r, g, b, a;
+    float dark_r, dark_g, dark_b;
     float page_index;
 };
 
@@ -43,6 +53,7 @@ struct SpineIndexedDrawDesc
 
 uint32_t CalcVertexBufferSize(const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, uint32_t* out_max_triangle_count);
 uint32_t CalcDrawDescCount(const spSkeleton* skeleton);
+uint32_t GenerateVertexData(dmArray<GuiSpineVertex>& vertex_buffer, const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, const dmVMath::Matrix4& world, const dmVMath::Vector4& color_tint, dmArray<SpineDrawDesc>* draw_descs);
 uint32_t GenerateVertexData(dmArray<SpineVertex>& vertex_buffer, const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, const dmVMath::Matrix4& world, const dmVMath::Vector4& color_tint, dmArray<SpineDrawDesc>* draw_descs);
 uint32_t GenerateIndexedVertexData(dmArray<SpineVertex>& vertex_buffer, dmArray<uint32_t>& index_buffer, const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, const dmVMath::Matrix4& world, const dmVMath::Vector4& color_tint, dmArray<SpineIndexedDrawDesc>* draw_descs, dmArray<float>& scratch);
 void GetSkeletonBounds(const spSkeleton* skeleton, SpineModelBounds& bounds, dmArray<float>& scratch);

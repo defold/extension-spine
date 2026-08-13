@@ -4,9 +4,11 @@
 in highp vec4 position;
 in mediump vec2 texcoord0;
 in lowp vec4 color;
+in lowp vec3 darkcolor;
 
 out mediump vec2 var_texcoord0;
 out lowp vec4 var_color;
+out lowp vec3 var_darkcolor;
 
 uniform vs_uniforms
 {
@@ -18,4 +20,5 @@ void main()
     gl_Position = world_view_proj * vec4(position.xyz, 1.0);
     var_texcoord0 = texcoord0;
     var_color = vec4(color.rgb * color.a, color.a);
+    var_darkcolor = darkcolor * color.a;
 }
