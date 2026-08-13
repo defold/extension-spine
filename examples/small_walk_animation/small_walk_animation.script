@@ -1,8 +1,18 @@
 local small_anim = {}
+
+local function apply_gc_pressure()
+	local garbage = {}
+	collectgarbage("collect")
+	for i = 1, 4096 do
+		garbage[#garbage + 1] = vmath.vector4(i, i, i, i)
+	end
+end
+
 function small_anim.small_walk_in_callback_loop()
 	spine.play_anim("/small_walk#spinemodel", "walk", go.PLAYBACK_ONCE_FORWARD, {}, function(self, message_id, message, sender)
 		if message_id == hash("spine_animation_done") then
 			small_anim.small_walk_in_callback_loop()
+			apply_gc_pressure()
 		end
 	end)
 end
@@ -24,4 +34,4 @@ function on_input(self, action_id, action)
 end
 
 function on_reload(self)
-end 
+end
