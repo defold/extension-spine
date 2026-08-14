@@ -677,6 +677,7 @@ static void CreateAABB(SpineFile* file)
     v->z = 0;
     v->u = v->v = 0;
     v->r = v->g = v->b = v->a = 1;
+    v->dark_r = v->dark_g = v->dark_b = 0;
     v->page_index = 0;
     ++v;
 
@@ -685,6 +686,7 @@ static void CreateAABB(SpineFile* file)
     v->z = 0;
     v->u = v->v = 0;
     v->r = v->g = v->b = v->a = 1;
+    v->dark_r = v->dark_g = v->dark_b = 0;
     v->page_index = 0;
     ++v;
 
@@ -693,6 +695,7 @@ static void CreateAABB(SpineFile* file)
     v->z = 0;
     v->u = v->v = 0;
     v->r = v->g = v->b = v->a = 1;
+    v->dark_r = v->dark_g = v->dark_b = 0;
     v->page_index = 0;
     ++v;
 
@@ -702,6 +705,7 @@ static void CreateAABB(SpineFile* file)
     v->z = 0;
     v->u = v->v = 0;
     v->r = v->g = v->b = v->a = 1;
+    v->dark_r = v->dark_g = v->dark_b = 0;
     v->page_index = 0;
     ++v;
 
@@ -710,6 +714,7 @@ static void CreateAABB(SpineFile* file)
     v->z = 0;
     v->u = v->v = 0;
     v->r = v->g = v->b = v->a = 1;
+    v->dark_r = v->dark_g = v->dark_b = 0;
     v->page_index = 0;
     ++v;
 
@@ -718,6 +723,7 @@ static void CreateAABB(SpineFile* file)
     v->z = 0;
     v->u = v->v = 0;
     v->r = v->g = v->b = v->a = 1;
+    v->dark_r = v->dark_g = v->dark_b = 0;
     v->page_index = 0;
     ++v;
 }

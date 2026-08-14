@@ -161,6 +161,16 @@ embedded_instances {
   ""
 }
 embedded_instances {
+  id: "tank_black_tint_proxy"
+  data: "embedded_components {\n"
+  "  id: \"collection_proxy\"\n"
+  "  type: \"collectionproxy\"\n"
+  "  data: \"collection: \\\"/examples/tank_black_tint/tank_black_tint.collection\\\"\\n"
+  "\"\n"
+  "}\n"
+  ""
+}
+embedded_instances {
   id: "swap_spinescene_proxy"
   data: "embedded_components {\n"
   "  id: \"collection_proxy\"\n"
