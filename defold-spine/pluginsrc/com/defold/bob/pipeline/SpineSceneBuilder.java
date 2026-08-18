@@ -25,6 +25,7 @@ public class SpineSceneBuilder extends ProtoBuilder<SpineSceneDesc.Builder> {
         if (!path.equals("")) {
             BuilderUtil.checkResource(this.project, resource, "spine_json", path);
         }
+        path = BuilderUtil.replaceExt(path, ".skel", ".skelc");
         builder.setSpineJson(BuilderUtil.replaceExt(path, ".spinejson", ".spinejsonc"));
 
 
@@ -41,19 +42,19 @@ public class SpineSceneBuilder extends ProtoBuilder<SpineSceneDesc.Builder> {
     public void build(Task task) throws CompileExceptionError, IOException {
         super.build(task);
 
-        IResource testurec = null;
-        IResource spinejsonc = null;
+        IResource texturec = null;
+        IResource spineData = null;
         for (IResource input: task.getInputs()) {
             String path = input.getPath();
             if (path.endsWith("texturesetc")) {
-                testurec = input;
+                texturec = input;
             }
-            else if (path.endsWith("spinejsonc")) {
-                spinejsonc = input;
+            else if (path.endsWith("spinejsonc") || path.endsWith("skelc")) {
+                spineData = input;
             }
         }
         try {
-            Spine.SPINE_LoadFileFromBuffer(spinejsonc.getContent(), spinejsonc.getPath(), testurec.getContent(), testurec.getPath());
+            Spine.SPINE_LoadFileFromBuffer(spineData.getContent(), spineData.getPath(), texturec.getContent(), texturec.getPath());
         }
         catch (Spine.SpineException e) {
             throw new CompileExceptionError(task.getInputs().get(0), -1, e.getMessage());

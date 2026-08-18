@@ -17,7 +17,7 @@ input_method = HiddenInputField
 
 [project]
 title = extension-spine
-custom_resources = custom_res
+custom_resources = custom_res,assets/spineboy/spineboy-pro.skel
 dependencies#0 = https://github.com/britzl/extension-imgui/archive/refs/heads/master.zip
 
 [library]

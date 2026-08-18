@@ -7,7 +7,7 @@ brief: This manual explains how to bring Spine animations from _Spine_ into Defo
 
 ### **Current Spine Runtime Version Supported: 4.2.xx**
 
-_Spine_ is a third party animation tool by Esoteric Software. Spine animation provides 2D _skeletal animation_ support (see http://en.wikipedia.org/wiki/Skeletal_animation). This is a fundamentally different technique from [flipbook animations](/manuals/flipbook-animation) that is closer to cutout animation. In cutout animation separate pieces of the animated object (e.g body parts, eyes, mouth etc) are moved individually between each frame. Spine animation let you build an invisible, virtual skeleton consisting of a hierarchy of interconnected _bones_. This skeleton, or _rig_, is then animated and individual images are attached to the bones. Defold supports animations created or exported in the [Spine JSON format](http://esotericsoftware.com/spine-json-format). Skeletal animation is very smooth since the engine can interpolate the location of each bone for each frame. It is particularly useful to animate characters and animals, but works very well for other types of objects, like ropes, vehicles or foliage.
+_Spine_ is a third party animation tool by Esoteric Software. Spine animation provides 2D _skeletal animation_ support (see http://en.wikipedia.org/wiki/Skeletal_animation). This is a fundamentally different technique from [flipbook animations](/manuals/flipbook-animation) that is closer to cutout animation. In cutout animation separate pieces of the animated object (e.g body parts, eyes, mouth etc) are moved individually between each frame. Spine animation let you build an invisible, virtual skeleton consisting of a hierarchy of interconnected _bones_. This skeleton, or _rig_, is then animated and individual images are attached to the bones. Defold supports animations exported in Spine's [JSON](https://esotericsoftware.com/spine-json-format) and [binary](https://esotericsoftware.com/spine-binary-format) skeleton data formats. Skeletal animation is very smooth since the engine can interpolate the location of each bone for each frame. It is particularly useful to animate characters and animals, but works very well for other types of objects, like ropes, vehicles or foliage.
 
   ![Spine animation](spine_animation.png){.inline}
   ![Run loop](frog_runloop.gif){.inline}
@@ -28,7 +28,7 @@ Spine animations used to be part of the main Defold engine. Starting with Defold
 
 ### Spine content
 
-* The new file suffix is `.spinejson`
+* The file suffix for JSON data is `.spinejson`
     - Set this as the output suffix in the Spine Editor
 
 * Update the spine source files to latest version
@@ -83,11 +83,11 @@ end
 
 ## Concepts
 
-*Spine JSON data file*
-: This data file contains the skeleton, all the image slot names, skins and the actual animation data. No images are embedded in this file though. Create this file from your animation software of choice.
+*Spine data file*
+: This file contains the skeleton, image slot names, skins and animation data. Export it from Spine as JSON (`.spinejson`) or binary (`.skel`). No images are embedded in this file.
 
 *Spine scene*
-: The Defold resource tying together the Spine JSON data file and the Defold image atlas file that is used to fill bone slots with graphics.
+: The Defold resource tying together the Spine data file and the Defold image atlas file that is used to fill bone slots with graphics.
 
 *Spine model*
 : The _SpineModel_ component is put in a game object to bring the graphics and animation to the screen. The component contains the skeleton game object hierarchy, which animation to play, what skin to use and it also specifies the material used for rendering the model.
@@ -98,9 +98,11 @@ end
 
 ## Animation tools
 
-The Spine JSON data format that Defold supports can be created by Esoteric Software's _Spine_ software.
+The Spine JSON and binary data formats that Defold supports can be created by Esoteric Software's _Spine_ software.
 
 _Spine_ is available from [Esoteric Software](http://esotericsoftware.com).
+
+The Spine editor's major and minor version used for export must match the supported Spine runtime version shown above. This applies to both JSON and binary exports.
 
 ![Spine](spine.png)
 
@@ -109,12 +111,12 @@ _Spine_ is available from [Esoteric Software](http://esotericsoftware.com).
 
 When you have a model and animations that you have created in Spine, the process of importing them into Defold is straightforward:
 
-- Export a Spine JSON version of the animation data. Make sure the extension is `.spinejson`.
-- Put the exported JSON file somewhere in your project hierarchy.
+- Export the animation data as JSON or binary. Use `.spinejson` for JSON and `.skel` for binary.
+- Put the exported data file somewhere in your project hierarchy.
 - Put all images associated with the model somewhere in your project hierarchy.
 - Create an _Atlas_ file and add all the images to it. (See [2D graphics documentation](/manuals/2dgraphics) for details on how to create an atlas and below for some caveats)
 
-![Export JSON from Spine](spine_json_export.png)
+![Export JSON or binary data from Spine](spine_json_export.png)
 
 When you have the animation data and image files imported and set up in Defold, you need to create a _Spine scene_ resource file:
 
@@ -124,8 +126,8 @@ When you have the animation data and image files imported and set up in Defold, 
 
 ![Setup the Spine Scene](spinescene.png)
 
-Spine Json
-: The Spine JSON file to use as source for bone and animation data (Note: the file must have extension `.spinejson`).
+Spine Data
+: The Spine data file to use as the source for bone and animation data. The file must use `.spinejson` for JSON data or `.skel` for binary data.
 
 Atlas
 : The atlas containing images named corresponding to the Spine data file.
@@ -505,7 +507,7 @@ The animation data references the images used for the bones by name with the fil
 
 ![Spine images hierarchy](spine_images.png)
 
-This example shows files laid out in a flat structure. It is, however, possible to organize the files in subfolders and the file references will reflect that. For instance, a file *head_parts/eyes.png* on disk will be referenced as *head_parts/eyes* when you use it in a slot. This is also the name used in the exported JSON file so when creating the Defold image atlas, all names must match an atlas animation.
+This example shows files laid out in a flat structure. It is, however, possible to organize the files in subfolders and the file references will reflect that. For instance, a file *head_parts/eyes.png* on disk will be referenced as *head_parts/eyes* when you use it in a slot. This is also the name stored in the exported Spine data, so when creating the Defold image atlas, all names must match an atlas animation.
 
 If you select <kbd>Add Images</kbd> Defold will automatically create animation groups with the same name as the added files, but with the file suffix stripped off. So, after having added the file *eyes.png* its animation group can be referenced by the name "eyes". This works with file names only, not paths.
 

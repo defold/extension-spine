@@ -13,12 +13,13 @@ Functions for creating Spine resources dynamically
 resource = {}
 
 ---@class resource.create_spinescene.options
----@field spine_data string JSON bytes of the Spine skeleton
+---@field spine_data string JSON or binary bytes of the Spine skeleton
 ---@field atlas_path string Path to the compiled atlas resource (.texturesetc)
 
 ---Creates a spinescene resource (.spinescenec) from runtime data.
 ---Creates a Spine scene resource dynamically at runtime. This allows loading
----Spine animations from data rather than pre-built assets.
+---Spine animations from JSON or binary data rather than pre-built assets.
+---The data format is detected automatically.
 ---Resources created with this function are automatically cleaned up when the
 ---collection is destroyed, similar to engine functions like resource.create_atlas().
 ---@param path string The target resource path. Must end with .spinescenec

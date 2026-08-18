@@ -22,7 +22,8 @@ namespace dmSpine
 
     // File extension constants
     static const char* SPINESCENE_EXT = ".spinescenec";
-    static const char* SPINEJSON_EXT = ".spinejsonc";  
+    static const char* SPINEJSON_EXT = ".spinejsonc";
+    static const char* SPINESKEL_EXT = ".skelc";
     static const char* ATLAS_EXT = ".texturesetc";
 
     static bool HasSuffix(const char* s, const char* suffix)
@@ -33,10 +34,70 @@ namespace dmSpine
         return strcmp(s + (ls - lt), suffix) == 0;
     }
 
+    static uint32_t SkipJsonWhitespace(const int8_t* data, uint32_t data_size, uint32_t offset)
+    {
+        while (offset < data_size)
+        {
+            char c = data[offset];
+            if (c != ' ' && c != '\t' && c != '\r' && c != '\n')
+                break;
+            ++offset;
+        }
+        return offset;
+    }
+
+    static bool IsJsonData(const int8_t* data, uint32_t data_size)
+    {
+        uint32_t offset = 0;
+        if (data_size >= 3 &&
+            (uint8_t)data[0] == 0xef &&
+            (uint8_t)data[1] == 0xbb &&
+            (uint8_t)data[2] == 0xbf)
+        {
+            offset = 3;
+        }
+
+        offset = SkipJsonWhitespace(data, data_size, offset);
+        if (offset >= data_size || data[offset++] != '{')
+            return false;
+
+        // Spine binary has no magic bytes, so identify JSON by its opening
+        // object/key syntax instead of relying on a single leading byte.
+        offset = SkipJsonWhitespace(data, data_size, offset);
+        if (offset >= data_size || data[offset++] != '"')
+            return false;
+
+        bool escaped = false;
+        while (offset < data_size)
+        {
+            char c = data[offset];
+            ++offset;
+            if (escaped)
+            {
+                escaped = false;
+            }
+            else if (c == '\\')
+            {
+                escaped = true;
+            }
+            else if (c == '"')
+            {
+                offset = SkipJsonWhitespace(data, data_size, offset);
+                return offset < data_size && data[offset] == ':';
+            }
+            else if ((uint8_t)c < 0x20)
+            {
+                return false;
+            }
+        }
+        return false;
+    }
+
     /*# Creates a spinescene resource (.spinescenec) from runtime data
      *
      * Creates a Spine scene resource dynamically at runtime. This allows loading
-     * Spine animations from data rather than pre-built assets.
+     * Spine animations from JSON or binary data rather than pre-built assets.
+     * The data format is detected automatically.
      *
      * Resources created with this function are automatically cleaned up when the
      * collection is destroyed, similar to engine functions like resource.create_atlas().
@@ -44,19 +105,19 @@ namespace dmSpine
      * @name resource.create_spinescene
      * @param path [type:string] The target resource path. Must end with .spinescenec
      * @param options [type:table] Table with fields:
-     *  - spine_data [type:string] JSON bytes of the Spine skeleton
+     *  - spine_data [type:string] JSON or binary bytes of the Spine skeleton
      *  - atlas_path   [type:string] Path to the compiled atlas resource (.texturesetc)
      * @return path_hash [type:hash] canonical path hash of the created resource
      *
      * @examples
      * ```lua
      * function init(self)
-     *     -- Load Spine JSON data
-     *     local json = sys.load_resource("/data/character.spinejson")
+     *     -- Load Spine JSON or binary data
+     *     local spine_data = sys.load_resource("/data/character.skel")
      *     
      *     -- Create spinescene dynamically
      *     local scene = resource.create_spinescene("/dyn/character.spinescenec", {
-     *         spine_data = json,
+     *         spine_data = spine_data,
      *         atlas_path = "/textures/character.a.texturesetc"
      *     })
      *     
@@ -106,13 +167,13 @@ namespace dmSpine
             lua_pop(L, 2); // pop nil and options
             return luaL_error(L, "Missing required field 'spine_data'");
         }
-        uint32_t json_size = 0;
-        int8_t* json_data;
+        uint32_t spine_data_size = 0;
+        int8_t* spine_data;
         if (lua_isstring(L, -1))
         {
             size_t string_len;
-            json_data = (int8_t*)luaL_checklstring(L, -1, &string_len);
-            json_size = (uint32_t)string_len;
+            spine_data = (int8_t*)luaL_checklstring(L, -1, &string_len);
+            spine_data_size = (uint32_t)string_len;
         }
         else
         {
@@ -139,47 +200,48 @@ namespace dmSpine
         lua_pop(L, 1); // atlas_path
         lua_pop(L, 1); // options
 
-        // Create child spinejsonc resource path
-        char json_path[2048];
+        // Create a child resource using the type matching the supplied data.
+        const char* spine_data_ext = IsJsonData(spine_data, spine_data_size) ? SPINEJSON_EXT : SPINESKEL_EXT;
+        char spine_data_path[2048];
         size_t scene_path_len = strlen(scene_path);
-        size_t json_path_len = scene_path_len + strlen(SPINEJSON_EXT) + 1;
-        if (json_path_len > sizeof(json_path))
-            json_path_len = sizeof(json_path);
-        snprintf(json_path, json_path_len, "%s%s", scene_path, SPINEJSON_EXT);
+        size_t spine_data_path_len = scene_path_len + strlen(spine_data_ext) + 1;
+        if (spine_data_path_len > sizeof(spine_data_path))
+            spine_data_path_len = sizeof(spine_data_path);
+        snprintf(spine_data_path, spine_data_path_len, "%s%s", scene_path, spine_data_ext);
         // Ensure any stale intermediate file is cleared first
-        dmResource::RemoveFile(g_Factory, json_path);
+        dmResource::RemoveFile(g_Factory, spine_data_path);
 
         // Ensure no collision
         HResourceDescriptor tmp;
-        if (ResourceGetDescriptor(g_Factory, json_path, &tmp) == RESOURCE_RESULT_OK)
+        if (ResourceGetDescriptor(g_Factory, spine_data_path, &tmp) == RESOURCE_RESULT_OK)
         {
-            return luaL_error(L, "Unable to create resource, a resource is already registered at path '%s'", json_path);
+            return luaL_error(L, "Unable to create resource, a resource is already registered at path '%s'", spine_data_path);
         }
 
-        // Register spinejsonc payload as a file and load it
-        ResourceResult add_json = ResourceAddFile(g_Factory, json_path, json_size, (void*)json_data);
-        if (add_json != RESOURCE_RESULT_OK)
+        // Register the Spine data payload as a file and load it.
+        ResourceResult add_spine_data = ResourceAddFile(g_Factory, spine_data_path, spine_data_size, (void*)spine_data);
+        if (add_spine_data != RESOURCE_RESULT_OK)
         {
-            return luaL_error(L, "Failed to add intermediate spinejson resource '%s' (error %d)", json_path, add_json);
+            return luaL_error(L, "Failed to add intermediate Spine data resource '%s' (error %d)", spine_data_path, add_spine_data);
         }
-        void* out_json_res = 0;
-        ResourceResult get_json = ResourceGet(g_Factory, json_path, &out_json_res);
-        if (get_json != RESOURCE_RESULT_OK)
+        void* out_spine_data_res = 0;
+        ResourceResult get_spine_data = ResourceGet(g_Factory, spine_data_path, &out_spine_data_res);
+        if (get_spine_data != RESOURCE_RESULT_OK)
         {
             // Clean up the added file if loading failed
-            dmResource::RemoveFile(g_Factory, json_path);
-            return luaL_error(L, "Failed to load intermediate spinejson resource '%s' (error %d)", json_path, get_json);
+            dmResource::RemoveFile(g_Factory, spine_data_path);
+            return luaL_error(L, "Failed to load intermediate Spine data resource '%s' (error %d)", spine_data_path, get_spine_data);
         }
 
         // Build DDF for spinescenec
         dmGameSystemDDF::SpineSceneDesc ddf = {};
-        ddf.m_SpineJson = (char*)json_path; // stored/serialized as string
+        ddf.m_SpineJson = (char*)spine_data_path; // stored/serialized as string
         // Validate atlas resource exists
         void* atlas_res = 0;
         ResourceResult atlas_result = ResourceGet(g_Factory, atlas_path, &atlas_res);
         if (atlas_result != RESOURCE_RESULT_OK)
         {
-            dmResource::Release(g_Factory, out_json_res);
+            dmResource::Release(g_Factory, out_spine_data_res);
             return luaL_error(L, "'atlas_path' must reference a valid atlas resource (%s)", ATLAS_EXT);
         }
         // Release atlas resource - we only needed to validate it exists
@@ -190,7 +252,7 @@ namespace dmSpine
         dmDDF::Result ddf_res = dmDDF::SaveMessageToArray(&ddf, dmGameSystemDDF::SpineSceneDesc::m_DDFDescriptor, ddf_buffer);
         if (ddf_res != dmDDF::RESULT_OK)
         {
-            dmResource::Release(g_Factory, out_json_res);
+            dmResource::Release(g_Factory, out_spine_data_res);
             return luaL_error(L, "Failed to serialize SpineSceneDesc");
         }
 
@@ -198,8 +260,8 @@ namespace dmSpine
         ResourceResult add_scene = ResourceAddFile(g_Factory, scene_path, ddf_buffer.Size(), ddf_buffer.Begin());
         if (add_scene != RESOURCE_RESULT_OK)
         {
-            dmResource::Release(g_Factory, out_json_res);
-            dmResource::RemoveFile(g_Factory, json_path);
+            dmResource::Release(g_Factory, out_spine_data_res);
+            dmResource::RemoveFile(g_Factory, spine_data_path);
             return luaL_error(L, "Failed to add spinescene resource '%s' (error %d)", scene_path, add_scene);
         }
         void* out_scene_res = 0;
@@ -208,8 +270,8 @@ namespace dmSpine
         {
             // Clean up both added files if final loading failed
             dmResource::RemoveFile(g_Factory, scene_path);
-            dmResource::Release(g_Factory, out_json_res);
-            dmResource::RemoveFile(g_Factory, json_path);
+            dmResource::Release(g_Factory, out_spine_data_res);
+            dmResource::RemoveFile(g_Factory, spine_data_path);
             return luaL_error(L, "Failed to load spinescene resource '%s' (error %d)", scene_path, get_scene);
         }
 
@@ -220,12 +282,12 @@ namespace dmSpine
         dmGameObject::HCollection collection = dmScript::CheckCollection(L);
 
         // Register only the scene resource for automatic cleanup
-        // (JSON resource is intermediate and will be released immediately)
+        // (The Spine data resource is intermediate and will be released immediately.)
         dmGameObject::AddDynamicResourceHash(collection, canonical_hash);
 
-        // Release and remove the intermediate JSON resource (no longer needed after scene loaded)
-        dmResource::Release(g_Factory, out_json_res);
-        dmResource::RemoveFile(g_Factory, json_path);
+        // Release and remove the intermediate Spine data resource (no longer needed after scene loaded).
+        dmResource::Release(g_Factory, out_spine_data_res);
+        dmResource::RemoveFile(g_Factory, spine_data_path);
         // Remove the spinescene backing file (resource instance remains alive in memory)
         dmResource::RemoveFile(g_Factory, scene_path);
         

@@ -1,5 +1,5 @@
 #include "res_spine_scene.h"
-#include "res_spine_json.h"
+#include "res_spine_data.h"
 #include "spine_ddf.h" // generated from the spine_ddf.proto
 
 #include <common/spine_loader.h>
@@ -8,7 +8,6 @@
 #include <dmsdk/dlib/math.h>
 #include <dmsdk/resource/resource.h>
 
-#include <spine/SkeletonJson.h>
 #include <spine/AnimationStateData.h>
 #include <dmsdk/gamesys/resources/res_textureset.h>
 
@@ -23,7 +22,7 @@
 namespace dmSpine
 {
 
-    static dmResource::Result AcquireResources(dmResource::HFactory factory, SpineSceneResource* resource, const char* filename)
+    static dmResource::Result AcquireResources(dmResource::HFactory factory, SpineSceneResource* resource)
     {
         dmResource::Result result = dmResource::Get(factory, resource->m_Ddf->m_Atlas, (void**) &resource->m_TextureSet); // .atlas -> .texturesetc
         if (result != dmResource::RESULT_OK)
@@ -31,8 +30,8 @@ namespace dmSpine
             return result;
         }
 
-        SpineJsonResource* spine_json_resource = 0;
-        result = dmResource::Get(factory, resource->m_Ddf->m_SpineJson, (void**) &spine_json_resource);
+        SpineDataResource* spine_data_resource = 0;
+        result = dmResource::Get(factory, resource->m_Ddf->m_SpineJson, (void**) &spine_data_resource);
         if (result != dmResource::RESULT_OK)
         {
             return result;
@@ -43,7 +42,12 @@ namespace dmSpine
         resource->m_AttachmentLoader = dmSpine::CreateAttachmentLoader(resource->m_TextureSet->m_TextureSet, resource->m_Regions);
 
         // Create the spine resource
-        resource->m_Skeleton = dmSpine::ReadSkeletonJsonData((spAttachmentLoader*)resource->m_AttachmentLoader, filename, spine_json_resource->m_Json);
+        const char* spine_data_path = resource->m_Ddf->m_SpineJson;
+        resource->m_Skeleton = dmSpine::ReadSkeletonData((spAttachmentLoader*)resource->m_AttachmentLoader,
+                                                        spine_data_path,
+                                                        spine_data_resource->m_Data,
+                                                        spine_data_resource->m_Length);
+        dmResource::Release(factory, spine_data_resource);
         if (!resource->m_Skeleton)
         {
             return dmResource::RESULT_INVALID_DATA;
@@ -52,9 +56,6 @@ namespace dmSpine
         resource->m_AnimationStateData = spAnimationStateData_create(resource->m_Skeleton);
         //spAnimationStateData_setDefaultMix(resource->m_AnimationStateData, 0.1f); // There's currently no such function!
         resource->m_AnimationStateData->defaultMix = 0.1f; // force mixing
-
-        // We can release this json data now
-        dmResource::Release(factory, spine_json_resource);
 
         {
             uint32_t count = resource->m_Skeleton->animationsCount;
@@ -154,7 +155,7 @@ namespace dmSpine
     {
         SpineSceneResource* scene_resource = new SpineSceneResource();
         scene_resource->m_Ddf = (dmGameSystemDDF::SpineSceneDesc*) params->m_PreloadData;
-        dmResource::Result r = AcquireResources(params->m_Factory, scene_resource, params->m_Filename);
+        dmResource::Result r = AcquireResources(params->m_Factory, scene_resource);
         if (r == dmResource::RESULT_OK)
         {
             dmResource::SetResource(params->m_Resource, scene_resource);
@@ -186,7 +187,7 @@ namespace dmSpine
         SpineSceneResource* resource = (SpineSceneResource*)dmResource::GetResource(params->m_Resource);
         ReleaseResources(params->m_Factory, resource);
         resource->m_Ddf = ddf;
-        return AcquireResources(params->m_Factory, resource, params->m_Filename);
+        return AcquireResources(params->m_Factory, resource);
     }
 
     static ResourceResult ResourceTypeScene_Register(HResourceTypeContext ctx, HResourceType type)
