@@ -16,6 +16,7 @@
             [dynamo.graph :as g]
             [editor.buffers :as buffers]
             [editor.build-target :as bt]
+            [editor.core :as core]
             [editor.defold-project :as project]
             [editor.geom :as geom]
             [editor.gl :as gl]
@@ -401,7 +402,9 @@
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
 (g/defnode SpineBone
+  (inherits core/Scope)
   (inherits outline/OutlineNode)
+
   (property name g/Str (dynamic read-only? (g/constantly true)))
   (property position types/Vec3
             (dynamic edit-type (g/constantly {:type types/Vec2}))
@@ -413,7 +416,6 @@
   (property length g/Num
             (dynamic read-only? (g/constantly true)))
 
-  (input nodes g/Any :array)
   (input child-bones g/Any :array)
   (input child-outlines g/Any :array)
 
