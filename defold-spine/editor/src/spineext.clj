@@ -48,6 +48,7 @@
            [editor.gl.shader ShaderLifecycle]
            [editor.types AABB]
            [java.io IOException]
+           [java.lang.reflect InvocationTargetException]
            [java.nio ByteBuffer ByteOrder]
            [javax.vecmath Matrix4d Vector3d]
            [org.apache.commons.io IOUtils]))
@@ -81,14 +82,12 @@
 (def spine-plugin-cls (workspace/load-class! "com.dynamo.bob.pipeline.Spine"))
 (def spine-plugin-exception-cls (workspace/load-class! "com.dynamo.bob.pipeline.Spine$SpineException"))
 (def spine-plugin-pointer-cls (workspace/load-class! "com.dynamo.bob.pipeline.Spine$SpinePointer"))
-(def spine-plugin-aabb-cls (workspace/load-class! "com.dynamo.bob.pipeline.Spine$AABB"))
 (def spine-plugin-blendmode-cls (workspace/load-class! "com.dynamo.spine.proto.Spine$SpineModelDesc$BlendMode"))
 (def spine-plugin-spinescene-cls (workspace/load-class! "com.dynamo.spine.proto.Spine$SpineSceneDesc"))
 (def spine-plugin-spinemodel-cls (workspace/load-class! "com.dynamo.spine.proto.Spine$SpineModelDesc"))
 
 (def byte-array-cls (Class/forName "[B"))
 (def float-array-cls (Class/forName "[F"))
-(def string-array-cls (Class/forName "[Ljava.lang.String;"))
 
 (defn- plugin-invoke-static [^Class cls name types args]
   (let [method (.getMethod cls name types)]
@@ -173,8 +172,6 @@
   (get-aabb handle))
 
 (set! *warn-on-reflection* true)
-
-(def ^:private ^TextureSetGenerator$UVTransform uv-identity (TextureSetGenerator$UVTransform.))
 
 (defn- prop-resource-error [nil-severity _node-id prop-kw prop-value prop-name]
   (or (validation/prop-error nil-severity _node-id prop-kw validation/prop-nil? prop-value prop-name)
@@ -419,7 +416,12 @@
   (input child-bones g/Any :array)
   (input child-outlines g/Any :array)
 
-  (output transform Matrix4d :cached produce-transform)
+  (output transform Matrix4d :cached
+          (g/fnk [position rotation scale]
+            (math/->mat4-non-uniform
+              (Vector3d. (double-array position))
+              (math/euler-z->quat rotation)
+              (Vector3d. (double-array scale)))))
   (output bone g/Any (g/fnk [name transform child-bones]
                        {:name name
                         :local-transform transform
@@ -436,7 +438,7 @@
 
 (set! *warn-on-reflection* false)
 
-; Creates the bone hierarcy
+; Creates the bone hierarchy
 (defn- is-root-bone? [bone]
   (= -1 (.-parent bone)))
 
@@ -480,11 +482,6 @@
 ;;         (assoc :transform t)
 ;;         (assoc :children (mapv #(update-transforms t %) (:children bone))))))
 
-(g/defnk produce-transform [position rotation scale]
-  (math/->mat4-non-uniform (Vector3d. (double-array position))
-                           (math/euler-z->quat rotation)
-                           (Vector3d. (double-array scale))))
-
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
 (defn- resource->bytes [resource]
@@ -492,7 +489,7 @@
     (IOUtils/toByteArray in)))
 
 (defn- handle-read-error [^Throwable error node-id resource]
-  (let [^Throwable error (if (instance? java.lang.reflect.InvocationTargetException error) (.getCause error) error)
+  (let [^Throwable error (if (instance? InvocationTargetException error) (.getCause error) error)
         msg (.getMessage error)
         path (resource/resource->proj-path resource)
         msg-missing-image "Region not found: "]
