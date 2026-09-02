@@ -333,20 +333,20 @@
 
 
 (defn- render-group-transparent [^GL2 gl render-args override-shader group]
-  (let [renderable (:renderable group)
-        user-data (:user-data renderable)
-        gpu-texture (or (get user-data :gpu-texture) texture/white-pixel)
-        shader (or override-shader (:shader user-data))
-        vb (:vertex-buffer group)
-        ib (:index-buffer group)
-        draw-descs (:draw-descs group)
-        vertex-binding (vtx2/use-with ::spine-trans vb shader)
-        bindings (cond-> [shader gpu-texture vertex-binding]
-                   ib (conj ib))]
-    (gl/with-gl-bindings gl render-args bindings
-      (run! (fn [draw-desc]
-              (do-draw-desc! gl render-args shader renderable draw-desc))
-            draw-descs))))
+  (when-let [vb (:vertex-buffer group)]
+    (let [renderable (:renderable group)
+          user-data (:user-data renderable)
+          gpu-texture (or (get user-data :gpu-texture) texture/white-pixel)
+          shader (or override-shader (:shader user-data))
+          ib (:index-buffer group)
+          draw-descs (:draw-descs group)
+          vertex-binding (vtx2/use-with ::spine-trans vb shader)
+          bindings (cond-> [shader gpu-texture vertex-binding]
+                     ib (conj ib))]
+      (gl/with-gl-bindings gl render-args bindings
+        (run! (fn [draw-desc]
+                (do-draw-desc! gl render-args shader renderable draw-desc))
+              draw-descs)))))
 
 ;; When debugging render using REPL, don't forget to run (dev/clear-caches!)
 ;; Also, it's possible to switch render modes in the Debug Editor using Cmd+T

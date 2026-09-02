@@ -435,6 +435,13 @@ def build_unknown_attachment_type() -> bytes:
     return writer.finish()
 
 
+def build_no_attachments() -> bytes:
+    writer = BinaryWriter()
+    write_skeleton_prefix(writer, [], None)
+    write_default_skin(writer, [], [])
+    return finish_skeleton(writer, animations=[("idle", write_empty_animation)])
+
+
 CASES = [
     Case(
         "00_valid_control",
@@ -555,6 +562,14 @@ CASES = [
         "Operation path after a successful binary load",
         "idle",
         lambda: build_valid_control(bone_x=math.nan),
+    ),
+    Case(
+        "15_no_attachments",
+        "Valid binary with a slot but no attachments.",
+        "Opens with an empty preview and updates without an error.",
+        "Editor render path with empty vertex and index buffers",
+        "idle",
+        build_no_attachments,
     ),
 ]
 
@@ -712,7 +727,7 @@ def generated_files() -> dict[Path, bytes]:
         SHARED_ROOT / "spine.material": MATERIAL.encode(),
         SHARED_ROOT / "spine.vp": VERTEX_SHADER.encode(),
         SHARED_ROOT / "spine.fp": FRAGMENT_SHADER.encode(),
-        ASSETS_ROOT / "README.md": make_readme().encode(),
+        CORRUPTED_ROOT / "README.md": make_readme().encode(),
     }
 
     for case in CASES:
@@ -749,7 +764,7 @@ def check(files: dict[Path, bytes]) -> int:
         elif path.read_bytes() != expected:
             errors.append(f"out of date: {path.relative_to(CORRUPTED_ROOT)}")
 
-    expected_root_files = {f"{case.key}.go" for case in CASES}
+    expected_root_files = {"README.md"} | {f"{case.key}.go" for case in CASES}
     actual_root_files = {path.name for path in CORRUPTED_ROOT.iterdir() if path.is_file()}
     for unexpected in sorted(actual_root_files - expected_root_files):
         errors.append(f"unexpected root file: {unexpected}")
