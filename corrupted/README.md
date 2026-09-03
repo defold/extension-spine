@@ -24,6 +24,7 @@ atlas and exercises the intended attachment-loader failure.
 | `12_missing_deform_attachment.go` | Animation deform timeline references an absent attachment. | SkeletonBinary.c: attachment timeline lookup | Fatal 'Animation corrupted' resource error. |
 | `13_unknown_attachment_type.go` | Skin attachment has the unused type value 7. | SkeletonBinary.c: attachment switch default / readSkin NULL | Must not crash. Current runtime silently drops it and opens empty. |
 | `14_non_finite_transform.go` | Valid structure contains NaN as the root bone X position. | Operation path after a successful binary load | Must not crash while creating, updating, or previewing the skeleton. |
+| `15_no_attachments.go` | Valid binary with a slot but no attachments. | Editor render path with empty vertex and index buffers | Opens with an empty preview and updates without an error. |
 
 ## Known limits
 
