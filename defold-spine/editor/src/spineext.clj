@@ -43,8 +43,7 @@
             [editor.validation :as validation]
             [editor.workspace :as workspace]
             [util.coll :as coll])
-  (:import [com.dynamo.bob.textureset TextureSetGenerator$UVTransform]
-           [com.jogamp.opengl GL GL2]
+  (:import [com.jogamp.opengl GL GL2]
            [editor.gl.shader ShaderLifecycle]
            [editor.types AABB]
            [java.io IOException]
@@ -964,6 +963,7 @@
       :node-type SpineSceneNode
       :ddf-type spine-plugin-spinescene-cls
       :sanitize-fn sanitize-spine-scene
+      :editor-dependencies [spine-material-path]
       :load-fn load-spine-scene
       :icon spine-scene-icon
       :category (localization/message "resource.category.resources")
