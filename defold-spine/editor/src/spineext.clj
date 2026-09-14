@@ -450,8 +450,7 @@
         scale-x (.-scaleX spine-bone)
         scale-y (.-scaleY spine-bone)
         length (.-length spine-bone)
-        parent-graph-id (g/node-id->graph-id parent-id)
-        bone-tx-data (g/make-nodes parent-graph-id [bone [SpineBone :name name :position [x y protobuf/float-zero] :rotation rotation :scale [scale-x scale-y protobuf/float-one] :length length]]
+        bone-tx-data (g/make-nodes [bone [SpineBone :name name :position [x y protobuf/float-zero] :rotation rotation :scale [scale-x scale-y protobuf/float-one] :length length]]
                        ; Hook this node into the parent's lists
                        (g/connect bone :_node-id parent-id :nodes)
                        (g/connect bone :node-outline parent-id :child-outlines)
