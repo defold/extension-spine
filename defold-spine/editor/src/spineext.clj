@@ -503,28 +503,26 @@
 
 ; Loads the Spine JSON or binary data file.
 (defn- load-spine-json
-  ([node-id resource]
-   (load-spine-json nil node-id resource))
-  ([project node-id resource]
-   (try
-     (let [content (resource->bytes resource)
-           path (resource/resource->proj-path resource)
-           spine-data-handle (plugin-load-file-from-buffer content path) ; it throws if it fails to load
-           animations (sort (vec (plugin-get-animations spine-data-handle)))
-           bones (plugin-get-bones spine-data-handle)
-           skins (sort (vec (plugin-get-skins spine-data-handle)))
+  [_load-opts {:keys [node-id resource]}]
+  (try
+    (let [content (resource->bytes resource)
+          path (resource/resource->proj-path resource)
+          spine-data-handle (plugin-load-file-from-buffer content path) ; it throws if it fails to load
+          animations (sort (vec (plugin-get-animations spine-data-handle)))
+          bones (plugin-get-bones spine-data-handle)
+          skins (sort (vec (plugin-get-skins spine-data-handle)))
 
-           tx-data (concat
-                     (g/set-property node-id :content content)
-                     (g/set-property node-id :animations animations)
-                     (g/set-property node-id :skins skins)
-                     (g/set-property node-id :bones bones))
+          tx-data (concat
+                    (g/set-property node-id :content content)
+                    (g/set-property node-id :animations animations)
+                    (g/set-property node-id :skins skins)
+                    (g/set-property node-id :bones bones))
 
-           all-tx-data (concat tx-data (create-bones node-id bones))]
-       all-tx-data)
-     (catch Exception error
-       (let [error-value (handle-read-error error node-id resource)]
-         (throw (ex-info (:message error-value) error-value error)))))))
+          all-tx-data (concat tx-data (create-bones node-id bones))]
+      all-tx-data)
+    (catch Exception error
+      (let [error-value (handle-read-error error node-id resource)]
+        (throw (ex-info (:message error-value) error-value error))))))
 
 (defn- build-spine-json [resource dep-resources user-data]
   {:resource resource :content (resource->bytes (:resource resource))})
@@ -582,13 +580,13 @@
     default-animation
     skin))
 
-(defn- sanitize-spine-scene [spine-scene-desc]
+(defn- sanitize-spine-scene [_read-opts _owner-resource spine-scene-desc]
   {:pre [(map? spine-scene-desc)]} ; Spine$SpineSceneDesc in map format.
   (dissoc spine-scene-desc :sample-rate)) ; Deprecated field.
 
-(defn- load-spine-scene [project self resource spine-scene-desc]
+(defn- load-spine-scene [{:keys [project resolve-resource-fn]} {:keys [owner-resource] self :node-id spine-scene-desc :source-value}]
   {:pre [(map? spine-scene-desc)]} ; Spine$SpineSceneDesc in map format.
-  (let [resolve-resource #(workspace/resolve-resource resource %)
+  (let [resolve-resource #(resolve-resource-fn owner-resource %)
         default-material-resource (resolve-resource spine-material-path)]
     (concat
       (g/connect project :default-tex-params self :default-tex-params)
@@ -808,9 +806,9 @@
                       :dep-resources dep-resources}
           :deps dep-build-targets})])))
 
-(defn load-spine-model [project self resource spine-model-desc]
+(defn load-spine-model [{:keys [project resolve-resource-fn]} {:keys [owner-resource] self :node-id spine-model-desc :source-value}]
   {:pre [(map? spine-model-desc)]} ; Spine$SpineModelDesc in map format.
-  (let [resolve-resource #(workspace/resolve-resource resource %)]
+  (let [resolve-resource #(resolve-resource-fn owner-resource %)]
     (concat
       (g/connect project :default-tex-params self :default-tex-params)
       (gu/set-properties-from-pb-map self spine-plugin-spinemodel-cls spine-model-desc
