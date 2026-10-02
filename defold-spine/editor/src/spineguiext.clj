@@ -45,7 +45,6 @@
 ; More about JNA + Clojure
 ; https://nakkaya.com/2009/11/16/java-native-access-from-clojure/
 
-
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
 ;; Spine nodes
@@ -145,9 +144,9 @@
 
 (defn- strip-legacy-spine-overridden-fields [node-desc]
   (protobuf/assign-repeated node-desc :overridden-fields
-                            (into []
-                                  (remove legacy-spine-pb-field-indices)
-                                  (:overridden-fields node-desc))))
+    (into []
+          (remove legacy-spine-pb-field-indices)
+          (:overridden-fields node-desc))))
 
 (g/defnk produce-spine-node-msg
   [visual-base-node-msg
@@ -159,14 +158,14 @@
    ^:raw clipping-visible
    ^:raw clipping-inverted]
   (assoc visual-base-node-msg
-         :spine-scene spine-scene
-         :spine-default-animation spine-default-animation
-         :spine-skin spine-skin
-         :spine-create-bones spine-create-bones
-         :clipping-mode clipping-mode
-         :clipping-visible clipping-visible
-         :clipping-inverted clipping-inverted
-         :size-mode :size-mode-auto))
+    :spine-scene spine-scene
+    :spine-default-animation spine-default-animation
+    :spine-skin spine-skin
+    :spine-create-bones spine-create-bones
+    :clipping-mode clipping-mode
+    :clipping-visible clipping-visible
+    :clipping-inverted clipping-inverted
+    :size-mode :size-mode-auto))
 
 (g/defnode SpineNode
   (inherits gui/VisualNode)
@@ -259,7 +258,7 @@
           (g/fnk [_node-id costly-gui-scene-info spine-scene spine-default-animation spine-skin spine-anim-ids spine-skin-ids]
             (let [costly-info (spine-scene-costly-info costly-gui-scene-info)]
               (when-let [spine-info (or (get costly-info spine-scene)
-                                         (get costly-info ""))]
+                                        (get costly-info ""))]
                 (spineext/make-spine-data-handle
                   _node-id
                   (:spine-json-resource spine-info)
@@ -283,18 +282,18 @@
   (output scene-updatable g/Any :cached produce-spine-updatable)
   (output gpu-texture TextureLifecycle (g/constantly nil))
   (output scene-renderable-user-data g/Any :cached (g/fnk [aabb spine-scene-scene spine-data-handle spine-skin spine-default-animation color+alpha clipping-mode clipping-inverted clipping-visible]
-                                                          (let [lines (aabb->rect-lines aabb)
-                                                                user-data (assoc (get-in spine-scene-scene [:renderable :user-data])
-                                                                                 :color color+alpha
-                                                                                 :renderable-tags #{:gui-spine}
-                                                                                 :gen-vb gen-vb
-                                                                                 :spine-data-handle spine-data-handle
-                                                                                 :spine-skin spine-skin
-                                                                                 :spine-default-animation spine-default-animation
-                                                                                 :line-data lines)]
-                                                            (cond-> user-data
-                                                              (not= :clipping-mode-none clipping-mode)
-                                                              (assoc :clipping {:mode clipping-mode :inverted clipping-inverted :visible clipping-visible})))))
+                                                     (let [lines (aabb->rect-lines aabb)
+                                                           user-data (assoc (get-in spine-scene-scene [:renderable :user-data])
+                                                                       :color color+alpha
+                                                                       :renderable-tags #{:gui-spine}
+                                                                       :gen-vb gen-vb
+                                                                       :spine-data-handle spine-data-handle
+                                                                       :spine-skin spine-skin
+                                                                       :spine-default-animation spine-default-animation
+                                                                       :line-data lines)]
+                                                       (cond-> user-data
+                                                         (not= :clipping-mode-none clipping-mode)
+                                                         (assoc :clipping {:mode clipping-mode :inverted clipping-inverted :visible clipping-visible})))))
 
   (output own-build-errors g/Any
           (g/fnk [_node-id basic-gui-scene-info build-errors-visual-node spine-anim-ids spine-default-animation spine-skin-ids spine-skin spine-scene]
@@ -347,24 +346,24 @@
             (value (gu/passthrough spine-scene-resource))
             (set (fn [evaluation-context self old-value new-value]
                    (project/resource-setter
-                    evaluation-context self old-value new-value
-                    [:resource :spine-scene-resource]
-                    [:build-targets :dep-build-targets]
-                    [:scene :spine-scene-scene]
-                    [:spine-json-resource :spine-json-resource]
-                    [:texture-set-pb :texture-set-pb]
-                    [:spine-json-content :spine-json-content]
-                    [:skin-aabbs :spine-skin-aabbs]
-                    [:spine-scene-pb :spine-scene-pb]
-                    [:spine-data-handle :spine-data-handle]
-                    [:animations :spine-anim-ids]
-                    [:skins :spine-skins]
-                    [:bones :spine-bones])))
+                     evaluation-context self old-value new-value
+                     [:resource :spine-scene-resource]
+                     [:build-targets :dep-build-targets]
+                     [:scene :spine-scene-scene]
+                     [:spine-json-resource :spine-json-resource]
+                     [:texture-set-pb :texture-set-pb]
+                     [:spine-json-content :spine-json-content]
+                     [:skin-aabbs :spine-skin-aabbs]
+                     [:spine-scene-pb :spine-scene-pb]
+                     [:spine-data-handle :spine-data-handle]
+                     [:animations :spine-anim-ids]
+                     [:skins :spine-skins]
+                     [:bones :spine-bones])))
             (dynamic error (g/fnk [_node-id spine-scene]
-                                  (gui/prop-resource-error _node-id :spine-scene spine-scene "Spine Scene")))
+                             (gui/prop-resource-error _node-id :spine-scene spine-scene "Spine Scene")))
             (dynamic edit-type (g/constantly
-                                {:type resource/Resource
-                                 :ext ["spinescene"]})))
+                                 {:type resource/Resource
+                                  :ext ["spinescene"]})))
 
   (input dep-build-targets g/Any)
   (input name-counts gui/NameCounts)
@@ -392,17 +391,17 @@
                                                               :icon spineext/spine-scene-icon
                                                               :outline-error? (g/error-fatal? build-errors)}
 
-                                                             (resource/resource? spine-scene-resource)
-                                                             (assoc :link spine-scene-resource :outline-show-link? true))))
+                                                       (resource/resource? spine-scene-resource)
+                                                       (assoc :link spine-scene-resource :outline-show-link? true))))
   (output pb-msg g/Any (g/fnk [name spine-scene]
-                              {:name name
-                               :path (resource/resource->proj-path spine-scene)}))
+                         {:name name
+                          :path (resource/resource->proj-path spine-scene)}))
   (output resource-kind-basic-info g/Any :cached produce-spine-scene-basic-info)
   (output resource-kind-costly-info g/Any :cached produce-spine-scene-costly-info)
   (output build-errors g/Any (g/fnk [_node-id name name-counts spine-scene]
-                                    (g/package-errors _node-id
-                                                      (gui/prop-unique-id-error _node-id :name name name-counts "Name")
-                                                      (gui/prop-resource-error _node-id :spine-scene spine-scene "Spine Scene")))))
+                               (g/package-errors _node-id
+                                 (gui/prop-unique-id-error _node-id :name name name-counts "Name")
+                                 (gui/prop-resource-error _node-id :spine-scene spine-scene "Spine Scene")))))
 
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -450,13 +449,13 @@
                           :spine-create-bones
                           :spine-node-child)
                         (protobuf/assign-repeated :custom-properties custom-properties))
-                    strip-overridden-fields
-                    (strip-legacy-spine-overridden-fields))
+              strip-overridden-fields
+              (strip-legacy-spine-overridden-fields))
 
-            (= :type-spine type)
-            (assoc
-              :type (:output-type node-type-info)
-              :custom-type (:output-custom-type node-type-info)))))
+      (= :type-spine type)
+      (assoc
+        :type (:output-type node-type-info)
+        :custom-type (:output-custom-type node-type-info)))))
 
 (node-types/register-node-type-name! SpineNode "gui-node-type-spine")
 

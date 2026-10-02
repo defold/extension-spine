@@ -66,7 +66,6 @@
 (def spine-scene-ext "spinescene")
 (def spine-model-ext "spinemodel")
 
-
 ; Plugin functions (from Spine.java)
 
 ;; (defn- debug-cls [^Class cls]
@@ -157,7 +156,6 @@
 (defn- plugin-get-draw-descs [handle]
   (plugin-invoke-static spine-plugin-cls "SPINE_GetDrawDescs" (into-array Class [spine-plugin-pointer-cls]) [handle]))
 
-
 (set! *warn-on-reflection* false)
 
 (defn- get-aabb [handle]
@@ -210,7 +208,6 @@
 ;;            :inherit-scale (get b "inheritScale" true)
 ;;            :length (get b "length")})
 ;;         (get spine-scene "bones")))
-
 
 (g/defnk produce-spine-scene-pb [_node-id spine-json atlas]
   (protobuf/make-map-without-defaults spine-plugin-spinescene-cls
@@ -291,7 +288,6 @@
      :handle handle
      :renderable renderable}))
 
-
 (defn collect-render-groups [renderables]
   (map renderable->render-data renderables))
 
@@ -329,7 +325,6 @@
     (gl/set-blend-mode gl :blend-mode-alpha)))
 
 (set! *warn-on-reflection* true)
-
 
 (defn- render-group-transparent [^GL2 gl render-args override-shader group]
   (when-let [vb (:vertex-buffer group)]
@@ -618,25 +613,23 @@
   {:spine-json (resource/resource->proj-path spine-json-resource)
    :atlas (resource/resource->proj-path atlas-resource)})
 
-
 (g/defnk produce-spine-scene-own-build-errors [_node-id atlas spine-json texture-set-pb spine-json-content]
   (g/package-errors _node-id
-                    (validate-scene-atlas _node-id atlas)
-                    (validate-scene-spine-data _node-id spine-json)
-                    (when (and texture-set-pb spine-json-content)
-                      (try
-                        (plugin-load-file-from-buffer
-                          spine-json-content (resource/resource->proj-path spine-json)
-                          texture-set-pb (resource/resource->proj-path atlas))
-                        nil
-                        (catch Exception error
-                          (handle-read-error error _node-id spine-json))))))
+    (validate-scene-atlas _node-id atlas)
+    (validate-scene-spine-data _node-id spine-json)
+    (when (and texture-set-pb spine-json-content)
+      (try
+        (plugin-load-file-from-buffer
+          spine-json-content (resource/resource->proj-path spine-json)
+          texture-set-pb (resource/resource->proj-path atlas))
+        nil
+        (catch Exception error
+          (handle-read-error error _node-id spine-json))))))
 
 (defn- build-spine-scene [resource dep-resources user-data]
   (let [pb (:proto-msg user-data)
         pb (reduce #(assoc %1 (first %2) (second %2)) pb (map (fn [[label res]] [label (resource/proj-path (get dep-resources res))]) (:dep-resources user-data)))]
     {:resource resource :content (protobuf/map->bytes spine-plugin-spinescene-cls pb)}))
-
 
 (g/defnk produce-spine-scene-build-targets
   [_node-id own-build-errors resource spine-json-resource atlas-resource spine-scene-pb dep-build-targets]
@@ -782,10 +775,10 @@
 
 (g/defnk produce-model-own-build-errors [_node-id default-animation material animations spine-scene skins skin]
   (g/package-errors _node-id
-                    (validate-model-material _node-id material)
-                    (validate-model-spine-scene _node-id spine-scene)
-                    (validate-model-skin _node-id spine-scene skins skin)
-                    (validate-model-default-animation _node-id spine-scene animations default-animation)))
+    (validate-model-material _node-id material)
+    (validate-model-spine-scene _node-id spine-scene)
+    (validate-model-skin _node-id spine-scene skins skin)
+    (validate-model-default-animation _node-id spine-scene animations default-animation)))
 
 (defn- build-spine-model [resource dep-resources user-data]
   (let [pb (:proto-msg user-data)
@@ -943,15 +936,14 @@
                                                               :icon spine-model-icon
                                                               :outline-error? (g/error-fatal? own-build-errors)}
 
-                                                             (resource/resource? spine-scene)
-                                                             (assoc :link spine-scene :outline-reference? false))))
+                                                       (resource/resource? spine-scene)
+                                                       (assoc :link spine-scene :outline-reference? false))))
   (output model-pb g/Any produce-model-pb)
   (output save-value g/Any (gu/passthrough model-pb))
   (output own-build-errors g/Any produce-model-own-build-errors)
   (output build-targets g/Any :cached produce-model-build-targets))
 
 ;;//////////////////////////////////////////////////////////////////////////////////////////////
-
 
 (defn register-resource-types [workspace]
   (concat
