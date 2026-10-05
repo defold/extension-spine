@@ -1,0 +1,180 @@
+-- Include the replacement atlas in the build for dynamic scene creation.
+go.property("squirrel_atlas", resource.atlas("/assets/squirrel/squirrel.atlas"))
+
+-- Cover shared owners with each combination of bone creation flags, plus separate owners.
+local test_cases = {
+    { name = "both", a_bones = true, b_bones = true },
+    { name = "a_only", a_bones = true, b_bones = false },
+    { name = "b_only", a_bones = false, b_bones = true },
+    { name = "neither", a_bones = false, b_bones = false },
+    { name = "separate", a_bones = true, b_bones = true,
+        a_owner = "separate_a", b_owner = "separate_b" },
+}
+
+local function check(condition, case, description)
+    assert(condition, case.name .. ": " .. description)
+end
+
+-- Verify that replacing B preserves A's bone identity and replaces only B's old bones (#300).
+local function test_scene_replacement(case)
+    if case.a_bones then
+        check(go.exists(case.a_bone), case, "A's bone was deleted when B's scene changed")
+        check(spine.get_go(case.a, "hip") == case.a_bone, case, "A's bone identity changed")
+    end
+    if case.b_bones then
+        check(not go.exists(case.old_b_bone), case, "B's old bone was not deleted")
+        local new_b_bone = spine.get_go(case.b, "root")
+        check(go.exists(new_b_bone), case, "B's replacement bone does not exist")
+        check(new_b_bone ~= case.old_b_bone, case, "B's bone was not replaced")
+    else
+        local ok = pcall(spine.get_go, case.b, "root")
+        check(not ok, case, "B created bones with Create Go Bones disabled")
+    end
+end
+
+-- Verify that A's surviving bones still follow its animation, guarding silent stale-handle failures.
+local function test_animation_update(case)
+    if case.a_bones then
+        local position = go.get_position(case.a_bone)
+        check(vmath.length(position - case.a_position) > 0.001, case, "A's bone stopped following its animation")
+    end
+end
+
+-- Verify non-bone game objects attached to replaced bones survive non-recursive bone cleanup.
+local function test_attachment(self)
+    assert(go.exists(self.attachment), "Game object attached to B's old bone was deleted")
+end
+
+-- Verify both ordinary and recursive deletion of factory instances safely remove their Spine bones.
+local function test_teardown(self)
+    for _, bone in ipairs(self.deleted_bones) do
+        assert(not go.exists(bone), "Spine bone survived deletion of its owning game object")
+    end
+end
+
+local function prepare_scene_swap(self, repeated)
+    for _, case in ipairs(self.cases) do
+        if case.b_bones then
+            case.old_b_bone = spine.get_go(case.b, "root")
+        end
+        if repeated then
+            -- Both assignments occur before PostUpdate; rebuild only the final scene.
+            go.set(case.b, "spine_scene", case.original_scene)
+        end
+        go.set(case.b, "spine_scene", self.scene)
+        spine.play_anim(case.b, "idle", go.PLAYBACK_LOOP_FORWARD)
+    end
+end
+
+local function setup(self)
+    local engine = sys.get_engine_info()
+    print("Spine issue #300 tests: Defold " .. engine.version .. " (" .. engine.version_sha1 .. ")")
+    self.instances = collectionfactory.create("#models")
+    self.cases = {}
+    for _, definition in ipairs(test_cases) do
+        local a_owner = self.instances[hash("/" .. (definition.a_owner or definition.name))]
+        local b_owner = self.instances[hash("/" .. (definition.b_owner or definition.name))]
+        local case = {
+            name = definition.name,
+            a = msg.url(nil, a_owner, "spine_a"),
+            b = msg.url(nil, b_owner, "spine_b"),
+            a_bones = definition.a_bones,
+            b_bones = definition.b_bones,
+        }
+        case.original_scene = go.get(case.b, "spine_scene")
+        if case.a_bones then
+            case.a_bone = spine.get_go(case.a, "hip")
+        end
+        spine.play_anim(case.a, "walk", go.PLAYBACK_LOOP_FORWARD)
+        go.set(case.a, "playback_rate", 0)
+        go.set(case.a, "cursor", 0)
+        table.insert(self.cases, case)
+    end
+    self.attachment = self.instances[hash("/attachment")]
+    go.set_parent(self.attachment, spine.get_go(self.cases[1].b, "root"))
+    self.scene = resource.create_spinescene("/dyn/issue_300.spinescenec", {
+        spine_data = sys.load_resource("/custom_res/squirrel.spinejson"),
+        atlas_path = "/assets/squirrel/squirrel.a.texturesetc",
+    })
+    self.stage = 0
+end
+
+local function advance(self)
+    self.stage = self.stage + 1
+    if self.stage == 1 then
+        -- Allow the initial animation pose to reach the bone game objects.
+        return
+    elseif self.stage == 2 then
+        for _, case in ipairs(self.cases) do
+            if case.a_bones then
+                case.a_position = go.get_position(case.a_bone)
+            end
+            go.set(case.a, "cursor", 0.25)
+        end
+        prepare_scene_swap(self, false)
+    elseif self.stage == 3 then
+        for _, case in ipairs(self.cases) do
+            test_scene_replacement(case)
+            test_animation_update(case)
+            print("PASS: " .. case.name .. " scene replacement and animation")
+        end
+        test_attachment(self)
+        prepare_scene_swap(self, true)
+    elseif self.stage == 4 then
+        for _, case in ipairs(self.cases) do
+            test_scene_replacement(case)
+            print("PASS: " .. case.name .. " repeated scene assignment in one frame")
+        end
+        test_attachment(self)
+        -- Test swaps on successive frames as well as multiple swaps in one frame.
+        prepare_scene_swap(self, false)
+    elseif self.stage == 5 then
+        self.deleted_bones = {}
+        for _, case in ipairs(self.cases) do
+            test_scene_replacement(case)
+            if case.a_bones then
+                table.insert(self.deleted_bones, case.a_bone)
+            end
+            if case.b_bones then
+                table.insert(self.deleted_bones, spine.get_go(case.b, "root"))
+            end
+        end
+        test_attachment(self)
+        go.set_parent(self.attachment, nil)
+    elseif self.stage == 6 then
+        -- Parent changes are messages; let the detach complete before recursive deletion.
+        for name, instance in pairs(self.instances) do
+            if name ~= hash("/attachment") then
+                go.delete(instance, name == hash("/both") or name == hash("/b_only"))
+            end
+        end
+    elseif self.stage == 7 then
+        test_teardown(self)
+        test_attachment(self)
+        print("PASS: attachment preservation and ordinary/recursive teardown")
+        print("PASS: all Spine issue #300 regression tests")
+        self.done = true
+        go.delete(self.attachment)
+        go.set("#status", "text", "Spine Bone Scene Swap Test\nPASS: all issue #300 regression checks\n\nAll bone flags and separate owners\nAnimation, repeated swaps, attachments\nOrdinary and recursive teardown\n\nReload this example to run again.")
+    end
+end
+
+local function run_checked(self, action)
+    local ok, err = pcall(action, self)
+    if not ok then
+        self.done = true
+        print("FAIL: Spine issue #300 tests: " .. tostring(err))
+        go.set("#status", "text", "Spine Bone Scene Swap Test\nFAIL: " .. tostring(err))
+    end
+end
+
+function init(self)
+    go.set("#status", "text", "Spine Bone Scene Swap Test\nRunning regression checks...")
+    run_checked(self, setup)
+end
+
+function update(self, dt)
+    if not self.done then
+        run_checked(self, advance)
+    end
+end
