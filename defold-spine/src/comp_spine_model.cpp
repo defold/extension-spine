@@ -1,4 +1,4 @@
-// Copyright 2020 The Defold Foundation
+// Copyright 2020-2026 The Defold Foundation
 // Licensed under the Defold License version 1.0 (the "License"); you may not use
 // this file except in compliance with the License.
 //
@@ -222,6 +222,23 @@ namespace dmSpine
         dmGameObject::SetScale(instance, transform.GetScale());
     }
 
+    static void DeleteGOBones(SpineModelComponent* component)
+    {
+        dmGameObject::HCollection collection = dmGameObject::GetCollection(component->m_Instance);
+        // Other components can have bone game objects under the same parent.
+        // Resolve identifiers because recursive deletion may have freed their handles.
+        for (uint32_t i = 0; i < component->m_BoneInstanceIds.Size(); ++i)
+        {
+            dmGameObject::HInstance bone_instance = dmGameObject::GetInstanceFromIdentifier(collection, component->m_BoneInstanceIds[i]);
+            if (bone_instance)
+                dmGameObject::Delete(collection, bone_instance, false);
+        }
+        component->m_BoneInstanceIds.SetSize(0);
+        component->m_BoneInstances.SetSize(0);
+        component->m_Bones.SetSize(0);
+        component->m_BoneNameToNodeInstanceIndex.Clear();
+    }
+
     static bool CreateGOBone(SpineModelComponent* component, dmGameObject::HCollection collection, dmGameObject::HInstance goparent, spBone* parent, spBone* bone, int indent)
     {
         dmGameObject::HInstance bone_instance = dmGameObject::New(collection, 0x0);
@@ -238,6 +255,7 @@ namespace dmSpine
         if (index == dmGameObject::INVALID_INSTANCE_POOL_INDEX)
         {
             dmLogError("Failed to acquire instance index for bone game object");
+            dmGameObject::Delete(collection, bone_instance, false);
             return false;
         }
 
@@ -248,6 +266,7 @@ namespace dmSpine
         if (dmGameObject::RESULT_OK != result)
         {
             dmLogError("Failed to set identifier for bone game object");
+            dmGameObject::Delete(collection, bone_instance, false);
             return false;
         }
 
@@ -257,6 +276,7 @@ namespace dmSpine
         component->m_BoneNameToNodeInstanceIndex.Put(name_hash, component->m_BoneInstances.Size());
 
         component->m_BoneInstances.Push(bone_instance);
+        component->m_BoneInstanceIds.Push(id);
         component->m_Bones.Push(bone);
 
         // Create the children
@@ -283,12 +303,12 @@ namespace dmSpine
 
         component->m_Bones.SetCapacity(skeleton->bonesCount);
         component->m_BoneInstances.SetCapacity(skeleton->bonesCount);
+        component->m_BoneInstanceIds.SetCapacity(skeleton->bonesCount);
         component->m_BoneNameToNodeInstanceIndex.OffsetCapacity(skeleton->bonesCount);
         if (!CreateGOBone(component, dmGameObject::GetCollection(component->m_Instance), component->m_Instance, 0, skeleton->root, 0))
         {
             dmLogError("Failed to create bones");
-            dmGameObject::DeleteBones(component->m_Instance); // iterates recursively and deletes the ones marked as a bone
-            component->m_BoneInstances.SetSize(0);
+            DeleteGOBones(component);
             return false;
         }
         return true;
@@ -296,10 +316,7 @@ namespace dmSpine
 
     static void ScheduleBoneRebuild(SpineModelComponent* component)
     {
-        component->m_Bones.SetSize(0);
-        component->m_BoneInstances.SetSize(0);
-        component->m_BoneNameToNodeInstanceIndex.Clear();
-        dmGameObject::DeleteBones(component->m_Instance);
+        DeleteGOBones(component);
         // Bones are created in CompSpineModelPostUpdate because the previous ones are removed there
         component->m_RebuildBonesPending = component->m_Resource->m_CreateGoBones ? 1 : 0;
     }
@@ -765,7 +782,7 @@ namespace dmSpine
     static void DestroyComponent(SpineModelWorld* world, uint32_t index)
     {
         SpineModelComponent* component = world->m_Components.Get(index);
-        dmGameObject::DeleteBones(component->m_Instance);
+        DeleteGOBones(component);
         assert(component->m_CallbackInvocationDepth == 0);
         for (uint32_t i = 0; i < component->m_AnimationTracks.Size(); ++i)
         {
@@ -774,6 +791,7 @@ namespace dmSpine
         DestroyDeferredCallbacks(component);
         // If we're going to use memset, then we should explicitly clear pose and instance arrays.
         component->m_BoneInstances.SetCapacity(0);
+        component->m_BoneInstanceIds.SetCapacity(0);
         component->m_AnimationTracks.SetCapacity(0);
         component->m_DeferredCallbacks.SetCapacity(0);
         if (component->m_Material)
@@ -1996,8 +2014,7 @@ namespace dmSpine
         uint32_t* index = component->m_BoneNameToNodeInstanceIndex.Get(bone_name);
         if (!index)
             return false;
-        dmGameObject::HInstance bone_instance = component->m_BoneInstances[*index];
-        *instance_id = dmGameObject::GetIdentifier(bone_instance);
+        *instance_id = component->m_BoneInstanceIds[*index];
         return true;
     }
 

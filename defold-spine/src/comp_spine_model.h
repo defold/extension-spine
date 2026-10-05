@@ -1,4 +1,4 @@
-// Copyright 2020 The Defold Foundation
+// Copyright 2020-2026 The Defold Foundation
 // Licensed under the Defold License version 1.0 (the "License"); you may not use
 // this file except in compliance with the License.
 //
@@ -73,6 +73,7 @@ namespace dmSpine
         SpineSceneResource*                     m_SpineScene;
         /// Node instances corresponding to the bones
         dmArray<dmGameObject::HInstance>        m_BoneInstances;
+        dmArray<dmhash_t>                        m_BoneInstanceIds;
         dmArray<spBone*>                        m_Bones;                        // We shouldn't really have to have a duplicate array of these
         dmHashTable64<uint32_t>                 m_BoneNameToNodeInstanceIndex;  // should really be in the spine_scene
 
