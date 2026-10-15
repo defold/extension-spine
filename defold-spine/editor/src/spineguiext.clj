@@ -140,7 +140,7 @@
    :spine-skin])
 
 (def ^:private legacy-spine-pb-field-indices
-  (coll/pair-map-by gui/prop-key->pb-field-index legacy-spine-prop-keys))
+  (coll/pair-map-by gui/prop-key->pb-field-index identity legacy-spine-prop-keys))
 
 (defn- strip-legacy-spine-overridden-fields [node-desc]
   (protobuf/assign-repeated node-desc :overridden-fields
