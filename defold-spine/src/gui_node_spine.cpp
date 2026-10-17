@@ -37,9 +37,17 @@ static const dmhash_t SPINE_DEFAULT_ANIMATION   = dmHashString64("spine_default_
 static const dmhash_t SPINE_SKIN                = dmHashString64("spine_skin");
 static const dmhash_t SPINE_CREATE_BONES        = dmHashString64("spine_create_bones");
 
+// Additive slots are drawn in the same batch as the rest of the skeleton: their vertices get
+// this offset added to the page index, and /defold-spine/assets/spine_gui.material turns them
+// into premultiplied color with zero alpha, which the gui Alpha blend mode (ONE, ONE_MINUS_SRC_ALPHA)
+// adds to the background. Other materials ignore the offset: the builtin gui shader doesn't read
+// the page index, and paged atlas shaders round it to the same page.
+static const float ADDITIVE_PAGE_INDEX_OFFSET = 0.25f;
+
 struct GuiNodeTypeContext
 {
-    spSkeletonClipping* m_SkeletonClipper;
+    spSkeletonClipping*         m_SkeletonClipper;
+    dmArray<SpineDrawDesc>      m_DrawDescBuffer;
 };
 
 struct InternalGuiNode
@@ -1194,6 +1202,23 @@ static void GuiSetNodeDesc(const dmGameSystem::CompGuiNodeContext* ctx, const dm
     }
 }
 
+static void MarkAdditiveVertices(dmArray<dmSpine::GuiSpineVertex>& vertices, const dmArray<SpineDrawDesc>& draw_descs)
+{
+    uint32_t count = draw_descs.Size();
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        const SpineDrawDesc& desc = draw_descs[i];
+        if (desc.m_BlendMode != SP_BLEND_MODE_ADDITIVE)
+            continue;
+
+        dmSpine::GuiSpineVertex* vertex = vertices.Begin() + desc.m_VertexStart;
+        for (uint32_t v = 0; v < desc.m_VertexCount; ++v)
+        {
+            vertex[v].page_index += ADDITIVE_PAGE_INDEX_OFFSET;
+        }
+    }
+}
+
 static void GuiGetVertices(const dmGameSystem::CustomNodeCtx* nodectx, uint32_t decl_size, dmBuffer::StreamDeclaration* decl, uint32_t struct_size, dmArray<uint8_t>& vertices)
 {
     InternalGuiNode* node = (InternalGuiNode*) nodectx->m_NodeData;
@@ -1211,8 +1236,19 @@ static void GuiGetVertices(const dmGameSystem::CustomNodeCtx* nodectx, uint32_t 
     // We currently know it's xyz-uv-rgba
     dmArray<dmSpine::GuiSpineVertex>* vbdata = (dmArray<dmSpine::GuiSpineVertex>*)&vertices;
 
-    uint32_t num_vertices = dmSpine::GenerateVertexData(*vbdata, node->m_SkeletonInstance, type_context->m_SkeletonClipper, node->m_Transform, dmVMath::Vector4(1.0f), 0);
+    dmArray<SpineDrawDesc>& draw_descs = type_context->m_DrawDescBuffer;
+    draw_descs.SetSize(0);
+
+    uint32_t draw_desc_count = dmSpine::CalcDrawDescCount(node->m_SkeletonInstance);
+    if (draw_desc_count > draw_descs.Capacity())
+    {
+        draw_descs.SetCapacity(dmMath::Max(draw_desc_count, dmMath::Max(32U, draw_descs.Capacity() * 2)));
+    }
+
+    uint32_t num_vertices = dmSpine::GenerateVertexData(*vbdata, node->m_SkeletonInstance, type_context->m_SkeletonClipper, node->m_Transform, dmVMath::Vector4(1.0f), &draw_descs);
     (void)num_vertices;
+
+    MarkAdditiveVertices(*vbdata, draw_descs);
 }
 
 // IK functions for GUI spine nodes

@@ -1,0 +1,24 @@
+#version 140
+
+in mediump vec3 position;
+in mediump vec2 texcoord0;
+in mediump vec4 color;
+in mediump float page_index;
+
+out mediump vec2 var_texcoord0;
+out mediump vec4 var_color;
+
+uniform vs_uniforms
+{
+    mediump mat4 view_proj;
+};
+
+void main()
+{
+    // Vertices of additive slots carry a fractional page index (see gui_node_spine.cpp).
+    // Zero alpha with premultiplied color makes the Alpha blend mode add the color.
+    mediump float additive = step(0.125, fract(page_index));
+    var_texcoord0 = texcoord0;
+    var_color = vec4(color.rgb * color.a, color.a * (1.0 - additive));
+    gl_Position = view_proj * vec4(position.xyz, 1.0);
+}

@@ -1,0 +1,10 @@
+name: "spine_gui"
+tags: "gui"
+vertex_program: "/defold-spine/assets/spine_gui.vp"
+fragment_program: "/builtins/materials/gui.fp"
+vertex_space: VERTEX_SPACE_WORLD
+vertex_constants {
+  name: "view_proj"
+  type: CONSTANT_TYPE_VIEWPROJ
+}
+max_page_count: 0
