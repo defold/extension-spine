@@ -406,6 +406,18 @@ Create Bones
 - Note: If disabled, functions that require per-bone GUI nodes (e.g. `gui.get_spine_bone`, addressing nodes as `spine_node_id/bone_name`) will not work.
 
 
+### Slot blend modes in GUI
+
+A Spine GUI node is drawn as part of a single render object, so the node's own *Blend Mode* applies to the whole skeleton and the slot blend modes from the Spine file are ignored.
+
+Additive slots can be drawn correctly with the `/defold-spine/assets/spine_gui.material` material:
+
+1. Add the material to the *Materials* section of the GUI scene, for example with the name `spine_gui`.
+2. Assign it to the Spine node, for example from script with `gui.set_material(node, "spine_gui")`.
+3. Keep the *Blend Mode* of the node set to `Alpha`.
+
+Additive slots are then drawn in the same draw call as the rest of the skeleton and look the same as on a Spine model with the *Blend Mode* set to `Inherit`. Multiply and Screen slots are still drawn as Normal. Without the material the node renders exactly as before.
+
 ### Runtime animation control
 
 Spine nodes can be controlled in runtime through script. To start an animation on a node, simply call the [`gui.play_spine_anim()`](/extension-spine/gui_api/#gui.play_spine_anim:node-animation_id-playback-[play_properties]-[callback_function]) function:
