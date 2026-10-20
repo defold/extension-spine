@@ -1092,18 +1092,6 @@ spAttachment *spSkeletonBinary_readAttachment(spSkeletonBinary *self, _dataInput
 			float height = readFloat(input) * self->scale;
 			spRegionAttachment *region = SUB_CAST(spRegionAttachment, spAttachmentLoader_createAttachment(self->attachmentLoader, skin, type, name,
 																			  path, sequence));
-			/* DEFOLD:
-			 * Please preserve the removed null check and its path/sequence cleanup.
-			 * `spDefoldAtlasAttachmentLoader_createAttachment()` returns `NULL` with a `Region not found` error when a
-			 * valid `.skel` references an image absent from the selected atlas. The following `region->path` assignment
-			 * now dereferences that null pointer. This is reachable during editor preview and Bob's `SpineSceneBuilder`
-			 * validation, before an asset-loading error can be reported.
-			 *
-			 * I reproduced this with the bundled arm64 macOS plugin: keep `00_valid_control/case.skel` unchanged and
-			 * rename only the atlas region from `bone` to `renamed-bone`. The base returns `Region not found: bone`;
-			 * this PR terminates with `SIGSEGV`. Both revisions load successfully when the names match. This failure
-			 * occurs before the default-skin cleanup covered by the existing review comment.
-			 */
 			if (!region) {
 				FREE(path);
 				if (sequence) spSequence_dispose(sequence);
