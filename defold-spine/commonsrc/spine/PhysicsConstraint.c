@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated July 28, 2023. Replaces all prior versions.
+ * Last updated April 5, 2025. Replaces all prior versions.
  *
- * Copyright (c) 2013-2023, Esoteric Software LLC
+ * Copyright (c) 2013-2025, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software or
- * otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software
+ * or otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,8 +23,8 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
- * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
 #include <spine/Skeleton.h>
@@ -121,23 +121,26 @@ void spPhysicsConstraint_update(spPhysicsConstraint *self, spPhysics physics) {
 				self->ux = bx;
 				self->uy = by;
 			} else {
-				float a = self->remaining, i = self->inertia, q = self->data->limit * delta, t = self->data->step, f = self->skeleton->data->referenceScale, d = -1;
+				// float a = self->remaining, i = self->inertia, q = self->data->limit * delta, t = self->data->step, f = self->skeleton->data->referenceScale, d = -1;
+				float a = self->remaining, i = self->inertia, t = self->data->step, f = self->skeleton->data->referenceScale;
+				float qx = self->data->limit * delta, qy = qx * ABS(self->skeleton->scaleX);
+				qx *= ABS(self->skeleton->scaleY);
 				if (x || y) {
 					if (x) {
 						float u = (self->ux - bx) * i;
-						self->xOffset += u > q ? q : u < -q ? -q
-															: u;
+						self->xOffset += u > qx ? qx : u < -qx ? -qx
+															   : u;
 						self->ux = bx;
 					}
 					if (y) {
 						float u = (self->uy - by) * i;
-						self->yOffset += u > q ? q : u < -q ? -q
-															: u;
+						self->yOffset += u > qy ? qy : u < -qy ? -qy
+															   : u;
 						self->uy = by;
 					}
 					if (a >= t) {
-						d = POW(self->damping, 60 * t);
-						float m = self->massInverse * t, e = self->strength, w = self->wind * f, g = self->gravity * f * (spBone_isYDown() ? -1 : 1);
+						float d = POW(self->damping, 60 * t);
+						float m = self->massInverse * t, e = self->strength, w = self->wind * f * self->skeleton->scaleX, g = -(self->gravity) * f * self->skeleton->scaleY;
 						do {
 							if (x) {
 								self->xVelocity += (w - self->xOffset * e) * m;
@@ -159,14 +162,14 @@ void spPhysicsConstraint_update(spPhysicsConstraint *self, spPhysics physics) {
 				if (rotateOrShearX || scaleX) {
 					float ca = ATAN2(bone->c, bone->a), c, s, mr = 0;
 					float dx = self->cx - bone->worldX, dy = self->cy - bone->worldY;
-					if (dx > q)
-						dx = q;
-					else if (dx < -q)//
-						dx = -q;
-					if (dy > q)
-						dy = q;
-					else if (dy < -q)//
-						dy = -q;
+					if (dx > qx)
+						dx = qx;
+					else if (dx < -qx)//
+						dx = -qx;
+					if (dy > qy)
+						dy = qy;
+					else if (dy < -qy)//
+						dy = -qy;
 					if (rotateOrShearX) {
 						mr = (self->data->rotate + self->data->shearX) * mix;
 						float r = ATAN2(dy + self->ty, dx + self->tx) - ca - self->rotateOffset * mr;
@@ -186,8 +189,8 @@ void spPhysicsConstraint_update(spPhysicsConstraint *self, spPhysics physics) {
 					}
 					a = self->remaining;
 					if (a >= t) {
-						if (d == -1) d = POW(self->damping, 60 * t);
 						float m = self->massInverse * t, e = self->strength, w = self->wind, g = self->gravity, h = l / f;
+						float d = POW(self->damping, 60 * t);
 						while (-1) {
 							a -= t;
 							if (scaleX) {

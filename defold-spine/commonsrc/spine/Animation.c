@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated July 28, 2023. Replaces all prior versions.
+ * Last updated April 5, 2025. Replaces all prior versions.
  *
- * Copyright (c) 2013-2023, Esoteric Software LLC
+ * Copyright (c) 2013-2025, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software or
- * otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software
+ * or otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,8 +23,8 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
- * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
 #include <limits.h>
@@ -1937,6 +1937,15 @@ void _spSequenceTimeline_apply(spTimeline *timeline, spSkeleton *skeleton, float
 		}
 	}
 
+	if (self->attachment->type == SP_ATTACHMENT_REGION) sequence = ((spRegionAttachment *) self->attachment)->sequence;
+	if (self->attachment->type == SP_ATTACHMENT_MESH) sequence = ((spMeshAttachment *) self->attachment)->sequence;
+	if (!sequence) return;
+
+	if (direction == SP_MIX_DIRECTION_OUT) {
+		if (blend == SP_MIX_BLEND_SETUP) slot->sequenceIndex = -1;
+		return;
+	}
+
 	frames = self->super.frames->items;
 	if (time < frames[0]) { /* Time is before first frame. */
 		if (blend == SP_MIX_BLEND_SETUP || blend == SP_MIX_BLEND_FIRST) slot->sequenceIndex = -1;
@@ -1948,9 +1957,6 @@ void _spSequenceTimeline_apply(spTimeline *timeline, spSkeleton *skeleton, float
 	modeAndIndex = (int) frames[i + MODE];
 	delay = frames[i + DELAY];
 
-	if (self->attachment->type == SP_ATTACHMENT_REGION) sequence = ((spRegionAttachment *) self->attachment)->sequence;
-	if (self->attachment->type == SP_ATTACHMENT_MESH) sequence = ((spMeshAttachment *) self->attachment)->sequence;
-	if (!sequence) return;
 	index = modeAndIndex >> 4;
 	count = sequence->regions->size;
 	mode = modeAndIndex & 0xf;
@@ -2162,6 +2168,11 @@ void _spInheritTimeline_apply(spTimeline *timeline, spSkeleton *skeleton, float 
 	spBone *bone = skeleton->bones[self->boneIndex];
 	float *frames = self->super.frames->items;
 	if (!bone->active) return;
+
+	if (direction == SP_MIX_DIRECTION_OUT) {
+		if (blend == SP_MIX_BLEND_SETUP) bone->inherit = bone->data->inherit;
+		return;
+	}
 
 	if (time < frames[0]) {
 		if (blend == SP_MIX_BLEND_SETUP || blend == SP_MIX_BLEND_FIRST) bone->inherit = bone->data->inherit;
