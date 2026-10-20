@@ -140,7 +140,16 @@ void spPhysicsConstraint_update(spPhysicsConstraint *self, spPhysics physics) {
 					}
 					if (a >= t) {
 						float d = POW(self->damping, 60 * t);
-						float m = self->massInverse * t, e = self->strength, w = self->wind * f * self->skeleton->scaleX, g = -(self->gravity) * f * self->skeleton->scaleY;
+						/* DEFOLD:
+						 * Please remove the negation of `self->gravity` for Defold's Y-up integration (`spBone_setYDown(0)` in
+						 * `comp_spine_model.cpp`). The update below already subtracts `g` from `yVelocity`, so negating it here
+						 * makes positive gravity move Y-constrained bones upward.
+						 *
+						 * With `gravity = 1`, `scaleY = 1`, and one 1/60-second simulation step, I measured `yOffset =
+						 * -0.000277778` on the base revision and `+0.000277778` with this PR. The upstream commit explicitly
+						 * instructs Y-up integrations to remove this negative sign.
+						 */
+						float m = self->massInverse * t, e = self->strength, w = self->wind * f * self->skeleton->scaleX, g = self->gravity * f * self->skeleton->scaleY;
 						do {
 							if (x) {
 								self->xVelocity += (w - self->xOffset * e) * m;

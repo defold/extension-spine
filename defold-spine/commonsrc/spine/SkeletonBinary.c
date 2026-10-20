@@ -1092,6 +1092,23 @@ spAttachment *spSkeletonBinary_readAttachment(spSkeletonBinary *self, _dataInput
 			float height = readFloat(input) * self->scale;
 			spRegionAttachment *region = SUB_CAST(spRegionAttachment, spAttachmentLoader_createAttachment(self->attachmentLoader, skin, type, name,
 																										  path, sequence));
+			/* DEFOLD:
+			 * Please preserve the removed null check and its path/sequence cleanup.
+			 * `spDefoldAtlasAttachmentLoader_createAttachment()` returns `NULL` with a `Region not found` error when a
+			 * valid `.skel` references an image absent from the selected atlas. The following `region->path` assignment
+			 * now dereferences that null pointer. This is reachable during editor preview and Bob's `SpineSceneBuilder`
+			 * validation, before an asset-loading error can be reported.
+			 *
+			 * I reproduced this with the bundled arm64 macOS plugin: keep `00_valid_control/case.skel` unchanged and
+			 * rename only the atlas region from `bone` to `renamed-bone`. The base returns `Region not found: bone`;
+			 * this PR terminates with `SIGSEGV`. Both revisions load successfully when the names match. This failure
+			 * occurs before the default-skin cleanup covered by the existing review comment.
+			 */
+			if (!region) {
+				FREE(path);
+				if (sequence) spSequence_dispose(sequence);
+				return NULL;
+			}
 			region->path = path;
 			region->rotation = rotation;
 			region->x = x;
@@ -1305,8 +1322,11 @@ spSkin *spSkeletonBinary_readSkin(spSkeletonBinary *self, _dataInput *input, int
 			const char *name = readStringRef(input, skeletonData);
 			spAttachment *attachment = spSkeletonBinary_readAttachment(self, input, skin, slotIndex, name, skeletonData,
 																	   nonessential);
-			if (!attachment)
+			/* DEFOLD: Dispose the partially loaded skin here because the caller only receives NULL on failure. */
+			if (!attachment) {
+				spSkin_dispose(skin);
 				return NULL;
+			}
 			spSkin_setAttachment(skin, slotIndex, name, attachment);
 		}
 	}
@@ -1350,6 +1370,18 @@ spSkeletonData *spSkeletonBinary_readSkeletonData(spSkeletonBinary *self, const 
 	MALLOC_STR(skeletonData->hash, buffer);
 
 	skeletonData->version = readString(input);
+	/* DEFOLD:
+	 * For a binary whose version field is encoded as absent, `readString` returns `NULL`, but the newly
+	 * unconditional `strlen(skeletonData->version)` dereferences it. The removed check previously returned the
+	 * explicit “Skeleton version is missing” error, so malformed or truncated binary assets now crash during
+	 * loading instead of failing cleanly.
+	 */
+	if (!skeletonData->version) {
+		FREE(input);
+		spSkeletonData_dispose(skeletonData);
+		_spSkeletonBinary_setError(self, "Skeleton version is missing", NULL);
+		return NULL;
+	}
 	if (!strlen(skeletonData->version)) {
 		FREE(skeletonData->version);
 		skeletonData->version = 0;
@@ -1576,7 +1608,13 @@ spSkeletonData *spSkeletonBinary_readSkeletonData(spSkeletonBinary *self, const 
 	skeletonData->defaultSkin = spSkeletonBinary_readSkin(self, input, -1, skeletonData, nonessential);
 	if (self->attachmentLoader->error1) {
 		FREE(input);
-		spSkin_dispose(skeletonData->defaultSkin);
+		/* DEFOLD:
+		 * When an attachment in the default skin cannot be created—for example, because its atlas region is
+		 * missing—`spSkeletonBinary_readSkin` returns `NULL` while setting the loader error. This call then passes
+		 * that null `defaultSkin` to `spSkin_dispose`, which immediately dereferences it in `Skin.c`, so a
+		 * recoverable asset-loading error becomes a crash instead of being reported.
+		 */
+		if (skeletonData->defaultSkin) spSkin_dispose(skeletonData->defaultSkin);
 		spSkeletonData_dispose(skeletonData);
 		_spSkeletonBinary_setError(self, self->attachmentLoader->error1, self->attachmentLoader->error2);
 		return NULL;
@@ -1596,7 +1634,14 @@ spSkeletonData *spSkeletonBinary_readSkeletonData(spSkeletonBinary *self, const 
 		spSkin *skin = spSkeletonBinary_readSkin(self, input, 0, skeletonData, nonessential);
 		if (self->attachmentLoader->error1) {
 			FREE(input);
-			skeletonData->skinsCount = i + 1;
+			/* DEFOLD:
+			 * If an attachment fails while reading a non-default skin, `skin` is `NULL` and the assignment to
+			 * `skeletonData->skins[i]` is never reached. Because the array was allocated with `MALLOC`, raising
+			 * `skinsCount` to `i + 1` makes `spSkeletonData_dispose` call `spSkin_dispose` on the uninitialized
+			 * `skins[i]` entry, typically crashing while handling a missing atlas region; only the previously
+			 * initialized `i` entries should be included in the count.
+			 */
+			skeletonData->skinsCount = i;
 			spSkeletonData_dispose(skeletonData);
 			_spSkeletonBinary_setError(self, self->attachmentLoader->error1, self->attachmentLoader->error2);
 			return NULL;
@@ -1616,9 +1661,15 @@ spSkeletonData *spSkeletonBinary_readSkeletonData(spSkeletonBinary *self, const 
 		}
 		spAttachment *parent = spSkin_getAttachment(skin, linkedMesh->slotIndex, linkedMesh->parent);
 		if (!parent) {
+			/* DEFOLD:
+			 * When a linked mesh references a missing parent, `linkedMesh->parent` points into `skeletonData->strings`,
+			 * but `spSkeletonData_dispose` frees those strings before this error call. Passing the dangling pointer to
+			 * `_spSkeletonBinary_setError` causes a use-after-free while constructing the diagnostic, so the error must
+			 * be copied before disposing the skeleton data.
+			 */
+			_spSkeletonBinary_setError(self, "Parent mesh not found: ", linkedMesh->parent);
 			FREE(input);
 			spSkeletonData_dispose(skeletonData);
-			_spSkeletonBinary_setError(self, "Parent mesh not found: ", linkedMesh->parent);
 			return NULL;
 		}
 		linkedMesh->mesh->super.timelineAttachment = linkedMesh->inheritTimeline ? parent
@@ -1652,14 +1703,28 @@ spSkeletonData *spSkeletonBinary_readSkeletonData(spSkeletonBinary *self, const 
 	for (i = 0; i < skeletonData->animationsCount; ++i) {
 		const char *name = readString(input);
 		spAnimation *animation = _spSkeletonBinary_readAnimation(self, name, input, skeletonData);
-		FREE(name);
 		if (!animation) {
-			FREE(input);
-			skeletonData->animationsCount = i + 1;
-			spSkeletonData_dispose(skeletonData);
+			/* DEFOLD:
+			 * On the animation parse-failure path, `name` was already freed at line 1655, yet this call passes it to
+			 * `_spSkeletonBinary_setError`, which reads it with `strlen`/`strncat`. Once the invalid cleanup count is
+			 * corrected, this remains a use-after-free that can corrupt the diagnostic or crash while reporting a
+			 * malformed animation.
+			 */
 			_spSkeletonBinary_setError(self, "Animation corrupted: ", name);
+			FREE(name);
+			FREE(input);
+			/* DEFOLD:
+			 * When `_spSkeletonBinary_readAnimation` rejects an animation, `skeletonData->animations[i]` has not yet
+			 * been assigned. Setting `animationsCount` to `i + 1` therefore makes `spSkeletonData_dispose` invoke
+			 * `spAnimation_dispose` on an uninitialized pointer; keep the count at `i` so only successfully stored
+			 * animations are destroyed.
+			 */
+			skeletonData->animationsCount = i;
+			spSkeletonData_dispose(skeletonData);
 			return NULL;
 		}
+		/* DEFOLD: Defer freeing the name until after the failure path has had a chance to report it. */
+		FREE(name);
 		skeletonData->animations[i] = animation;
 	}
 

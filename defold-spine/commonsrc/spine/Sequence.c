@@ -44,7 +44,8 @@ spSequence *spSequence_create(int numRegions) {
 }
 
 void spSequence_dispose(spSequence *self) {
-	FREE(self->regions);
+	/* DEFOLD: Dispose the backing storage as well as the array object to avoid leaking the region pointer array. */
+	spTextureRegionArray_dispose(self->regions);
 	FREE(self);
 }
 
