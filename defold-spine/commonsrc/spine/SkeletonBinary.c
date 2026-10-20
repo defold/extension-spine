@@ -1091,7 +1091,7 @@ spAttachment *spSkeletonBinary_readAttachment(spSkeletonBinary *self, _dataInput
 			float width = readFloat(input) * self->scale;
 			float height = readFloat(input) * self->scale;
 			spRegionAttachment *region = SUB_CAST(spRegionAttachment, spAttachmentLoader_createAttachment(self->attachmentLoader, skin, type, name,
-																										  path, sequence));
+																			  path, sequence));
 			/* DEFOLD:
 			 * Please preserve the removed null check and its path/sequence cleanup.
 			 * `spDefoldAtlasAttachmentLoader_createAttachment()` returns `NULL` with a `Region not found` error when a
