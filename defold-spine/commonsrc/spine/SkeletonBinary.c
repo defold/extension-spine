@@ -1092,6 +1092,7 @@ spAttachment *spSkeletonBinary_readAttachment(spSkeletonBinary *self, _dataInput
 			float height = readFloat(input) * self->scale;
 			spRegionAttachment *region = SUB_CAST(spRegionAttachment, spAttachmentLoader_createAttachment(self->attachmentLoader, skin, type, name,
 																			  path, sequence));
+			/** DEFOLD: null check and path/sequence cleanup */
 			if (!region) {
 				FREE(path);
 				if (sequence) spSequence_dispose(sequence);
