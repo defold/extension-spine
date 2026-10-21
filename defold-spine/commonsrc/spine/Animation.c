@@ -1393,7 +1393,8 @@ void spRGBA2Timeline_setFrame(spRGBA2Timeline *self, int frame, float time, floa
 
 /**/
 
-static const int RGB2_ENTRIES = 7, COLOR2_R2 = 5, COLOR2_G2 = 6, COLOR2_B2 = 7;
+/* DEFOLD: RGB2 has no alpha entry, so dark RGB immediately follows light RGB. */
+static const int RGB2_ENTRIES = 7, COLOR2_R2 = 4, COLOR2_G2 = 5, COLOR2_B2 = 6;
 
 void _spRGB2Timeline_apply(spTimeline *timeline, spSkeleton *skeleton, float lastTime, float time, spEvent **firedEvents,
 						   int *eventsCount, float alpha, spMixBlend blend, spMixDirection direction) {
