@@ -1161,7 +1161,17 @@ spAttachment *spSkeletonBinary_readAttachment(spSkeletonBinary *self, _dataInput
 
 
 			spAttachment *attachment = spAttachmentLoader_createAttachment(self->attachmentLoader, skin, type, name, path, sequence);
-			if (!attachment) return NULL;
+			/* DEFOLD: These allocations are owned by the reader until attachment creation succeeds. */
+			if (!attachment) {
+				FREE(path);
+				if (sequence) spSequence_dispose(sequence);
+				FREE(uvs);
+				FREE(triangles);
+				FREE(vertices);
+				FREE(bones);
+				FREE(edges);
+				return NULL;
+			}
 			spMeshAttachment *mesh = SUB_CAST(spMeshAttachment, attachment);
 			mesh->path = path;
 			spColor_setFromColor(&mesh->color, &color);
@@ -1200,8 +1210,12 @@ spAttachment *spSkeletonBinary_readAttachment(spSkeletonBinary *self, _dataInput
 			}
 			spAttachment *attachment = spAttachmentLoader_createAttachment(self->attachmentLoader, skin, type, name, path, sequence);
 			spMeshAttachment *mesh = NULL;
-			if (!attachment)
+			/* DEFOLD: The failed attachment has not taken ownership of the path or sequence. */
+			if (!attachment) {
+				FREE(path);
+				if (sequence) spSequence_dispose(sequence);
 				return NULL;
+			}
 			mesh = SUB_CAST(spMeshAttachment, attachment);
 			mesh->path = (char *) path;
 			spColor_setFromColor(&mesh->color, &color);
