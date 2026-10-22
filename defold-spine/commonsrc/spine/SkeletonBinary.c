@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated July 28, 2023. Replaces all prior versions.
+ * Last updated April 5, 2025. Replaces all prior versions.
  *
- * Copyright (c) 2013-2023, Esoteric Software LLC
+ * Copyright (c) 2013-2025, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software or
- * otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software
+ * or otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,8 +23,8 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
- * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
 #include <spine/Animation.h>
@@ -554,7 +554,7 @@ static spAnimation *_spSkeletonBinary_readAnimation(spSkeletonBinary *self, cons
 						spAlphaTimeline_setFrame(timeline, frame, time, a);
 						if (frame == frameLast) break;
 						time2 = readFloat(input);
-						a2 = readByte(input) / 255;
+						a2 = readByte(input) / 255.0;
 						switch (readSByte(input)) {
 							case CURVE_STEPPED:
 								spCurveTimeline_setStepped(SUPER(timeline), frame);
@@ -1027,13 +1027,33 @@ static int _readVertices(_dataInput *input, float **vertices, int *verticesLengt
 		return *verticesLength;
 	}
 
-	float *v = MALLOC(float, (*verticesLength) * 3 * 3);
-	int *b = MALLOC(int, (*verticesLength) * 3);
+	int vertexCapacity = (*verticesLength) * 3 * 3;
+	int boneCapacity = (*verticesLength) * 3;
+	if (vertexCapacity < 8) vertexCapacity = 8;
+	if (boneCapacity < 8) boneCapacity = 8;
+	float *v = MALLOC(float, vertexCapacity);
+	int *b = MALLOC(int, boneCapacity);
 	int boneIdx = 0;
 	int vertexIdx = 0;
 	for (int i = 0; i < vertexCount; ++i) {
 		int boneCount = readVarint(input, 1);
+		int requiredBones = boneIdx + 1 + boneCount;
+		if (requiredBones > boneCapacity) {
+			while (boneCapacity < requiredBones) {
+				boneCapacity += boneCapacity >> 1;
+			}
+			b = REALLOC(b, int, boneCapacity);
+		}
 		b[boneIdx++] = boneCount;
+
+		int requiredVertices = vertexIdx + boneCount * 3;
+		if (requiredVertices > vertexCapacity) {
+			while (vertexCapacity < requiredVertices) {
+				vertexCapacity += vertexCapacity >> 1;
+			}
+			v = REALLOC(v, float, vertexCapacity);
+		}
+
 		for (int ii = 0; ii < boneCount; ++ii) {
 			b[boneIdx++] = readVarint(input, 1);
 			v[vertexIdx++] = readFloat(input) * scale;
@@ -1072,6 +1092,7 @@ spAttachment *spSkeletonBinary_readAttachment(spSkeletonBinary *self, _dataInput
 			float height = readFloat(input) * self->scale;
 			spRegionAttachment *region = SUB_CAST(spRegionAttachment, spAttachmentLoader_createAttachment(self->attachmentLoader, skin, type, name,
 																			  path, sequence));
+			/** DEFOLD: null check and path/sequence cleanup */
 			if (!region) {
 				FREE(path);
 				if (sequence) spSequence_dispose(sequence);
@@ -1140,6 +1161,7 @@ spAttachment *spSkeletonBinary_readAttachment(spSkeletonBinary *self, _dataInput
 
 
 			spAttachment *attachment = spAttachmentLoader_createAttachment(self->attachmentLoader, skin, type, name, path, sequence);
+			/* DEFOLD: These allocations are owned by the reader until attachment creation succeeds. */
 			if (!attachment) {
 				FREE(path);
 				if (sequence) spSequence_dispose(sequence);
@@ -1188,13 +1210,14 @@ spAttachment *spSkeletonBinary_readAttachment(spSkeletonBinary *self, _dataInput
 			}
 			spAttachment *attachment = spAttachmentLoader_createAttachment(self->attachmentLoader, skin, type, name, path, sequence);
 			spMeshAttachment *mesh = NULL;
+			/* DEFOLD: The failed attachment has not taken ownership of the path or sequence. */
 			if (!attachment) {
 				FREE(path);
 				if (sequence) spSequence_dispose(sequence);
 				return NULL;
 			}
 			mesh = SUB_CAST(spMeshAttachment, attachment);
-			mesh->path = path;
+			mesh->path = (char *) path;
 			spColor_setFromColor(&mesh->color, &color);
 			mesh->sequence = sequence;
 			mesh->width = width;
@@ -1301,7 +1324,8 @@ spSkin *spSkeletonBinary_readSkin(spSkeletonBinary *self, _dataInput *input, int
 		for (ii = 0, nn = readVarint(input, 1); ii < nn; ++ii) {
 			const char *name = readStringRef(input, skeletonData);
 			spAttachment *attachment = spSkeletonBinary_readAttachment(self, input, skin, slotIndex, name, skeletonData,
-															   nonessential);
+																	   nonessential);
+			/* DEFOLD: Dispose the partially loaded skin here because the caller only receives NULL on failure. */
 			if (!attachment) {
 				spSkin_dispose(skin);
 				return NULL;
@@ -1349,6 +1373,12 @@ spSkeletonData *spSkeletonBinary_readSkeletonData(spSkeletonBinary *self, const 
 	MALLOC_STR(skeletonData->hash, buffer);
 
 	skeletonData->version = readString(input);
+	/* DEFOLD:
+	 * For a binary whose version field is encoded as absent, `readString` returns `NULL`, but the newly
+	 * unconditional `strlen(skeletonData->version)` dereferences it. The removed check previously returned the
+	 * explicit “Skeleton version is missing” error, so malformed or truncated binary assets now crash during
+	 * loading instead of failing cleanly.
+	 */
 	if (!skeletonData->version) {
 		FREE(input);
 		spSkeletonData_dispose(skeletonData);
@@ -1360,9 +1390,9 @@ spSkeletonData *spSkeletonBinary_readSkeletonData(spSkeletonBinary *self, const 
 		skeletonData->version = 0;
 	} else {
 		if (!string_starts_with(skeletonData->version, SPINE_VERSION_STRING)) {
+			FREE(input);
 			char errorMsg[255];
 			snprintf(errorMsg, 255, "Skeleton version %s does not match runtime version %s", skeletonData->version, SPINE_VERSION_STRING);
-			FREE(input);
 			spSkeletonData_dispose(skeletonData);
 			_spSkeletonBinary_setError(self, errorMsg, NULL);
 			return NULL;
@@ -1373,7 +1403,7 @@ spSkeletonData *spSkeletonBinary_readSkeletonData(spSkeletonBinary *self, const 
 	skeletonData->y = readFloat(input);
 	skeletonData->width = readFloat(input);
 	skeletonData->height = readFloat(input);
-	skeletonData->referenceScale = readFloat(input);
+	skeletonData->referenceScale = readFloat(input) * self->scale;
 
 	nonessential = readBoolean(input);
 
@@ -1581,6 +1611,13 @@ spSkeletonData *spSkeletonBinary_readSkeletonData(spSkeletonBinary *self, const 
 	skeletonData->defaultSkin = spSkeletonBinary_readSkin(self, input, -1, skeletonData, nonessential);
 	if (self->attachmentLoader->error1) {
 		FREE(input);
+		/* DEFOLD:
+		 * When an attachment in the default skin cannot be created—for example, because its atlas region is
+		 * missing—`spSkeletonBinary_readSkin` returns `NULL` while setting the loader error. This call then passes
+		 * that null `defaultSkin` to `spSkin_dispose`, which immediately dereferences it in `Skin.c`, so a
+		 * recoverable asset-loading error becomes a crash instead of being reported.
+		 */
+		if (skeletonData->defaultSkin) spSkin_dispose(skeletonData->defaultSkin);
 		spSkeletonData_dispose(skeletonData);
 		_spSkeletonBinary_setError(self, self->attachmentLoader->error1, self->attachmentLoader->error2);
 		return NULL;
@@ -1600,6 +1637,13 @@ spSkeletonData *spSkeletonBinary_readSkeletonData(spSkeletonBinary *self, const 
 		spSkin *skin = spSkeletonBinary_readSkin(self, input, 0, skeletonData, nonessential);
 		if (self->attachmentLoader->error1) {
 			FREE(input);
+			/* DEFOLD:
+			 * If an attachment fails while reading a non-default skin, `skin` is `NULL` and the assignment to
+			 * `skeletonData->skins[i]` is never reached. Because the array was allocated with `MALLOC`, raising
+			 * `skinsCount` to `i + 1` makes `spSkeletonData_dispose` call `spSkin_dispose` on the uninitialized
+			 * `skins[i]` entry, typically crashing while handling a missing atlas region; only the previously
+			 * initialized `i` entries should be included in the count.
+			 */
 			skeletonData->skinsCount = i;
 			spSkeletonData_dispose(skeletonData);
 			_spSkeletonBinary_setError(self, self->attachmentLoader->error1, self->attachmentLoader->error2);
@@ -1620,6 +1664,12 @@ spSkeletonData *spSkeletonBinary_readSkeletonData(spSkeletonBinary *self, const 
 		}
 		spAttachment *parent = spSkin_getAttachment(skin, linkedMesh->slotIndex, linkedMesh->parent);
 		if (!parent) {
+			/* DEFOLD:
+			 * When a linked mesh references a missing parent, `linkedMesh->parent` points into `skeletonData->strings`,
+			 * but `spSkeletonData_dispose` frees those strings before this error call. Passing the dangling pointer to
+			 * `_spSkeletonBinary_setError` causes a use-after-free while constructing the diagnostic, so the error must
+			 * be copied before disposing the skeleton data.
+			 */
 			_spSkeletonBinary_setError(self, "Parent mesh not found: ", linkedMesh->parent);
 			FREE(input);
 			spSkeletonData_dispose(skeletonData);
@@ -1657,13 +1707,26 @@ spSkeletonData *spSkeletonBinary_readSkeletonData(spSkeletonBinary *self, const 
 		const char *name = readString(input);
 		spAnimation *animation = _spSkeletonBinary_readAnimation(self, name, input, skeletonData);
 		if (!animation) {
+			/* DEFOLD:
+			 * On the animation parse-failure path, `name` was already freed at line 1655, yet this call passes it to
+			 * `_spSkeletonBinary_setError`, which reads it with `strlen`/`strncat`. Once the invalid cleanup count is
+			 * corrected, this remains a use-after-free that can corrupt the diagnostic or crash while reporting a
+			 * malformed animation.
+			 */
 			_spSkeletonBinary_setError(self, "Animation corrupted: ", name);
 			FREE(name);
 			FREE(input);
+			/* DEFOLD:
+			 * When `_spSkeletonBinary_readAnimation` rejects an animation, `skeletonData->animations[i]` has not yet
+			 * been assigned. Setting `animationsCount` to `i + 1` therefore makes `spSkeletonData_dispose` invoke
+			 * `spAnimation_dispose` on an uninitialized pointer; keep the count at `i` so only successfully stored
+			 * animations are destroyed.
+			 */
 			skeletonData->animationsCount = i;
 			spSkeletonData_dispose(skeletonData);
 			return NULL;
 		}
+		/* DEFOLD: Defer freeing the name until after the failure path has had a chance to report it. */
 		FREE(name);
 		skeletonData->animations[i] = animation;
 	}

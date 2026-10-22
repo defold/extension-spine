@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated July 28, 2023. Replaces all prior versions.
+ * Last updated April 5, 2025. Replaces all prior versions.
  *
- * Copyright (c) 2013-2023, Esoteric Software LLC
+ * Copyright (c) 2013-2025, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software or
- * otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software
+ * or otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,8 +23,8 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
- * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
 #include <limits.h>
@@ -350,12 +350,12 @@ int /*boolean*/ _spAnimationState_updateMixingFrom(spAnimationState *self, spTra
 	from->animationLast = from->nextAnimationLast;
 	from->trackLast = from->nextTrackLast;
 
-	/* Require mixTime > 0 to ensure the mixing from entry was applied at least once. */
-	if (to->mixTime > 0 && to->mixTime >= to->mixDuration) {
-		/* Require totalAlpha == 0 to ensure mixing is complete, unless mixDuration == 0 (the transition is a single frame). */
+	// The from entry was applied at least once and the mix is complete.
+	if (to->nextTrackLast != -1 && to->mixTime >= to->mixDuration) {
+		// Mixing is complete for all entries before the from entry or the mix is instantaneous.
 		if (from->totalAlpha == 0 || to->mixDuration == 0) {
 			to->mixingFrom = from->mixingFrom;
-			if (from->mixingFrom != 0) from->mixingFrom->mixingTo = to;
+			if (from->mixingFrom) from->mixingFrom->mixingTo = to;
 			to->interruptAlpha = from->interruptAlpha;
 			_spEventQueue_end(internal->queue, from);
 		}
@@ -852,10 +852,11 @@ spAnimationState_addAnimation(spAnimationState *self, int trackIndex, spAnimatio
 	if (!last) {
 		_spAnimationState_setCurrent(self, trackIndex, entry, 1);
 		_spEventQueue_drain(internal->queue);
+		if (delay < 0) delay = 0;
 	} else {
 		last->next = entry;
 		entry->previous = last;
-		if (delay <= 0) delay += spTrackEntry_getTrackComplete(last) - entry->mixDuration;
+		if (delay <= 0) delay = MAX(delay + spTrackEntry_getTrackComplete(last) - entry->mixDuration, 0);
 	}
 
 	entry->delay = delay;
@@ -872,7 +873,7 @@ spTrackEntry *spAnimationState_setEmptyAnimation(spAnimationState *self, int tra
 spTrackEntry *
 spAnimationState_addEmptyAnimation(spAnimationState *self, int trackIndex, float mixDuration, float delay) {
 	spTrackEntry *entry = spAnimationState_addAnimation(self, trackIndex, SP_EMPTY_ANIMATION, 0, delay);
-	if (delay <= 0) entry->delay += entry->mixDuration - mixDuration;
+	if (delay <= 0) entry->delay = MAX(entry->delay + entry->mixDuration - mixDuration, 0);
 	entry->mixDuration = mixDuration;
 	entry->trackEnd = mixDuration;
 	return entry;
@@ -1061,12 +1062,21 @@ float spTrackEntry_getTrackComplete(spTrackEntry *entry) {
 
 void spTrackEntry_setMixDuration(spTrackEntry *entry, float mixDuration, float delay) {
 	entry->mixDuration = mixDuration;
-	if (entry->previous && delay <= 0) delay += spTrackEntry_getTrackComplete(entry) - mixDuration;
+	if (delay <= 0) {
+		if (entry->previous)
+			delay = MAX(delay + spTrackEntry_getTrackComplete(entry->previous) - mixDuration, 0);
+		else
+			delay = 0;
+	}
 	entry->delay = delay;
 }
 
 int spTrackEntry_wasApplied(spTrackEntry *entry) {
 	return entry->nextTrackLast != -1;
+}
+
+int spTrackEntry_isNextReady(spTrackEntry *entry) {
+	return entry->next != NULL && entry->nextTrackLast - entry->next->delay >= 0;
 }
 
 void _spTrackEntry_computeHold(spTrackEntry *entry, spAnimationState *state) {
