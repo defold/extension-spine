@@ -196,10 +196,11 @@ class BobValidationTest(unittest.TestCase):
         fixtures = subprocess.run([*self.editor_test_command, "write", name, str(self.root)],
                                   capture_output=True, text=True, timeout=30)
         self.assertEqual(0, fixtures.returncode, fixtures.stdout + fixtures.stderr)
-        self.build_inputs(fixtures.stdout.splitlines(), error=error)
+        output = self.build_inputs(fixtures.stdout.splitlines(), error=error)
         assertions = subprocess.run([*self.editor_test_command, "check", name, str(self.root)],
                                     capture_output=True, text=True, timeout=30)
         self.assertEqual(0, assertions.returncode, assertions.stdout + assertions.stderr)
+        return output
 
     # Port the editor's legacy template scene override and preserve aliases pointing at the same resource.
     def test_editor_template_scene_override(self):
@@ -219,7 +220,8 @@ class BobValidationTest(unittest.TestCase):
 
     # Port the editor migration error for old .json data referenced by an embedded Spine model.
     def test_editor_legacy_collection_data_extension(self):
-        self.editor_case("legacy_collection_data_extension", "must end with '.spinejson' or '.skel'")
+        output = self.editor_case("legacy_collection_data_extension", "must end with '.spinejson' or '.skel'")
+        self.assertIn("editor_unmigrated.spinescene", output)
 
     # Required scene selections fail, optional empty names pass, and unknown names fail against native metadata.
     def test_gui_validation(self):

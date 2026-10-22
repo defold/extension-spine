@@ -81,7 +81,7 @@ public final class EditorSpineTests {
                 .addNodes(spineNode("spine").setSizeMode(NodeDesc.SizeMode.SIZE_MODE_AUTO)).build());
         return scene().addResources(resource("flag"))
                 .addNodes(NodeDesc.newBuilder().setType(NodeDesc.Type.TYPE_TEMPLATE).setId("template")
-                        .setTemplate("/editor_template.gui"));
+                        .setTemplate("/editor_template.gui").setInheritAlpha(true));
     }
 
     private static String writeFixtures(Path root, String test) throws Exception {

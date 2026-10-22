@@ -16,6 +16,7 @@ Pass unittest filters or individual test names after the runner:
 
 ```sh
 ./tests/bob/run.sh -k legacy
+./tests/bob/run.sh -k test_editor
 ./tests/bob/run.sh BobValidationTest.test_template_changes_revalidate_parent
 ./tests/bob/run.sh --keep-temp
 ```
@@ -36,6 +37,20 @@ The suite compiles `BobAssertions.java` against the selected Bob and Spine plugi
 | `testTemplateSpineOverridesAreMigrated` | `test_mixed_template_migration`: legacy field-number overrides survive nested modern/legacy templates |
 
 The old stub tests used an arbitrary `default` skin and nonexistent animation names. These tests use real skeleton metadata: the default skin is selected with an empty string, and valid named skins/animations must exist. The literal `default` is separately tested as an invalid selection.
+
+## Regressions ported from the editor
+
+`EditorSpineTests.java` ports the build-relevant cases from Defold's `editor/test/integration/extension_spine_test.clj`. It constructs protobuf fixtures and checks Bob's compiled protobufs in Java. The existing Python runner supplies temporary projects, invokes Bob, records logs and reports each case separately.
+
+| Editor test | Java regression (selected through `test_editor_*`) |
+| --- | --- |
+| `legacy-template-child-spine-scene-override-builds-test` | `template_scene_override`: inherited resource aliases survive a legacy scene selection override |
+| `legacy-template-child-spine-scene-layout-override-builds-test` | `template_layout_scene_override`: modern and legacy layouts change the scene without changing the default selection or inherited regular fields |
+| `layout-node-desc-includes-size-mode-test` | `layout_node_fields`: automatic size mode, inherited position/alpha and effective custom properties, including legacy nodes and explicitly manual source values |
+| `collection-usage-test` and embedded models in `legacy-spine-project-user-migration-test` | `collection_usage`: referenced and embedded models and a GUI build through a collection; follow the compiled collection and game-object references to check the resulting components |
+| Legacy data error in `legacy-spine-project-user-migration-test` | `legacy_collection_data_extension`: an embedded model referencing old `.json` data reports the Spine scene source and produces no collection output |
+
+The size-mode test also checks that ordinary box nodes retain manual sizing. Empty layouts are checked for equivalent effective values because Bob may materialize unchanged nodes while the editor omits them. Editor-only outline, dirty/save state, resource editing and property-panel behavior remain in the editor suite. Generic custom-property inheritance and hash conversion cases already have coverage in Bob's `GuiBuilderTest`.
 
 ## Editor validation parity
 
