@@ -977,6 +977,16 @@ static void FindBones(InternalGuiNode* node)
     FindSpineBones(node, node->m_SkeletonInstance->root);
 }
 
+static void DestroySpineState(InternalGuiNode* node)
+{
+    if (node->m_AnimationStateInstance)
+        spAnimationState_dispose(node->m_AnimationStateInstance);
+    node->m_AnimationStateInstance = 0;
+    if (node->m_SkeletonInstance)
+        spSkeleton_dispose(node->m_SkeletonInstance);
+    node->m_SkeletonInstance = 0;
+}
+
 static void DestroyNode(InternalGuiNode* node)
 {
     DeleteBones(node);
@@ -991,10 +1001,7 @@ static void DestroyNode(InternalGuiNode* node)
     node->m_AnimationTracks.SetCapacity(0);
     node->m_DeferredCallbacks.SetCapacity(0);
 
-    if (node->m_AnimationStateInstance)
-        spAnimationState_dispose(node->m_AnimationStateInstance);
-    if (node->m_SkeletonInstance)
-        spSkeleton_dispose(node->m_SkeletonInstance);
+    DestroySpineState(node);
 
     //delete node; // don't delete it. It's already been registered with the comp_gui and we need to wait for the GuiDestroy
 }
@@ -1022,6 +1029,7 @@ static void GuiDestroy(const dmGameSystem::CompGuiNodeContext* ctx, const dmGame
     assert(node->m_CallbackInvocationDepth == 0);
     DestroyDeferredCallbacks(node);
 
+    DestroySpineState(node);
     delete node;
     dmSpine::GuiSpineSceneRelease(nodectx->m_Scene);
     dmSpine::GuiSpineUnregisterNode(nodectx->m_Scene, nodectx->m_Node);
