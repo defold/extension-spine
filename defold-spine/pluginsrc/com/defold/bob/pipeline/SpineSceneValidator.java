@@ -15,7 +15,11 @@ package com.dynamo.bob.pipeline;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.HexFormat;
+import java.util.Map;
 import java.util.Set;
+import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -23,13 +27,37 @@ import com.dynamo.bob.CompileExceptionError;
 import com.dynamo.bob.Project;
 import com.dynamo.bob.fs.IResource;
 import com.dynamo.bob.fs.ResourceUtil;
+import com.dynamo.bob.plugin.IPlugin;
 import com.dynamo.spine.proto.Spine.SpineSceneDesc;
 
 /** Shared source and skeleton validation for Spine scenes, models and GUI nodes. */
-public final class SpineSceneValidator {
+public final class SpineSceneValidator implements IPlugin {
     public static final String CACHE_KEY = "spine-validation-v1";
+    private static final Map<Project, Map<String, SceneData>> metadataByProject = new WeakHashMap<>();
 
-    private SpineSceneValidator() {
+    public SpineSceneValidator() {
+    }
+
+    @Override
+    public void init(Project project) {
+        synchronized (metadataByProject) {
+            // Bob can reuse a Project after a failed build, without calling exit.
+            metadataByProject.put(project, new ConcurrentHashMap<>());
+        }
+    }
+
+    @Override
+    public void exit(Project project) {
+        synchronized (metadataByProject) {
+            metadataByProject.remove(project);
+        }
+    }
+
+    private static Map<String, SceneData> metadataCache(Project project) {
+        synchronized (metadataByProject) {
+            // Also support callers that create builders directly, outside Bob's plugin lifecycle.
+            return metadataByProject.computeIfAbsent(project, key -> new ConcurrentHashMap<>());
+        }
     }
 
     public static IResource checkResource(Project project, IResource owner, String field,
@@ -72,28 +100,42 @@ public final class SpineSceneValidator {
         }
     }
 
-    public static SceneData load(IResource spineData, IResource atlas) throws IOException, Spine.SpineException {
-        byte[] data = spineData.getContent();
-        byte[] atlasData = atlas == null ? null : atlas.getContent();
-        if (data == null) {
-            throw new Spine.SpineException("Could not read Spine data '" + spineData.getPath() + "'");
-        }
-        if (atlas != null && atlasData == null) {
-            throw new Spine.SpineException("Could not read Spine atlas '" + atlas.getPath() + "'");
-        }
-
+    public static SceneData load(Project project, IResource spineData, IResource atlas) throws IOException, Spine.SpineException {
         // The native loader selects binary input using a case-sensitive suffix.
-        // Normalize its format hint after reading the resource at its original path.
-        String dataPath = StringUtils.endsWithIgnoreCase(spineData.getPath(), ".skel")
-                ? ResourceUtil.changeExt(spineData.getPath(), ".skel") : spineData.getPath();
+        boolean binary = StringUtils.endsWithIgnoreCase(spineData.getPath(), ".skel")
+                || StringUtils.endsWithIgnoreCase(spineData.getPath(), ".skelc");
+        String dataPath = binary ? ResourceUtil.changeExt(spineData.getPath(), ".skel") : spineData.getPath();
+        // Source and compiled skeletons have identical bytes. Share their immutable
+        // metadata across all scene, model and GUI tasks in this build, including aliases.
+        String key = (binary ? "binary:" : "json:") + HexFormat.of().formatHex(spineData.sha1());
+        Map<String, SceneData> cache = metadataCache(project);
+        SceneData cached = cache.get(key);
+        if (atlas == null && cached != null) {
+            return cached;
+        }
 
         // The native loader's last-error buffer is shared between build threads.
         synchronized (Spine.class) {
+            cached = cache.get(key);
+            if (atlas == null && cached != null) {
+                return cached;
+            }
+            byte[] data = spineData.getContent();
+            byte[] atlasData = atlas == null ? null : atlas.getContent();
+            if (data == null) {
+                throw new Spine.SpineException("Could not read Spine data '" + spineData.getPath() + "'");
+            }
+            if (atlas != null && atlasData == null) {
+                throw new Spine.SpineException("Could not read Spine atlas '" + atlas.getPath() + "'");
+            }
+            // Atlas validation is scene-specific and must run even on a metadata hit.
             Spine.SpinePointer handle = atlas == null
                     ? Spine.SPINE_LoadFileFromBuffer(data, dataPath)
                     : Spine.SPINE_LoadFileFromBuffer(data, dataPath, atlasData, atlas.getPath());
             try {
-                return new SceneData(Spine.SPINE_GetAnimations(handle), Spine.SPINE_GetSkins(handle));
+                SceneData result = new SceneData(Spine.SPINE_GetAnimations(handle), Spine.SPINE_GetSkins(handle));
+                cache.putIfAbsent(key, result);
+                return cache.get(key);
             } finally {
                 Spine.SPINE_Destroy(handle);
                 // SpinePointer also has a finalizer; do not release the same handle twice.

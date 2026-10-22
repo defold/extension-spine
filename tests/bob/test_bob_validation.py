@@ -655,6 +655,14 @@ class BobValidationTest(unittest.TestCase):
         self.build("minified_model", "spinemodel", model(), options=("--experimental-path-minification",))
         self.build("minified_legacy_gui", "gui", legacy_resources(gui(legacy_node())), options=("--experimental-path-minification",))
 
+    # Shared native metadata is deduplicated across concurrent tasks, scoped to a build and invalidated by content.
+    def test_metadata_cache(self):
+        self.build("metadata_cache", "spinescene", fields({"spine_json": "/data.spinejson", "atlas": ATLAS}))
+        result = subprocess.run([*self.assertion_command[:-1], "SpineMetadataCacheTests", str(self.root)],
+                                capture_output=True, text=True, timeout=60)
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn("one skeleton load", result.stdout)
+
     @classmethod
     def tearDownClass(cls):
         print(f"Verified {cls.build_count} Bob build invocations", flush=True)

@@ -42,7 +42,6 @@ public class SpineGuiNode implements IGuiCustomNode {
             NodeDesc.SPINE_SKIN_FIELD_NUMBER, NodeDesc.SPINE_NODE_CHILD_FIELD_NUMBER,
             NodeDesc.SPINE_CREATE_BONES_FIELD_NUMBER);
     private final Map<String, IResource> dataByScene = new HashMap<>();
-    private final Map<String, SpineSceneValidator.SceneData> loadedData = new HashMap<>();
 
     public static void registerProperties(IGuiCustomType type) {
         type.addProperty("spine_scene", "", PropertyType.TYPE_STRING, IGuiCustomType.EDIT_TYPE_RESOURCE);
@@ -185,14 +184,11 @@ public class SpineGuiNode implements IGuiCustomNode {
     public void build(GuiBuildContext context, Task task, NodeDesc.Builder node, String layoutName) throws IOException, CompileExceptionError {
         IResource scene = getScene(context, node, layoutName);
         IResource data = dataByScene.get(scene.getPath());
-        SpineSceneValidator.SceneData info = loadedData.get(data.getPath());
-        if (info == null) {
-            try {
-                info = SpineSceneValidator.load(data, null);
-            } catch (Spine.SpineException e) {
-                throw context.error(node, layoutName, e.getMessage());
-            }
-            loadedData.put(data.getPath(), info);
+        SpineSceneValidator.SceneData info;
+        try {
+            info = SpineSceneValidator.load(context.getProject(), data, null);
+        } catch (Spine.SpineException e) {
+            throw context.error(node, layoutName, e.getMessage());
         }
         String error = info.getValidationError(getString(context, node, layoutName, "spine_default_animation"),
                 getString(context, node, layoutName, "spine_skin"));
