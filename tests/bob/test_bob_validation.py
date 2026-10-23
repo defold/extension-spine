@@ -714,6 +714,12 @@ class BobValidationTest(unittest.TestCase):
                                 capture_output=True, text=True, timeout=60)
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
 
+    # GUI callback errors retain the descriptor's original source and line as well as node/layout context.
+    def test_gui_diagnostic_origin(self):
+        result = subprocess.run([*self.assertion_command[:-1], "com.dynamo.bob.pipeline.SpineGuiNodeErrorTests", str(self.root)],
+                                capture_output=True, text=True, timeout=30)
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
     @classmethod
     def tearDownClass(cls):
         print(f"Verified {cls.build_count} Bob build invocations", flush=True)

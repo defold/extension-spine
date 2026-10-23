@@ -162,7 +162,8 @@ public class SpineGuiNode implements IGuiCustomNode {
             try {
                 data = SpineSceneValidator.getSpineData(context.getProject(), scene);
             } catch (CompileExceptionError e) {
-                throw context.error(node, layoutName, e.getMessage());
+                throw new CompileExceptionError(e.getResource(), e.getLineNumber(),
+                        context.error(node, layoutName, e.getMessage()).getMessage(), e);
             }
             dataByScene.put(scene.getPath(), data);
         }
