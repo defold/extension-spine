@@ -39,6 +39,10 @@ public final class SpineMetadataCacheTests {
         final IResource resource;
 
         Resource(String path, byte[] content) {
+            this(path, content, null, null);
+        }
+
+        Resource(String path, byte[] content, CountDownLatch readStarted, CountDownLatch releaseRead) {
             this.content = content;
             resource = (IResource) Proxy.newProxyInstance(IResource.class.getClassLoader(), new Class<?>[]{IResource.class},
                     (proxy, method, args) -> switch (method.getName()) {
@@ -46,6 +50,12 @@ public final class SpineMetadataCacheTests {
                         case "sha1" -> MessageDigest.getInstance("SHA-1").digest(this.content);
                         case "getContent" -> {
                             reads.incrementAndGet();
+                            if (readStarted != null) {
+                                readStarted.countDown();
+                            }
+                            if (releaseRead != null && !releaseRead.await(30, TimeUnit.SECONDS)) {
+                                throw new AssertionError("Blocked resource read was not released");
+                            }
                             yield this.content;
                         }
                         default -> throw new UnsupportedOperationException(method.getName());
@@ -82,7 +92,7 @@ public final class SpineMetadataCacheTests {
                     if (!start.await(30, TimeUnit.SECONDS)) {
                         throw new AssertionError("Concurrent readers did not start");
                     }
-                    return SpineSceneValidator.load(project, resource.resource, null);
+                    return SpineSceneValidator.load(resource.resource, null);
                 }));
             }
             try {
@@ -96,7 +106,7 @@ public final class SpineMetadataCacheTests {
             }
             for (int i = 0; i < 100; ++i) {
                 for (Resource resource : resources) {
-                    same(first, SpineSceneValidator.load(project, resource.resource, null));
+                    same(first, SpineSceneValidator.load(resource.resource, null));
                 }
             }
             BobAssertions.equal(1, resources.stream().mapToInt(resource -> resource.reads.get()).sum());
@@ -104,55 +114,89 @@ public final class SpineMetadataCacheTests {
         }
     }
 
+    // A blocked atlas read must not delay cached metadata or loading a different skeleton in the same build.
+    private static void checkIndependentLoads(Project project, byte[] data, byte[] atlasData) throws Exception {
+        new SpineSceneValidator().init(project);
+        Resource source = new Resource("source.spinejson", data);
+        SceneData cached = SpineSceneValidator.load(source.resource, null);
+        Resource alias = new Resource("alias.spinejson", data);
+        Resource other = new Resource("other.spinejson", new String(data, StandardCharsets.UTF_8)
+                .replace("\"idle\"", "\"run\"").getBytes(StandardCharsets.UTF_8));
+        var readStarted = new CountDownLatch(1);
+        var releaseRead = new CountDownLatch(1);
+        Resource atlas = new Resource("blocked.a.texturesetc", atlasData, readStarted, releaseRead);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            Future<SceneData> validation = executor.submit(() -> SpineSceneValidator.load(source.resource, atlas.resource));
+            try {
+                BobAssertions.equal(true, readStarted.await(10, TimeUnit.SECONDS));
+                Future<SceneData> hit = executor.submit(() -> SpineSceneValidator.load(alias.resource, null));
+                same(cached, hit.get(10, TimeUnit.SECONDS));
+                BobAssertions.equal(0, alias.reads.get());
+
+                Future<SceneData> independent = executor.submit(() -> SpineSceneValidator.load(other.resource, null));
+                SceneData loaded = independent.get(10, TimeUnit.SECONDS);
+                different(cached, loaded);
+                BobAssertions.equal(null, loaded.getValidationError("run", ""));
+            } finally {
+                releaseRead.countDown();
+            }
+            same(cached, validation.get(10, TimeUnit.SECONDS));
+            BobAssertions.equal(1, atlas.reads.get());
+        }
+        System.out.println("Cached metadata and another skeleton load complete while an atlas read is blocked");
+    }
+
     // Scene validation seeds source metadata, but a cache hit must never skip validating a scene's atlas.
     private static void checkSceneReuse(Project project, byte[] data, byte[] atlasData) throws Exception {
         new SpineSceneValidator().init(project);
         Resource compiled = new Resource("compiled.spinejsonc", data);
         Resource atlas = new Resource("scene.a.texturesetc", atlasData);
-        SceneData info = SpineSceneValidator.load(project, compiled.resource, atlas.resource);
+        SceneData info = SpineSceneValidator.load(compiled.resource, atlas.resource);
         Resource source = new Resource("source.spinejson", data);
-        same(info, SpineSceneValidator.load(project, source.resource, null));
+        same(info, SpineSceneValidator.load(source.resource, null));
         BobAssertions.equal(0, source.reads.get());
-        same(info, SpineSceneValidator.load(project, compiled.resource, atlas.resource));
+        same(info, SpineSceneValidator.load(compiled.resource, atlas.resource));
         BobAssertions.equal(2, atlas.reads.get());
-        try {
-            SpineSceneValidator.load(project, source.resource, new Resource("missing.a.texturesetc", null).resource);
-            throw new AssertionError("A cached skeleton must not hide an unreadable atlas");
-        } catch (Spine.SpineException expected) {
-            BobAssertions.equal(true, expected.getMessage().contains("missing.a.texturesetc"));
+        for (Resource invalidAtlas : new Resource[] {
+                new Resource("missing.a.texturesetc", null),
+                new Resource("invalid.a.texturesetc", new byte[] {(byte) 0xff})}) {
+            try {
+                SpineSceneValidator.load(source.resource, invalidAtlas.resource);
+                throw new AssertionError("A cached skeleton must not hide an invalid atlas");
+            } catch (Spine.SpineException expected) {
+                BobAssertions.equal(true, expected.getMessage().contains(invalidAtlas.resource.getPath()));
+            }
         }
+        same(info, SpineSceneValidator.load(source.resource, null));
     }
 
-    // Changes at the same path, separate projects and a new build cannot reuse stale metadata.
+    // Content changes and build boundaries cannot reuse stale metadata.
     private static void checkInvalidation(Project project, byte[] data) throws Exception {
         var lifecycle = new SpineSceneValidator();
         lifecycle.init(project);
         Resource resource = new Resource("changing.spinejson", data);
-        SceneData first = SpineSceneValidator.load(project, resource.resource, null);
+        SceneData first = SpineSceneValidator.load(resource.resource, null);
         resource.content = new String(data, StandardCharsets.UTF_8).replace("\"idle\"", "\"run\"")
                 .getBytes(StandardCharsets.UTF_8);
-        SceneData changed = SpineSceneValidator.load(project, resource.resource, null);
+        SceneData changed = SpineSceneValidator.load(resource.resource, null);
         different(first, changed);
         BobAssertions.equal(null, changed.getValidationError("run", ""));
         BobAssertions.equal(true, changed.getValidationError("idle", "").contains("could not be found"));
 
         // init must clear a previous failed build even when exit was never called.
         lifecycle.init(project);
-        SceneData rebuilt = SpineSceneValidator.load(project, resource.resource, null);
+        SceneData rebuilt = SpineSceneValidator.load(resource.resource, null);
         different(changed, rebuilt);
-        Project other = new Project(new DefaultFileSystem());
-        different(rebuilt, SpineSceneValidator.load(other, resource.resource, null));
-        lifecycle.exit(other);
         lifecycle.exit(project);
-        different(rebuilt, SpineSceneValidator.load(project, resource.resource, null));
+        different(rebuilt, SpineSceneValidator.load(resource.resource, null));
     }
 
     // Failed parses are retried and a corrected skeleton recovers without restarting the project.
-    private static void checkFailureRecovery(Project project, byte[] data) throws Exception {
+    private static void checkFailureRecovery(byte[] data) throws Exception {
         Resource resource = new Resource("broken.spinejson", "{broken".getBytes(StandardCharsets.UTF_8));
         for (int i = 0; i < 2; ++i) {
             try {
-                SpineSceneValidator.load(project, resource.resource, null);
+                SpineSceneValidator.load(resource.resource, null);
                 throw new AssertionError("Malformed skeleton must fail");
             } catch (Spine.SpineException expected) {
                 BobAssertions.equal(true, expected.getMessage().contains("broken.spinejson"));
@@ -160,18 +204,18 @@ public final class SpineMetadataCacheTests {
         }
         BobAssertions.equal(2, resource.reads.get());
         resource.content = data;
-        BobAssertions.equal(null, SpineSceneValidator.load(project, resource.resource, null).getValidationError("idle", ""));
+        BobAssertions.equal(null, SpineSceneValidator.load(resource.resource, null).getValidationError("idle", ""));
     }
 
     // Binary source/compiled aliases share metadata, while the same bytes with a JSON hint must still be parsed as JSON.
-    private static void checkBinaryFormat(Project project, byte[] binary) throws Exception {
+    private static void checkBinaryFormat(byte[] binary) throws Exception {
         Resource source = new Resource("source.SkEl", binary);
         Resource compiled = new Resource("compiled.skelc", binary);
-        same(SpineSceneValidator.load(project, compiled.resource, null),
-                SpineSceneValidator.load(project, source.resource, null));
+        same(SpineSceneValidator.load(compiled.resource, null),
+                SpineSceneValidator.load(source.resource, null));
         BobAssertions.equal(0, source.reads.get());
         try {
-            SpineSceneValidator.load(project, new Resource("wrong.spinejson", binary).resource, null);
+            SpineSceneValidator.load(new Resource("wrong.spinejson", binary).resource, null);
             throw new AssertionError("Metadata must not be reused across input formats");
         } catch (Spine.SpineException expected) {
             BobAssertions.equal(true, expected.getMessage().contains("wrong.spinejson"));
@@ -188,10 +232,11 @@ public final class SpineMetadataCacheTests {
         Project project = new Project(new DefaultFileSystem());
         try {
             checkConcurrentReuse(project, data);
+            checkIndependentLoads(project, data, atlas);
             checkSceneReuse(project, data, atlas);
             checkInvalidation(project, data);
-            checkFailureRecovery(project, data);
-            checkBinaryFormat(project, Files.readAllBytes(root.resolve("corrupted/_assets/cases/00_valid_control/case.skel")));
+            checkFailureRecovery(data);
+            checkBinaryFormat(Files.readAllBytes(root.resolve("corrupted/_assets/cases/00_valid_control/case.skel")));
         } finally {
             new SpineSceneValidator().exit(project);
         }

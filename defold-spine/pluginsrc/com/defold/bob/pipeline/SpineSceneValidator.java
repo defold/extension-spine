@@ -20,7 +20,6 @@ import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.Set;
-import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.lang3.StringUtils;
@@ -35,31 +34,24 @@ import com.dynamo.spine.proto.Spine.SpineSceneDesc;
 /** Shared source and skeleton validation for Spine scenes, models and GUI nodes. */
 public final class SpineSceneValidator implements IPlugin {
     public static final String CACHE_KEY = "spine-validation-v1";
-    private static final Map<Project, Map<String, SceneData>> metadataByProject = new WeakHashMap<>();
+    private static final Map<String, CacheEntry> metadataCache = new ConcurrentHashMap<>();
+
+    private static final class CacheEntry {
+        private volatile SceneData metadata;
+    }
 
     public SpineSceneValidator() {
     }
 
     @Override
     public void init(Project project) {
-        synchronized (metadataByProject) {
-            // Bob can reuse a Project after a failed build, without calling exit.
-            metadataByProject.put(project, new ConcurrentHashMap<>());
-        }
+        // Embedded Bob invocations can reuse plugin classes after a failed build.
+        metadataCache.clear();
     }
 
     @Override
     public void exit(Project project) {
-        synchronized (metadataByProject) {
-            metadataByProject.remove(project);
-        }
-    }
-
-    private static Map<String, SceneData> metadataCache(Project project) {
-        synchronized (metadataByProject) {
-            // Also support callers that create builders directly, outside Bob's plugin lifecycle.
-            return metadataByProject.computeIfAbsent(project, key -> new ConcurrentHashMap<>());
-        }
+        metadataCache.clear();
     }
 
     public static IResource checkResource(Project project, IResource owner, String field,
@@ -102,7 +94,7 @@ public final class SpineSceneValidator implements IPlugin {
         }
     }
 
-    public static SceneData load(Project project, IResource spineData, IResource atlas) throws IOException, Spine.SpineException {
+    public static SceneData load(IResource spineData, IResource atlas) throws IOException, Spine.SpineException {
         // The native loader selects binary input using a case-sensitive suffix.
         boolean binary = StringUtils.endsWithIgnoreCase(spineData.getPath(), ".skel")
                 || StringUtils.endsWithIgnoreCase(spineData.getPath(), ".skelc");
@@ -110,16 +102,16 @@ public final class SpineSceneValidator implements IPlugin {
         // Source and compiled skeletons have identical bytes. Share their immutable
         // metadata across all scene, model and GUI tasks in this build, including aliases.
         String key = (binary ? "binary:" : "json:") + HexFormat.of().formatHex(spineData.sha1());
-        Map<String, SceneData> cache = metadataCache(project);
-        SceneData cached = cache.get(key);
+        CacheEntry entry = metadataCache.computeIfAbsent(key, unused -> new CacheEntry());
+        SceneData cached = entry.metadata;
         if (atlas == null && cached != null) {
             return cached;
         }
 
-        // Deduplicate concurrent metadata misses within this project. The Spine
-        // wrapper owns native synchronization and handle cleanup.
-        synchronized (cache) {
-            cached = cache.get(key);
+        // Deduplicate metadata misses for this skeleton while other skeletons can
+        // read resources and extract metadata. The Spine wrapper serializes native loading.
+        synchronized (entry) {
+            cached = entry.metadata;
             if (atlas == null && cached != null) {
                 return cached;
             }
@@ -135,9 +127,11 @@ public final class SpineSceneValidator implements IPlugin {
             try (Spine.SpinePointer handle = atlas == null
                     ? Spine.SPINE_LoadFileFromBuffer(data, dataPath)
                     : Spine.SPINE_LoadFileFromBuffer(data, dataPath, atlasData, atlas.getPath())) {
-                SceneData result = new SceneData(Spine.SPINE_GetAnimations(handle), Spine.SPINE_GetSkins(handle));
-                cache.putIfAbsent(key, result);
-                return cache.get(key);
+                if (cached == null) {
+                    cached = new SceneData(Spine.SPINE_GetAnimations(handle), Spine.SPINE_GetSkins(handle));
+                    entry.metadata = cached;
+                }
+                return cached;
             }
         }
     }

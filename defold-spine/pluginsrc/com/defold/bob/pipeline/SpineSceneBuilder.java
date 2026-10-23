@@ -59,7 +59,7 @@ public class SpineSceneBuilder extends ProtoBuilder<SpineSceneDesc.Builder> {
     @Override
     public void build(Task task) throws CompileExceptionError, IOException {
         try {
-            SpineSceneValidator.load(project, compiledData, compiledAtlas);
+            SpineSceneValidator.load(compiledData, compiledAtlas);
         } catch (Spine.SpineException e) {
             throw new CompileExceptionError(task.firstInput(), 0, e.getMessage(), e);
         }

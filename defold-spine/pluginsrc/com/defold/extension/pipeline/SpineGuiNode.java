@@ -179,7 +179,7 @@ public class SpineGuiNode implements IGuiCustomNode {
         IResource data = dataByScene.get(scene.getPath());
         SpineSceneValidator.SceneData info;
         try {
-            info = SpineSceneValidator.load(context.getProject(), data, null);
+            info = SpineSceneValidator.load(data, null);
         } catch (Spine.SpineException e) {
             throw context.error(node, layoutName, e.getMessage());
         }

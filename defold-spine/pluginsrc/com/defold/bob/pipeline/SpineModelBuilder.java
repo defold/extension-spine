@@ -48,7 +48,7 @@ public class SpineModelBuilder extends ProtoBuilder<SpineModelDesc.Builder> {
     @Override
     protected SpineModelDesc.Builder transform(Task task, IResource resource, SpineModelDesc.Builder builder) throws IOException, CompileExceptionError {
         try {
-            SpineSceneValidator.SceneData info = SpineSceneValidator.load(project, spineData, null);
+            SpineSceneValidator.SceneData info = SpineSceneValidator.load(spineData, null);
             String error = info.getValidationError(builder.getDefaultAnimation(), builder.getSkin());
             if (error != null) {
                 throw new CompileExceptionError(resource, 0, error);
