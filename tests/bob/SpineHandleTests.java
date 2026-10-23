@@ -27,6 +27,33 @@ import com.dynamo.bob.pipeline.Spine;
 
 /** Ownership and error isolation checks against the host's native Spine plugin. */
 public final class SpineHandleTests {
+    // A later atlas or file-read failure must replace an earlier skeleton error, and successful loads clear it.
+    private static void checkLastError(Path root, byte[] data, byte[] atlas) throws Exception {
+        try (Spine.SpinePointer handle = Spine.SPINE_LoadFileFromBuffer(new byte[] {0}, "truncated.skel")) {
+            throw new AssertionError("Truncated skeleton must fail");
+        } catch (Spine.SpineException error) {
+            BobAssertions.equal(true, error.getMessage().contains("binary skeleton is truncated"));
+        }
+        try (Spine.SpinePointer handle = Spine.SPINE_LoadFileFromBuffer(data, "valid.spinejson", new byte[] {(byte) 0xff}, "invalid.texturesetc")) {
+            throw new AssertionError("Invalid atlas must fail");
+        } catch (Spine.SpineException error) {
+            BobAssertions.equal(true, error.getMessage().contains("Failed to load atlas from 'invalid.texturesetc'"));
+            BobAssertions.equal(false, error.getMessage().contains("binary skeleton is truncated"));
+        }
+        for (String[] paths : new String[][] {
+                {"missing.spinejson", "build/default/corrupted/_assets/shared/test.a.texturesetc", "missing.spinejson"},
+                {"data.spinejson", "missing.texturesetc", "missing.texturesetc"}}) {
+            try (Spine.SpinePointer handle = new Spine.SpinePointer(Spine.SPINE_LoadFromPath(
+                    root.resolve(paths[0]).toString(), root.resolve(paths[1]).toString()))) {
+                BobAssertions.equal(null, handle.getPointer());
+                BobAssertions.equal("Failed to read file '" + root.resolve(paths[2]) + "'", Spine.SPINE_GetLastError());
+            }
+        }
+        try (Spine.SpinePointer handle = Spine.SPINE_LoadFileFromBuffer(data, "valid.spinejson", atlas, "valid.texturesetc")) {
+            BobAssertions.equal("", Spine.SPINE_GetLastError());
+        }
+    }
+
     // Explicit close and the legacy finalizer must never destroy the same native handle twice.
     private static void checkClose(byte[] data) throws Exception {
         Spine.SpinePointer handle = Spine.SPINE_LoadFileFromBuffer(data, "close.spinejson");
@@ -107,6 +134,7 @@ public final class SpineHandleTests {
         }
         byte[] data = Files.readAllBytes(root.resolve("data.spinejson"));
         byte[] atlas = Files.readAllBytes(root.resolve("build/default/corrupted/_assets/shared/test.a.texturesetc"));
+        checkLastError(root, data, atlas);
         checkClose(data);
         checkExceptionalClose(data);
         checkConcurrentErrors(data, atlas);
