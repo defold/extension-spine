@@ -1,4 +1,6 @@
 // Copyright 2020-2026 The Defold Foundation
+// Copyright 2014-2020 King
+// Copyright 2009-2014 Ragnar Svensson, Christian Murray
 // Licensed under the Defold License version 1.0 (the "License"); you may not use
 // this file except in compliance with the License.
 //
@@ -37,7 +39,13 @@ public class SpineSceneBuilder extends ProtoBuilder<SpineSceneDesc.Builder> {
         IResource atlas = SpineSceneValidator.checkResource(project, input, "atlas", source.getAtlas(), ".atlas");
         compiledData = data.changeExt(StringUtils.endsWithIgnoreCase(data.getPath(), ".skel") ? ".skelc" : ".spinejsonc");
         compiledAtlas = atlas.changeExt(".a.texturesetc");
-        return super.create(input);
+        Task.TaskBuilder<?> taskBuilder = Task.newBuilder(this)
+                .setName(params.name())
+                .addInput(input)
+                .addOutput(input.changeExt(params.outExt()))
+                .addExtraCacheKey(SpineSceneValidator.CACHE_KEY);
+        createSubTasks(source, taskBuilder);
+        return taskBuilder.build();
     }
 
     @Override

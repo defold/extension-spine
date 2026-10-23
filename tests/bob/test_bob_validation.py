@@ -156,11 +156,14 @@ class BobValidationTest(unittest.TestCase):
             path.write_text(source)
         return self.build_inputs(["/" + path.name], error=error, options=options)
 
-    def build_inputs(self, inputs, error=None, options=()):
+    def build_inputs(self, inputs, error=None, options=(), expected_results=None):
         sources = {path: path.read_bytes() for path in self.root.rglob("*.gui")}
         input_args = [arg for path in inputs for arg in ("--build-input", path)]
+        command = ["java", "-cp", self.classpath, "com.dynamo.bob.Bob"]
+        if expected_results is not None:
+            command = [*self.version_test_command(), expected_results]
         result = subprocess.run(
-            ["java", "-cp", self.classpath, "com.dynamo.bob.Bob", "--root", str(self.root),
+            [*command, "--root", str(self.root),
              "--platform", self.platform, "--build-input", "/builtins/graphics/default.texture_profiles",
              *input_args, *options, "build"],
             cwd=self.root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=60,
@@ -177,6 +180,11 @@ class BobValidationTest(unittest.TestCase):
             self.assertIn(error, result.stdout)
             self.assertNotIn("NullPointerException", result.stdout)
         return result.stdout
+
+    def version_test_command(self):
+        plugin = self.root / "build/plugins/defold-spine/plugins/share/pluginSpineExt.jar"
+        classpath = os.pathsep.join([str(self.root / "test-tools"), self.classpath, str(plugin)])
+        return ["java", "-cp", classpath, "SpineValidationVersionTests"]
 
     def assert_descriptor(self, name, extension, **expected):
         args = ["--descriptor", str(self.root / f"build/default/{name}.{extension}c")]
@@ -659,6 +667,33 @@ class BobValidationTest(unittest.TestCase):
         self.build("minified_gui", "gui", gui(), options=("--experimental-path-minification",))
         self.build("minified_model", "spinemodel", model(), options=("--experimental-path-minification",))
         self.build("minified_legacy_gui", "gui", legacy_resources(gui(legacy_node())), options=("--experimental-path-minification",))
+
+    # A validation version change must revalidate scenes as well as their consumers with identical source inputs.
+    def test_validation_version_invalidates_all_tasks(self):
+        self.write_scene("/validation_version.spinescene", "/data.spinejson")
+        (self.root / "validation_version.gui").write_text(gui(scene="/validation_version.spinescene"))
+        (self.root / "validation_version.spinemodel").write_text(model(scene="/validation_version.spinescene"))
+        inputs = ["/validation_version.gui", "/validation_version.spinemodel"]
+        plugin = self.root / "build/plugins/defold-spine/plugins/share/pluginSpineExt.jar"
+        original = plugin.read_bytes()
+        key = subprocess.run([*self.version_test_command(), "--cache-key"], check=True,
+                             capture_output=True, text=True, timeout=30).stdout.strip().encode()
+        replacement = b"X" * len(key)
+        self.assertNotEqual(key, replacement)
+        try:
+            for changed in (False, True):
+                if changed:
+                    # Java inlines String constants into consumers. Replace the same-length UTF-8
+                    # constant in every class, preserving all class-file lengths and resource bytes.
+                    with zipfile.ZipFile(plugin) as jar:
+                        entries = [(info, jar.read(info)) for info in jar.infolist()]
+                    with zipfile.ZipFile(plugin, "w") as jar:
+                        for info, data in entries:
+                            jar.writestr(info, data.replace(key, replacement) if info.filename.endswith(".class") else data)
+                self.build_inputs(inputs, expected_results="SUCCESS")
+                self.build_inputs(inputs, expected_results="SKIPPED")
+        finally:
+            plugin.write_bytes(original)
 
     # Shared native metadata is deduplicated across concurrent tasks, scoped to a build and invalidated by content.
     def test_metadata_cache(self):
