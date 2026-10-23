@@ -1,4 +1,6 @@
 // Copyright 2020-2026 The Defold Foundation
+// Copyright 2014-2020 King
+// Copyright 2009-2014 Ragnar Svensson, Christian Murray
 // Licensed under the Defold License version 1.0 (the "License"); you may not use
 // this file except in compliance with the License.
 //
@@ -114,8 +116,9 @@ public final class SpineSceneValidator implements IPlugin {
             return cached;
         }
 
-        // The native loader's last-error buffer is shared between build threads.
-        synchronized (Spine.class) {
+        // Deduplicate concurrent metadata misses within this project. The Spine
+        // wrapper owns native synchronization and handle cleanup.
+        synchronized (cache) {
             cached = cache.get(key);
             if (atlas == null && cached != null) {
                 return cached;
@@ -129,17 +132,12 @@ public final class SpineSceneValidator implements IPlugin {
                 throw new Spine.SpineException("Could not read Spine atlas '" + atlas.getPath() + "'");
             }
             // Atlas validation is scene-specific and must run even on a metadata hit.
-            Spine.SpinePointer handle = atlas == null
+            try (Spine.SpinePointer handle = atlas == null
                     ? Spine.SPINE_LoadFileFromBuffer(data, dataPath)
-                    : Spine.SPINE_LoadFileFromBuffer(data, dataPath, atlasData, atlas.getPath());
-            try {
+                    : Spine.SPINE_LoadFileFromBuffer(data, dataPath, atlasData, atlas.getPath())) {
                 SceneData result = new SceneData(Spine.SPINE_GetAnimations(handle), Spine.SPINE_GetSkins(handle));
                 cache.putIfAbsent(key, result);
                 return cache.get(key);
-            } finally {
-                Spine.SPINE_Destroy(handle);
-                // SpinePointer also has a finalizer; do not release the same handle twice.
-                handle.setPointer(null);
             }
         }
     }

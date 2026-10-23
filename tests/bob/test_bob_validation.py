@@ -703,6 +703,13 @@ class BobValidationTest(unittest.TestCase):
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertIn("one skeleton load", result.stdout)
 
+    # Direct wrapper callers get idempotent cleanup and isolated native diagnostics without validator-specific locking.
+    def test_native_handle_ownership(self):
+        self.build("native_handles", "spinescene", fields({"spine_json": "/data.spinejson", "atlas": ATLAS}))
+        result = subprocess.run([*self.assertion_command[:-1], "SpineHandleTests", str(self.root)],
+                                capture_output=True, text=True, timeout=60)
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
     @classmethod
     def tearDownClass(cls):
         print(f"Verified {cls.build_count} Bob build invocations", flush=True)
