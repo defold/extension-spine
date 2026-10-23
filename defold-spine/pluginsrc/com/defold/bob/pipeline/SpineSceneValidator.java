@@ -66,7 +66,7 @@ public final class SpineSceneValidator implements IPlugin {
             String path, String... extensions) throws CompileExceptionError {
         IResource resource = BuilderUtil.checkResource(project, owner, field, path);
         for (String extension : extensions) {
-            if (StringUtils.endsWithIgnoreCase(path, extension)) {
+            if (path.endsWith(extension)) {
                 return resource;
             }
         }

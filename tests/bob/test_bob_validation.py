@@ -544,28 +544,32 @@ class BobValidationTest(unittest.TestCase):
         self.build("binary_invalid_skin", "gui", gui(gui_node(skin="missing"), scene), "skin 'missing' could not be found")
         self.build("binary_invalid_model", "spinemodel", model(scene=scene, skin="missing"), "skin 'missing' could not be found")
 
-    # Mixed-case suffixes must retain Bob's resource support and select the native binary parser correctly.
-    def test_case_insensitive_extensions(self):
-        atlas = "/corrupted/_assets/shared/mixed.AtLaS"
-        material = "/corrupted/_assets/shared/mixed.MATERIAL"
-        shutil.copy2(self.root / ATLAS.lstrip("/"), self.root / atlas.lstrip("/"))
-        shutil.copy2(self.root / MATERIAL.lstrip("/"), self.root / material.lstrip("/"))
+    # Spine suffix validation must reject mixed-case extensions, matching the editor's data validation.
+    def test_case_sensitive_extensions(self):
         for name, source_data, extension in (
             ("json", "/data.spinejson", "SPINEJSON"),
             ("binary", "/corrupted/_assets/cases/00_valid_control/case.skel", "SkEl"),
         ):
             with self.subTest(data=name):
                 data = f"/mixed_{name}.{extension}"
-                scene = f"/mixed_{name}.SPINESCENE"
+                scene = f"/mixed_{name}.spinescene"
                 shutil.copy2(self.root / source_data.lstrip("/"), self.root / data.lstrip("/"))
-                self.write_scene(scene, data, atlas)
-                self.build("mixed_" + name + "_gui", "gui", gui(scene=scene))
-                self.assert_gui("mixed_" + name + "_gui", **{"@resource:scene": f"/mixed_{name}.spinescenec"})
-                self.build("mixed_" + name + "_model", "spinemodel", model(scene=scene, material=material))
-                self.assert_descriptor("mixed_" + name + "_model", "spinemodel", spine_scene=f"/mixed_{name}.spinescenec",
-                                       material="/corrupted/_assets/shared/mixed.materialc")
-                self.assert_descriptor("mixed_" + name, "spinescene", spine_json=f"/mixed_{name}.{'skelc' if name == 'binary' else 'spinejsonc'}",
-                                       atlas="/corrupted/_assets/shared/mixed.a.texturesetc")
+                self.write_scene(scene, data)
+                error = f"spine_json file '{data}' must end with '.spinejson' or '.skel'"
+                self.build("mixed_" + name + "_gui", "gui", gui(scene=scene), error)
+                self.build("mixed_" + name + "_model", "spinemodel", model(scene=scene), error)
+
+        scene = "/mixed.SPINESCENE"
+        self.write_scene(scene, "/data.spinejson")
+        self.build("mixed_scene_gui", "gui", gui(scene=scene), "must refer to a .spinescene file")
+        self.build("mixed_scene_model", "spinemodel", model(scene=scene), "must end with '.spinescene'")
+
+        atlas = "/corrupted/_assets/shared/mixed.AtLaS"
+        shutil.copy2(self.root / ATLAS.lstrip("/"), self.root / atlas.lstrip("/"))
+        self.build("mixed_atlas", "spinescene", fields({"spine_json": "/data.spinejson", "atlas": atlas}), "must end with '.atlas'")
+        material = "/corrupted/_assets/shared/mixed.MATERIAL"
+        shutil.copy2(self.root / MATERIAL.lstrip("/"), self.root / material.lstrip("/"))
+        self.build("mixed_material", "spinemodel", model(material=material), "must end with '.material'")
 
     # Parallel GUI tasks can reuse resource names while resolving different skeletons and retaining their own plugin state.
     def test_multiple_gui_tasks(self):

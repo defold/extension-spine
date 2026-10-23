@@ -11,8 +11,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.lang3.StringUtils;
-
 import com.dynamo.bob.CompileExceptionError;
 import com.dynamo.bob.Task;
 import com.dynamo.bob.fs.IResource;
@@ -149,7 +147,7 @@ public class SpineGuiNode implements IGuiCustomNode {
         if (scene == null) {
             throw context.error(node, layoutName, "spine scene '" + name + "' does not exist in the scene");
         }
-        if (!StringUtils.endsWithIgnoreCase(scene.getPath(), ".spinescene")) {
+        if (!scene.getPath().endsWith(".spinescene")) {
             throw context.error(node, layoutName, "Spine scene '" + name + "' must refer to a .spinescene file");
         }
         return scene;

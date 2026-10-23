@@ -69,7 +69,7 @@ Expected failures check Bob's error exit code and diagnostic, and reject `NullPo
 ## Additional coverage
 
 - Required resources, missing files, wrong resource suffixes and property types; optional/default values; unknown animations and skins.
-- JSON and binary metadata, malformed JSON and binary input, missing atlas regions, mixed-case extensions, and minified resource paths.
+- JSON and binary metadata, malformed JSON and binary input, missing atlas regions, case-sensitive resource suffix validation, and minified resource paths.
 - Legacy resource lists with no nodes, inherited resources, parent precedence and duplicate resource rejection.
 - Sparse layouts and nested templates, explicit default resets, modern/legacy precedence, repeated template instances and parent-supplied selections.
 - Missing plugins for legacy, named and hashed node types; every node validated when metadata is shared; multiple GUI tasks built together with separate scenes.
