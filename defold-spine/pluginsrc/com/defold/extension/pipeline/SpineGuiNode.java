@@ -40,7 +40,6 @@ public class SpineGuiNode implements IGuiCustomNode {
             NodeDesc.SPINE_SKIN_FIELD_NUMBER, NodeDesc.SPINE_NODE_CHILD_FIELD_NUMBER,
             NodeDesc.SPINE_CREATE_BONES_FIELD_NUMBER);
     private final Map<String, IResource> dataByScene = new HashMap<>();
-    private boolean cacheKeysAdded;
 
     public static void registerProperties(IGuiCustomType type) {
         type.addProperty("spine_scene", "", PropertyType.TYPE_STRING, IGuiCustomType.EDIT_TYPE_RESOURCE);
@@ -170,11 +169,8 @@ public class SpineGuiNode implements IGuiCustomNode {
         // The compiled scene descriptor can stay identical when animation or skin
         // names change. Track both source files so those changes revalidate the GUI.
         taskBuilder.addInput(scene).addInput(data);
-        if (!cacheKeysAdded) {
-            taskBuilder.addExtraCacheKey(SpineSceneValidator.CACHE_KEY);
-            taskBuilder.addExtraCacheKey("spine-gui-build-v1");
-            cacheKeysAdded = true;
-        }
+        taskBuilder.addExtraCacheKey(SpineSceneValidator.CACHE_KEY);
+        taskBuilder.addExtraCacheKey("spine-gui-build-v1");
     }
 
     @Override
