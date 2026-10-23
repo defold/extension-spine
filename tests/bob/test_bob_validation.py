@@ -244,14 +244,17 @@ class BobValidationTest(unittest.TestCase):
                 if error is None:
                     self.assert_gui("gui_" + name)
 
-    # Required string properties must report an actionable node error instead of accepting another property type.
+    # Bob checks all registered types before Spine callbacks, including the boolean that Spine does not read.
     def test_gui_property_types(self):
         for name in ("spine_scene", "spine_default_animation", "spine_skin"):
             with self.subTest(property=name):
                 source = gui(gui_node(scene=None if name == "spine_scene" else "scene",
                                       animation=None if name == "spine_default_animation" else "idle", skin=None))
                 source = source.replace("}\nresources", boolean_property(name, True) + "}\nresources")
-                self.build("wrong_type_" + name, "gui", source, f"Property '{name}' must be a string")
+                self.build("wrong_type_" + name, "gui", source, f"Node 'spine': Property '{name}' must have type TYPE_STRING")
+        source = gui(gui_node()).replace("}\nresources", properties({"spine_create_bones": "true"}) + "}\nresources")
+        self.build("wrong_type_spine_create_bones", "gui", source,
+                   "Node 'spine': Property 'spine_create_bones' must have type TYPE_BOOLEAN")
 
     # Empty resource names must fail independently of node callbacks, including migrated and inherited entries.
     def test_gui_resource_names(self):

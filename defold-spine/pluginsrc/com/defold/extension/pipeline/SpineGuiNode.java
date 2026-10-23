@@ -135,19 +135,13 @@ public class SpineGuiNode implements IGuiCustomNode {
         }
     }
 
-    private static String getString(GuiBuildContext context, NodeDescOrBuilder node, String layoutName, String name) throws CompileExceptionError {
+    private static String getString(NodeDescOrBuilder node, String name) {
         Property property = GuiBuildContext.getProperty(node, name);
-        if (property == null) {
-            return "";
-        }
-        if (property.getType() != PropertyType.TYPE_STRING) {
-            throw context.error(node, layoutName, "Property '" + name + "' must be a string");
-        }
-        return property.getString();
+        return property == null ? "" : property.getString();
     }
 
     private static IResource getScene(GuiBuildContext context, NodeDescOrBuilder node, String layoutName) throws CompileExceptionError {
-        String name = getString(context, node, layoutName, "spine_scene");
+        String name = getString(node, "spine_scene");
         if (name.isEmpty()) {
             throw context.error(node, layoutName, "Spine scene must not be empty");
         }
@@ -190,8 +184,7 @@ public class SpineGuiNode implements IGuiCustomNode {
         } catch (Spine.SpineException e) {
             throw context.error(node, layoutName, e.getMessage());
         }
-        String error = info.getValidationError(getString(context, node, layoutName, "spine_default_animation"),
-                getString(context, node, layoutName, "spine_skin"));
+        String error = info.getValidationError(getString(node, "spine_default_animation"), getString(node, "spine_skin"));
         if (error != null) {
             throw context.error(node, layoutName, error);
         }
