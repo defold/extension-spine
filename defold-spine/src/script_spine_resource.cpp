@@ -200,6 +200,10 @@ namespace dmSpine
         lua_pop(L, 1); // atlas_path
         lua_pop(L, 1); // options
 
+        // Validate the script context before allocating resources. Lua errors
+        // can longjmp past C++ destructors and explicit cleanup below.
+        dmGameObject::HCollection collection = dmScript::CheckCollection(L);
+
         // Create a child resource using the type matching the supplied data.
         const char* spine_data_ext = IsJsonData(spine_data, spine_data_size) ? SPINEJSON_EXT : SPINESKEL_EXT;
         char spine_data_path[2048];
@@ -242,6 +246,7 @@ namespace dmSpine
         if (atlas_result != RESOURCE_RESULT_OK)
         {
             dmResource::Release(g_Factory, out_spine_data_res);
+            dmResource::RemoveFile(g_Factory, spine_data_path);
             return luaL_error(L, "'atlas_path' must reference a valid atlas resource (%s)", ATLAS_EXT);
         }
         // Release atlas resource - we only needed to validate it exists
@@ -253,6 +258,8 @@ namespace dmSpine
         if (ddf_res != dmDDF::RESULT_OK)
         {
             dmResource::Release(g_Factory, out_spine_data_res);
+            dmResource::RemoveFile(g_Factory, spine_data_path);
+            ddf_buffer.SetCapacity(0);
             return luaL_error(L, "Failed to serialize SpineSceneDesc");
         }
 
@@ -262,6 +269,7 @@ namespace dmSpine
         {
             dmResource::Release(g_Factory, out_spine_data_res);
             dmResource::RemoveFile(g_Factory, spine_data_path);
+            ddf_buffer.SetCapacity(0);
             return luaL_error(L, "Failed to add spinescene resource '%s' (error %d)", scene_path, add_scene);
         }
         void* out_scene_res = 0;
@@ -272,14 +280,12 @@ namespace dmSpine
             dmResource::RemoveFile(g_Factory, scene_path);
             dmResource::Release(g_Factory, out_spine_data_res);
             dmResource::RemoveFile(g_Factory, spine_data_path);
+            ddf_buffer.SetCapacity(0);
             return luaL_error(L, "Failed to load spinescene resource '%s' (error %d)", scene_path, get_scene);
         }
 
         dmhash_t canonical_hash = 0;
         ResourceGetPath(g_Factory, out_scene_res, &canonical_hash);
-
-        // Get collection for automatic resource cleanup (works from both .script and .gui_script)
-        dmGameObject::HCollection collection = dmScript::CheckCollection(L);
 
         // Register only the scene resource for automatic cleanup
         // (The Spine data resource is intermediate and will be released immediately.)
@@ -290,6 +296,7 @@ namespace dmSpine
         dmResource::RemoveFile(g_Factory, spine_data_path);
         // Remove the spinescene backing file (resource instance remains alive in memory)
         dmResource::RemoveFile(g_Factory, scene_path);
+        ddf_buffer.SetCapacity(0);
         
         // Note: Don't release out_scene_res! That's the resource the caller will use
         // The reference count from ResourceGet() stays to keep the resource alive
