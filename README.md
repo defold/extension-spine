@@ -32,6 +32,26 @@ To update the runtime:
 
 Rebuild the plugin libraries and JAR after changing the native or Java plugin code, or shared runtime code.
 
+The GUI plugin requires Defold 1.14.1 or later, with `IGuiCustomNode.migrateScene(GuiSceneMigrationContext)` and the `create`/`build` callbacks that receive `GuiBuildContext`, task, node and layout arguments. Bob shares one context across all custom nodes in each GUI task. Use the matching Defold SDK when rebuilding it, and update Bob and the Spine plugin together when building legacy GUI files.
+
+### Bob validation
+
+Bob rejects missing or incorrectly typed Spine scene selections and unknown animation or skin names in both GUI nodes and Spine models. Empty animation and skin names are allowed; an empty skin selects the default skin. The literal skin name `default` is rejected, matching the editor. Scene data must be `.spinejson` or `.skel`, scene atlases must be `.atlas`, and models require a `.material` resource.
+
+GUI validation runs after template and layout overrides are resolved. GUI errors identify the node and layout. Skeleton data is a direct build dependency, so removing an animation or skin also revalidates its consumers during incremental builds.
+
+Compiled Spine GUI nodes use automatic size mode in every layout, matching the editor, including when source files omit the size mode or contain the old manual value.
+
+The Spine plugin also migrates legacy `TYPE_SPINE` nodes, old Spine fields on custom nodes, and `spine_scenes` resource lists before Bob resolves dependencies or inheritance. Sparse template and layout overrides preserve inherited values, including explicit resets to an empty string or `false`. Existing custom properties take precedence over legacy fields. These conversions happen in memory; Bob does not rewrite source GUI files.
+
+Run the integration checks against a Bob JAR with the callbacks and the rebuilt plugin. The runner uses `BOB`, falling back to `$DYNAMO_HOME/share/java/bob.jar`, like the plugin build script:
+
+```sh
+BOB=/path/to/bob.jar ./tests/bob/run.sh
+```
+
+The [Bob test suite](tests/bob/README.md) lives outside the `defold-spine` extension directory. It creates temporary projects and checks compiled output using the actual Java and native plugins. It includes the Spine migration regressions moved from Bob, Java ports of editor build regressions, resource and metadata validation, parallel GUI tasks, and incremental and cached builds.
+
 ### Building locally
 
 Run the following from the repository root, using Bash and a Java installation compatible with your chosen Bob version. The current CI workflow uses Java 25.
