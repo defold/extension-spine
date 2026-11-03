@@ -18,18 +18,15 @@ input_method = HiddenInputField
 [project]
 title = extension-spine
 custom_resources = custom_res,assets/spineboy/spineboy-pro.skel
-dependencies#0 = https://github.com/britzl/extension-imgui/archive/refs/heads/master.zip
+dependencies#0 = https://github.com/defold/extension-imgui/archive/refs/heads/master.zip
 
 [library]
 include_dirs = defold-spine
-defold_min_version = 1.14.0
+defold_min_version = 1.14.1
 
 [input]
 game_binding = /imgui.input_bindingc
 gamepads = /builtins/input/default.gamepadsc
-
-[native_extension]
-app_manifest = /imgui.appmanifest
 
 [collection_proxy]
 max_count = 24

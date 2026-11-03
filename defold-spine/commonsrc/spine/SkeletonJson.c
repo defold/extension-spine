@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated July 28, 2023. Replaces all prior versions.
+ * Last updated April 5, 2025. Replaces all prior versions.
  *
- * Copyright (c) 2013-2023, Esoteric Software LLC
+ * Copyright (c) 2013-2025, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software or
- * otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software
+ * or otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,8 +23,8 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
- * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
 #include "Json.h"
@@ -391,7 +391,7 @@ static spAnimation *_spSkeletonJson_readAnimation(spSkeletonJson *self, Json *ro
 
 				for (frame = 0, bezier = 0;; ++frame) {
 					float time2;
-					spRGBA2Timeline_setFrame(timeline, frame, time, color.r, color.g, color.b, color.a, color2.g,
+					spRGBA2Timeline_setFrame(timeline, frame, time, color.r, color.g, color.b, color.a, color2.r,
 											 color2.g, color2.b);
 					nextMap = keyMap->next;
 					if (!nextMap) {
@@ -426,7 +426,7 @@ static spAnimation *_spSkeletonJson_readAnimation(spSkeletonJson *self, Json *ro
 				spTimelineArray_add(timelines, SUPER(SUPER(timeline)));
 			} else if (strcmp(timelineMap->name, "rgb2") == 0) {
 				float time;
-				spRGBA2Timeline *timeline = spRGBA2Timeline_create(frames, frames * 6, slotIndex);
+				spRGB2Timeline *timeline = spRGB2Timeline_create(frames, frames * 6, slotIndex);
 				keyMap = timelineMap->child;
 				time = Json_getFloat(keyMap, "time", 0);
 				toColor2(&color, Json_getString(keyMap, "light", 0), 0);
@@ -434,8 +434,8 @@ static spAnimation *_spSkeletonJson_readAnimation(spSkeletonJson *self, Json *ro
 
 				for (frame = 0, bezier = 0;; ++frame) {
 					float time2;
-					spRGBA2Timeline_setFrame(timeline, frame, time, color.r, color.g, color.b, color.a, color2.r,
-											 color2.g, color2.b);
+					spRGB2Timeline_setFrame(timeline, frame, time, color.r, color.g, color.b, color2.r, color2.g,
+											color2.b);
 					nextMap = keyMap->next;
 					if (!nextMap) {
 						/* timeline.shrink(); // BOZO */
@@ -535,7 +535,7 @@ static spAnimation *_spSkeletonJson_readAnimation(spSkeletonJson *self, Json *ro
 				keyMap = timelineMap->child;
 				for (frame = 0;; frame++) {
 					float time = Json_getFloat(keyMap, "time", 0);
-					const char *value = Json_getString(keyMap, "value", "normal");
+					const char *value = Json_getString(keyMap, "inherit", "normal");
 					spInherit inherit = SP_INHERIT_NORMAL;
 					if (strcmp(value, "normal") == 0) inherit = SP_INHERIT_NORMAL;
 					else if (strcmp(value, "onlyTranslation") == 0)
@@ -549,6 +549,7 @@ static spAnimation *_spSkeletonJson_readAnimation(spSkeletonJson *self, Json *ro
 					spInheritTimeline_setFrame(timeline, frame, time, inherit);
 					nextMap = keyMap->next;
 					if (!nextMap) break;
+					keyMap = nextMap;
 				}
 				spTimelineArray_add(timelines, SUPER(timeline));
 			} else {

@@ -15,6 +15,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdarg.h>
 
 #include <dmsdk/sdk.h>
 #include <dmsdk/dlib/array.h>
@@ -100,13 +101,14 @@ typedef SpineFile* HSpineFile;
 
 static void UpdateRenderData(SpineFile* file, const dmVMath::Matrix4& transform, const dmVMath::Vector4& color_tint, bool use_index_buffer);
 static void UpdateVertices(SpineFile* file, float dt, const dmVMath::Matrix4& transform, const dmVMath::Vector4& color_tint, bool use_index_buffer);
+static void SPINE_SetLastError(const char* format, ...);
 
 // Need to free() the buffer
 static uint8_t* ReadFile(const char* path, size_t* file_size) {
     FILE* f = fopen(path, "rb");
     if (!f)
     {
-        dmLogError("Failed to read file '%s'", path);
+        SPINE_SetLastError("Failed to read file '%s'", path);
         return 0;
     }
     fseek(f, 0, SEEK_END);
@@ -116,6 +118,7 @@ static uint8_t* ReadFile(const char* path, size_t* file_size) {
     uint8_t* buffer = (uint8_t*)malloc(_file_size);
     if (fread(buffer, 1, _file_size, f) != (size_t) _file_size)
     {
+        SPINE_SetLastError("Failed to read file '%s'", path);
         fclose(f);
         free(buffer);
         return 0;
@@ -222,16 +225,19 @@ extern "C" DM_DLLEXPORT const char* SPINE_GetLastError()
     return g_LastSpineError;
 }
 
-static void SPINE_SetLastError(const char* str)
+static void SPINE_SetLastError(const char* format, ...)
 {
-    dmSnPrintf(g_LastSpineError, sizeof(g_LastSpineError), "%s", str);
+    va_list args;
+    va_start(args, format);
+    vsnprintf(g_LastSpineError, sizeof(g_LastSpineError), format, args);
+    va_end(args);
+    g_LastSpineError[sizeof(g_LastSpineError) - 1] = '\0';
     dmLogError("%s", g_LastSpineError);
 }
 
 static void SPINE_SetLastError(spAttachmentLoader* loader)
 {
-    dmSnPrintf(g_LastSpineError, sizeof(g_LastSpineError), "%s %s", loader->error1?loader->error1:"", loader->error2?loader->error2:"");
-    dmLogError("%s", g_LastSpineError);
+    SPINE_SetLastError("%s %s", loader->error1?loader->error1:"", loader->error2?loader->error2:"");
 }
 
 static dmGameSystemDDF::TextureSet* LoadAtlasFromBuffer(void* buffer, size_t buffer_size, const char* path)
@@ -240,7 +246,7 @@ static dmGameSystemDDF::TextureSet* LoadAtlasFromBuffer(void* buffer, size_t buf
     dmDDF::Result e  = dmDDF::LoadMessage(buffer, (uint32_t)buffer_size, &texture_set_ddf);
     if ( e != dmDDF::RESULT_OK )
     {
-        dmLogError("Failed to load atlas from '%s' (result: %d). Has the dmGameSystemDDF::TextureSet file format changed?", path, (int)e);
+        SPINE_SetLastError("Failed to load atlas from '%s' (result: %d). Has the dmGameSystemDDF::TextureSet file format changed?", path, (int)e);
         return 0;
     }
     return texture_set_ddf;
@@ -253,13 +259,13 @@ static void DestroyAtlas(dmGameSystemDDF::TextureSet* texture_set_ddf)
 
 extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* spine_data, size_t spine_data_size, const char* path, void* atlas_buffer, size_t atlas_size, const char* atlas_path)
 {
+    g_LastSpineError[0] = '\0';
     dmGameSystemDDF::TextureSet* texture_set_ddf = 0;
     if (atlas_buffer)
     {
         texture_set_ddf = LoadAtlasFromBuffer(atlas_buffer, atlas_size, atlas_path);
         if (!texture_set_ddf)
         {
-            dmLogError("Couldn't load atlas '%s' for spine scene '%s'", atlas_path, path);
             return 0;
         }
     }
@@ -285,8 +291,9 @@ extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* spine_data, size_t spin
     {
         if (attachment_loader->error1 || attachment_loader->error2)
             SPINE_SetLastError(attachment_loader);
+        else
+            SPINE_SetLastError("Failed to load Spine skeleton file '%s'", path);
 
-        dmLogError("Failed to load Spine skeleton file %s", path);
         SPINE_Destroy(file);
         return 0;
     }
@@ -296,7 +303,7 @@ extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* spine_data, size_t spin
     file->m_SkeletonInstance = spSkeleton_create(file->m_SkeletonData);
     if (!file->m_SkeletonInstance)
     {
-        dmLogError("Failed to create skeleton instance");
+        SPINE_SetLastError("Failed to create skeleton instance for '%s'", path);
         SPINE_Destroy(file);
         return 0;
     }
@@ -305,7 +312,7 @@ extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* spine_data, size_t spin
     file->m_AnimationStateInstance = spAnimationState_create(file->m_AnimationStateData);
     if (!file->m_AnimationStateInstance)
     {
-        dmLogError("Failed to create animation state instance");
+        SPINE_SetLastError("Failed to create animation state instance for '%s'", path);
         SPINE_Destroy(file);
         return 0;
     }
@@ -340,17 +347,17 @@ extern "C" DM_DLLEXPORT void* SPINE_LoadFromBuffer(void* spine_data, size_t spin
 
 
 extern "C" DM_DLLEXPORT void* SPINE_LoadFromPath(const char* path, const char* atlas_path) {
+    g_LastSpineError[0] = '\0';
     size_t buffer_size = 0;
     uint8_t* buffer = ReadFile(path, &buffer_size);
     if (!buffer) {
-        dmLogError("%s: Failed to read spine file into buffer", __FUNCTION__);
         return 0;
     }
 
     size_t atlas_buffer_size = 0;
     uint8_t* atlas_buffer = ReadFile(atlas_path, &atlas_buffer_size);
-    if (!buffer) {
-        dmLogError("%s: Failed to read atlas file %s", __FUNCTION__, atlas_path);
+    if (!atlas_buffer) {
+        free(buffer);
         return 0;
     }
 

@@ -1,16 +1,16 @@
 /******************************************************************************
  * Spine Runtimes License Agreement
- * Last updated July 28, 2023. Replaces all prior versions.
+ * Last updated April 5, 2025. Replaces all prior versions.
  *
- * Copyright (c) 2013-2023, Esoteric Software LLC
+ * Copyright (c) 2013-2025, Esoteric Software LLC
  *
  * Integration of the Spine Runtimes into software or otherwise creating
  * derivative works of the Spine Runtimes is permitted under the terms and
  * conditions of Section 2 of the Spine Editor License Agreement:
  * http://esotericsoftware.com/spine-editor-license
  *
- * Otherwise, it is permitted to integrate the Spine Runtimes into software or
- * otherwise create derivative works of the Spine Runtimes (collectively,
+ * Otherwise, it is permitted to integrate the Spine Runtimes into software
+ * or otherwise create derivative works of the Spine Runtimes (collectively,
  * "Products"), provided that each user of the Products must obtain their own
  * Spine Editor license and redistribution of the Products in any form must
  * include this license and copyright notice.
@@ -23,8 +23,8 @@
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES,
  * BUSINESS INTERRUPTION, OR LOSS OF USE, DATA, OR PROFITS) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THE
- * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THE SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
 #include <spine/Bone.h>
@@ -166,7 +166,7 @@ void spBone_updateWorldTransformWith(spBone *self, float x, float y, float rotat
 			zc *= s;
 			s = SQRT(za * za + zc * zc);
 			if (self->inherit == SP_INHERIT_NOSCALE &&
-				(pa * pd - pb * pc < 0) != (sx < 0 != sy < 0))
+				(pa * pd - pb * pc < 0) != ((sx < 0) != (sy < 0)))
 				s = -s;
 			rotation = PI / 2 + ATAN2(zc, za);
 			float zb = COS(rotation) * s;
@@ -281,7 +281,7 @@ void spBone_updateAppliedTransform(spBone *self) {
 				pc *= s;
 				s = SQRT(pa * pa + pc * pc);
 				if (self->inherit == SP_INHERIT_NOSCALE &&
-					pid < 0 != (self->skeleton->scaleX < 0 != (self->skeleton->scaleY * yDownScale) < 0))
+					(pid < 0) != ((self->skeleton->scaleX < 0) != ((self->skeleton->scaleY * yDownScale) < 0)))
 					s = -s;
 				r = PI / 2 + ATAN2(pc, pa);
 				pb = COS(r) * s;
@@ -341,7 +341,7 @@ void spBone_localToWorld(spBone *self, float localX, float localY, float *worldX
 }
 
 void spBone_parentToWorld(spBone *self, float localX, float localY, float *worldX, float *worldY) {
-	if (self->parent != NULL) {
+	if (self->parent == NULL) {
 		*worldX = localX;
 		*worldY = localY;
 	} else {

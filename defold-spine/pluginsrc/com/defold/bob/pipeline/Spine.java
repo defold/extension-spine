@@ -32,12 +32,23 @@ public class Spine {
         }
     }
 
-    public static class SpinePointer extends PointerType {
+    public static class SpinePointer extends PointerType implements AutoCloseable {
         public SpinePointer() { super(); }
         public SpinePointer(Pointer p) { super(p); }
+
+        /** Releases this handle once. Prefer try-with-resources for short-lived loads. */
+        @Override
+        public synchronized void close() {
+            if (getPointer() != null) {
+                SPINE_Destroy(this);
+                setPointer(null);
+            }
+        }
+
+        // Retain automatic cleanup for existing editor callers that keep handles alive.
         @Override
         public void finalize() {
-            SPINE_Destroy(this);
+            close();
         }
     }
 
@@ -50,8 +61,8 @@ public class Spine {
     // Type Mapping in JNA
     // https://java-native-access.github.io/jna/3.5.1/javadoc/overview-summary.html#marshalling
 
-    public static native Pointer SPINE_LoadFromPath(String path, String atlas_path);
-    public static native Pointer SPINE_LoadFromBuffer(Buffer buffer, int bufferSize, String path, Buffer atlas_buffer, int atlas_bufferSize, String atlas_path);
+    public static synchronized native Pointer SPINE_LoadFromPath(String path, String atlas_path);
+    public static synchronized native Pointer SPINE_LoadFromBuffer(Buffer buffer, int bufferSize, String path, Buffer atlas_buffer, int atlas_bufferSize, String atlas_path);
     public static native void SPINE_Destroy(SpinePointer spine);
 
     // TODO: Create a jna Structure for this
@@ -293,7 +304,8 @@ public class Spine {
 
     ////////////////////////////////////////////////////////////////////////////////
 
-    public static SpinePointer SPINE_LoadFileFromBuffer(byte[] spine_data, String path, byte[] atlas_buffer, String atlas_path) throws SpineException {
+    // Keep loading and reading the native global error buffer under the same lock.
+    public static synchronized SpinePointer SPINE_LoadFileFromBuffer(byte[] spine_data, String path, byte[] atlas_buffer, String atlas_path) throws SpineException {
         if (spine_data == null || atlas_buffer == null)
         {
             System.out.printf("One of the buffers is null (%s)\n", spine_data == null ? "spine_data":"atlas_buffer");
@@ -308,7 +320,7 @@ public class Spine {
         return new SpinePointer(p);
     }
 
-    public static SpinePointer SPINE_LoadFileFromBuffer(byte[] spine_data, String path) throws SpineException {
+    public static synchronized SpinePointer SPINE_LoadFileFromBuffer(byte[] spine_data, String path) throws SpineException {
         if (spine_data == null)
         {
             System.out.printf("The Spine data buffer is null\n");

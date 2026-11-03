@@ -1,4 +1,4 @@
-// Copyright 2020 The Defold Foundation
+// Copyright 2020-2026 The Defold Foundation
 // Licensed under the Defold License version 1.0 (the "License"); you may not use
 // this file except in compliance with the License.
 //
@@ -12,35 +12,53 @@
 
 package com.dynamo.bob.pipeline;
 
+import java.io.IOException;
+
 import com.dynamo.bob.BuilderParams;
 import com.dynamo.bob.CompileExceptionError;
 import com.dynamo.bob.ProtoBuilder;
 import com.dynamo.bob.ProtoParams;
 import com.dynamo.bob.Task;
 import com.dynamo.bob.fs.IResource;
-import com.dynamo.bob.pipeline.BuilderUtil;
 import com.dynamo.spine.proto.Spine.SpineModelDesc;
 
 @ProtoParams(srcClass = SpineModelDesc.class, messageClass = SpineModelDesc.class)
 @BuilderParams(name="SpineModel", inExts=".spinemodel", outExt=".spinemodelc")
 public class SpineModelBuilder extends ProtoBuilder<SpineModelDesc.Builder> {
+    private IResource spineData;
 
     @Override
-    protected SpineModelDesc.Builder transform(Task task, IResource resource, SpineModelDesc.Builder builder) throws CompileExceptionError {
+    public Task create(IResource input) throws IOException, CompileExceptionError {
+        SpineModelDesc.Builder source = getSrcBuilder(input);
+        IResource scene = SpineSceneValidator.checkResource(project, input, "spine_scene", source.getSpineScene(), ".spinescene");
+        SpineSceneValidator.checkResource(project, input, "material", source.getMaterial(), ".material");
+        spineData = SpineSceneValidator.getSpineData(project, scene);
 
-        String path;
+        Task.TaskBuilder<?> taskBuilder = Task.newBuilder(this)
+                .setName(params.name())
+                .addInput(input)
+                .addInput(scene)
+                .addInput(spineData)
+                .addOutput(input.changeExt(params.outExt()))
+                .addExtraCacheKey(SpineSceneValidator.CACHE_KEY);
+        createSubTasks(source, taskBuilder);
+        return taskBuilder.build();
+    }
 
-        path = builder.getSpineScene();
-        if (!path.equals("")) {
-            BuilderUtil.checkResource(this.project, resource, "spine_scene", path);
+    @Override
+    protected SpineModelDesc.Builder transform(Task task, IResource resource, SpineModelDesc.Builder builder) throws IOException, CompileExceptionError {
+        try {
+            SpineSceneValidator.SceneData info = SpineSceneValidator.load(spineData, null);
+            String error = info.getValidationError(builder.getDefaultAnimation(), builder.getSkin());
+            if (error != null) {
+                throw new CompileExceptionError(resource, 0, error);
+            }
+        } catch (Spine.SpineException e) {
+            throw new CompileExceptionError(resource, 0, e.getMessage(), e);
         }
-        builder.setSpineScene(BuilderUtil.replaceExt(path, ".spinescene", ".spinescenec"));
 
-        path = builder.getMaterial();
-        if (!path.equals("")) {
-            BuilderUtil.checkResource(this.project, resource, "material", path);
-        }
-        builder.setMaterial(BuilderUtil.replaceExt(path, ".material", ".materialc"));
+        builder.setSpineScene(BuilderUtil.replaceExt(builder.getSpineScene(), ".spinescene", ".spinescenec"));
+        builder.setMaterial(BuilderUtil.replaceExt(builder.getMaterial(), ".material", ".materialc"));
         return builder;
     }
 }
