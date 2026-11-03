@@ -6,6 +6,7 @@ local examples = {
 	{ name = "Sequence Animation", proxy_id = "sequence_animation_proxy", description = "Sequence-based animations" },
 	{ name = "Coin Blend and Mask", proxy_id = "coin_blend_and_mask_proxy", description = "Demonstrates blend modes" },
 	{ name = "Mix Skins", proxy_id = "mix_skins_proxy", description = "Shows skin mixing capabilities" },
+	{ name = "Create Skin", proxy_id = "create_skin_proxy", description = "Two models of one spine scene with different skins built via create_skin" },
 	{ name = "GUI Mix Skins", proxy_id = "gui_mix_skins_proxy", description = "GUI-based skin mixing with interactive controls" },
 	{ name = "Color Slots", proxy_id = "slot_color_proxy", description = "Tint attachments in a slot" },
 	{ name = "Physics", proxy_id = "physics_proxy", description = "Demonstrates physics integration" },

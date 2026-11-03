@@ -1,0 +1,16 @@
+-- Two models share one spine scene. Skins belong to the spine scene, so each
+-- model gets its own uniquely named skin built from parts of the existing skins.
+local function create_mixed_skin(model, skin, head, body)
+	-- The skin survives as long as the spine scene stays loaded (e.g. when another
+	-- example uses it too), so it may already exist when this example is reloaded.
+	if pcall(spine.create_skin, model, skin) then
+		spine.copy_skin(model, skin, head)
+		spine.add_skin(model, skin, body)
+	end
+	spine.set_skin(model, skin)
+end
+
+function init(self)
+	create_mixed_skin("left#spinemodel", "left_mix", "blue_head", "original_body")
+	create_mixed_skin("right#spinemodel", "right_mix", "original_head", "blue_body")
+end

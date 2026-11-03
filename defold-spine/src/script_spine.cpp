@@ -491,6 +491,7 @@ namespace dmSpine
 
     /*# clears a spine skin
      * Clears the current attachments and constraints on a spine skin.
+     * Skins are shared by everything using the same spine scene.
      *
      * @name spine.clear_skin
      * @param url [type:string|hash|url] the spine model for which to clear a skin
@@ -534,6 +535,7 @@ namespace dmSpine
     /*# copies one spine skine to another
      * Copies the attachments and constraints of one spine skin on a spine model to another
      * on the same spine model.
+     * Skins are shared by everything using the same spine scene.
      *
      * @name spine.copy_skin
      * @param url [type:string|hash|url] the spine model for which to set skin
@@ -591,8 +593,49 @@ namespace dmSpine
         return 0;
     }
 
+    /*# creates an empty spine skin
+     * Creates an empty skin, to be filled with spine.copy_skin or spine.add_skin.
+     * Skins are shared by everything using the same spine scene.
+     * Errors if the skin already exists. Created skins are lost when the spine scene is reloaded.
+     *
+     * @name spine.create_skin
+     * @param url [type:string|hash|url] the spine model
+     * @param spine_skin [type:string] name of the new skin
+     * @examples
+     *
+     * The example assumes that the spine model has id "spinemodel"
+     * and two skins "monster_head" and "monster_body"
+     *
+     * ```lua
+     * function init(self)
+     *  spine.create_skin("#spinemodel", "custom")
+     *  spine.copy_skin("#spinemodel", "custom", "monster_body")
+     *  spine.add_skin("#spinemodel", "custom", "monster_head")
+     *  spine.set_skin("#spinemodel", "custom")
+     * end
+     * ```
+     */
+    static int SpineComp_CreateSkin(lua_State* L)
+    {
+        DM_LUA_STACK_CHECK(L, 0);
+
+        SpineModelComponent* component = 0;
+        dmMessage::URL receiver; // needed for error output
+        dmScript::GetComponentFromLua(L, 1, SPINE_MODEL_EXT, 0, (void**)&component, &receiver);
+
+        const char* skin_name = luaL_checkstring(L, 2);
+
+        if (!CompSpineModelCreateSkin(component, skin_name))
+        {
+            char buffer[128];
+            return DM_LUA_ERROR("failed to create spine skin '%s' in component %s: skin already exists", skin_name, dmScript::UrlToString(&receiver, buffer, sizeof(buffer)));
+        }
+        return 0;
+    }
+
     /*# adds one spine skin to another
      * Adds a spine skins attachments and constraints to another spine skin on the same model
+     * Skins are shared by everything using the same spine scene.
      *
      * @name spine.add_skin
      * @param url [type:string|hash|url] the spine model for which to set skin
@@ -1041,6 +1084,7 @@ namespace dmSpine
     {
             {"set_slot_color",          SpineComp_SetSlotColor},
             {"copy_skin",               SpineComp_CopySkin},
+            {"create_skin",             SpineComp_CreateSkin},
             {"clear_skin",              SpineComp_ClearSkin},
             {"add_skin",                SpineComp_AddSkin},
             {"play_anim",               SpineComp_PlayAnim},

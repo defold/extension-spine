@@ -82,18 +82,27 @@ function spine.get_go(url, bone_id) end
 function spine.set_skin(url, skin) end
 
 ---Adds one spine skin on a spine model to another on the same model.
+---Skins are shared by everything using the same spine scene.
 ---@param url string|hash|url The Spine model to query
 ---@param skin_a string|hash Id of the corresponding skin that will recieve the added skin
 ---@param skin_b string|hash Id of the corresponding skin to add
 function spine.add_skin(url, skin_a, skin_b) end
 
 ---Copies one spine skin on a spine model to another on the same model.
+---Skins are shared by everything using the same spine scene.
 ---@param url string|hash|url The Spine model to query
 ---@param skin_a string|hash Id of the corresponding skin that will recieve the copied skin
 ---@param skin_b string|hash Id of the corresponding skin to copy
 function spine.copy_skin(url, skin_a, skin_b) end
 
+---Creates an empty skin.
+---Skins are shared by everything using the same spine scene. Errors if the skin already exists.
+---@param url string|hash|url The Spine model
+---@param skin string Name of the new skin
+function spine.create_skin(url, skin) end
+
 ---Clear all attachments and constraints from a skin on a spine model
+---Skins are shared by everything using the same spine scene.
 ---@param url string|hash|url The Spine model to query
 ---@param skin string|hash Id of the corresponding skin
 function spine.clear_skin(url, skin) end

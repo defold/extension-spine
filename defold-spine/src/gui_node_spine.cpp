@@ -639,6 +639,12 @@ bool CopySkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id_a, dmhas
     return true;
 }
 
+bool CreateSkin(dmGui::HScene scene, dmGui::HNode hnode, const char* skin_name)
+{
+    InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
+    return CreateSkin(node->m_SpineScene, skin_name);
+}
+
 bool ClearSkin(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t skin_id){
     InternalGuiNode* node = (InternalGuiNode*)dmGui::GetNodeCustomData(scene, hnode);
     spSkin* skin = node->m_SpineScene->m_Skeleton->defaultSkin;

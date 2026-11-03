@@ -199,6 +199,7 @@
     - name: add_spine_skin
       type: function
       desc: Add a spine skin on a spine node to another skin on the same node.
+            Skins are shared by everything using the same spine scene.
       parameters:
         - name: node
           type: node
@@ -223,6 +224,7 @@
     - name: copy_spine_skin
       type: function
       desc: Copy a spine skin on a spine node to another skin on the same node.
+            Skins are shared by everything using the same spine scene.
       parameters:
         - name: node
           type: node
@@ -243,10 +245,35 @@
             end
             ```
 
+    - name: create_spine_skin
+      type: function
+      desc: Creates an empty skin.
+            Skins are shared by everything using the same spine scene. Errors if the skin already exists.
+      parameters:
+        - name: node
+          type: node
+          desc: spine node
+        - name: spine_skin
+          type: string
+          desc: name of the new skin
+      examples:
+       - desc: |-
+            Create a custom skin and copy another skin into it
+
+            ```lua
+            function init(self)
+              local node = gui.get_node("spine_node")
+              gui.create_spine_skin(node, "custom")
+              gui.copy_spine_skin(node, "custom", "monster_body")
+              gui.set_spine_skin(node, "custom")
+            end
+            ```
+
 
     - name: clear_spine_skin
       type: function
       desc: Clear a spine skin on a spine node of all attachments and constraints
+            Skins are shared by everything using the same spine scene.
       parameters:
         - name: node
           type: node
