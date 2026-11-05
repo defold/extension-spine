@@ -317,6 +317,12 @@ namespace dmSpine
             lua_pop(L, 1);
         }
 
+        if (mix_blend < dmGameSystemDDF::MixBlend::MIX_BLEND_SETUP || mix_blend > dmGameSystemDDF::MixBlend::MIX_BLEND_ADD)
+        {
+            dmLogError("Invalid mix_blend value: '%u'", mix_blend);
+            return 0;
+        }
+
         dmScript::LuaCallbackInfo* cbk = 0x0;
         if (top > 4) // completed cb
         {
@@ -324,12 +330,6 @@ namespace dmSpine
             {
                 cbk = dmScript::CreateCallback(L, 5);
             }
-        }
-
-        if (mix_blend < dmGameSystemDDF::MixBlend::MIX_BLEND_SETUP || mix_blend > dmGameSystemDDF::MixBlend::MIX_BLEND_ADD)
-        {
-            dmLogError("Invalid mix_blend value: '%u'", mix_blend);
-            return 0;
         }
 
         dmGameSystemDDF::SpinePlayAnimation msg;

@@ -481,28 +481,6 @@ bool SetScene(dmGui::HScene scene, dmGui::HNode hnode, dmhash_t spine_scene)
     if (spine_scene == node->m_SpinePath && resource == node->m_SpineScene)
         return true;
 
-    if (node->m_FindBones)
-    {
-        node->m_FindBones = 0;
-        FindBones(node);
-    }
-
-    // A possible improvement is to find an animation with the same name in the new scene
-    // and try to use the same unit time cursor
-    if (node->m_AnimationStateInstance)
-        spAnimationState_dispose(node->m_AnimationStateInstance);
-    node->m_AnimationStateInstance = 0;
-    if (node->m_SkeletonInstance)
-        spSkeleton_dispose(node->m_SkeletonInstance);
-    node->m_SkeletonInstance = 0;
-
-    // Clean up all track callbacks since we're changing scenes
-    for (int32_t i = 0; i < node->m_AnimationTracks.Size(); i++)
-    {
-        ClearTrackCallback(node, &node->m_AnimationTracks[i]);
-    }
-    node->m_AnimationTracks.SetSize(0);
-
     return SetupNode(spine_scene, resource, node, true);
 }
 
@@ -977,6 +955,16 @@ static void FindBones(InternalGuiNode* node)
     FindSpineBones(node, node->m_SkeletonInstance->root);
 }
 
+static void DestroySpineState(InternalGuiNode* node)
+{
+    if (node->m_AnimationStateInstance)
+        spAnimationState_dispose(node->m_AnimationStateInstance);
+    node->m_AnimationStateInstance = 0;
+    if (node->m_SkeletonInstance)
+        spSkeleton_dispose(node->m_SkeletonInstance);
+    node->m_SkeletonInstance = 0;
+}
+
 static void DestroyNode(InternalGuiNode* node)
 {
     DeleteBones(node);
@@ -991,10 +979,7 @@ static void DestroyNode(InternalGuiNode* node)
     node->m_AnimationTracks.SetCapacity(0);
     node->m_DeferredCallbacks.SetCapacity(0);
 
-    if (node->m_AnimationStateInstance)
-        spAnimationState_dispose(node->m_AnimationStateInstance);
-    if (node->m_SkeletonInstance)
-        spSkeleton_dispose(node->m_SkeletonInstance);
+    DestroySpineState(node);
 
     //delete node; // don't delete it. It's already been registered with the comp_gui and we need to wait for the GuiDestroy
 }
@@ -1022,6 +1007,7 @@ static void GuiDestroy(const dmGameSystem::CompGuiNodeContext* ctx, const dmGame
     assert(node->m_CallbackInvocationDepth == 0);
     DestroyDeferredCallbacks(node);
 
+    DestroySpineState(node);
     delete node;
     dmSpine::GuiSpineSceneRelease(nodectx->m_Scene);
     dmSpine::GuiSpineUnregisterNode(nodectx->m_Scene, nodectx->m_Node);
@@ -1029,6 +1015,22 @@ static void GuiDestroy(const dmGameSystem::CompGuiNodeContext* ctx, const dmGame
 
 static bool SetupNode(dmhash_t path, SpineSceneResource* resource, InternalGuiNode* node, bool create_bones)
 {
+    // Layout changes also reuse the node, so release its previous state here.
+    if (node->m_FindBones)
+    {
+        node->m_FindBones = 0;
+        FindBones(node);
+    }
+    DeleteBones(node);
+    DestroySpineState(node);
+    for (uint32_t i = 0; i < node->m_AnimationTracks.Size(); ++i)
+    {
+        ClearTrackCallback(node, &node->m_AnimationTracks[i]);
+    }
+    node->m_AnimationTracks.SetSize(0);
+    node->m_IKTargets.SetSize(0);
+    node->m_IKTargetPositions.SetSize(0);
+
     node->m_SpinePath    = path;
     node->m_SpineScene   = resource;
 
@@ -1183,7 +1185,8 @@ static void GuiSetNodeDesc(const dmGameSystem::CompGuiNodeContext* ctx, const dm
     node->m_Id = node_desc->m_Id;
     node->m_AdjustMode = (dmGui::AdjustMode)node_desc->m_AdjustMode;
 
-    SetupNode(name_hash, resource, node, create_bones);
+    if (!SetupNode(name_hash, resource, node, create_bones))
+        return;
 
     if (node->m_SkinId) {
         SetSkin(node->m_GuiScene, node->m_GuiNode, node->m_SkinId);

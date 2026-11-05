@@ -304,7 +304,10 @@ namespace dmSpine
         component->m_Bones.SetCapacity(skeleton->bonesCount);
         component->m_BoneInstances.SetCapacity(skeleton->bonesCount);
         component->m_BoneInstanceIds.SetCapacity(skeleton->bonesCount);
-        component->m_BoneNameToNodeInstanceIndex.OffsetCapacity(skeleton->bonesCount);
+        if (component->m_BoneNameToNodeInstanceIndex.Capacity() < (uint32_t)skeleton->bonesCount)
+        {
+            component->m_BoneNameToNodeInstanceIndex.SetCapacity(skeleton->bonesCount);
+        }
         if (!CreateGOBone(component, dmGameObject::GetCollection(component->m_Instance), component->m_Instance, 0, skeleton->root, 0))
         {
             dmLogError("Failed to create bones");
