@@ -93,12 +93,16 @@ namespace dmSpine
         dmGraphics::HIndexBuffer                m_IndexBuffer;
         dmArray<dmSpine::SpineVertex>           m_VertexBufferData;
         dmArray<uint32_t>                       m_IndexBufferData;
+        dmArray<uint32_t>                       m_FrameIndexData;       // Indices generated this frame, reused by later dispatches
         dmArray<uint8_t>                        m_PackedIndexBufferData;
         dmArray<SpineIndexedDrawDesc>           m_DrawDescBuffer;
         dmArray<SpineIndexedDrawDesc>           m_MergedDrawDescBuffer;
         dmResource::HFactory                    m_Factory;
         spSkeletonClipping*                     m_SkeletonClipper;
         uint32_t                                m_RenderObjectsInUse;
+        uint32_t                                m_FrameId;              // Incremented once per frame in CompSpineModelRender
+        uint32_t                                m_VertexBufferFrameId;  // Frame the contents of m_VertexBufferData belong to
+        uint32_t                                m_UploadedVertexCount;  // Vertices already uploaded (and profiled) this frame
         uint8_t                                 m_Is16BitIndex : 1;
     };
 
@@ -131,6 +135,9 @@ namespace dmSpine
         world->m_BoundingBoxes.SetCapacity(comp_count);
         world->m_BoundingBoxes.SetSize(comp_count);
         world->m_RenderObjectsInUse = 0;
+        world->m_FrameId = 0;
+        world->m_VertexBufferFrameId = 0;
+        world->m_UploadedVertexCount = 0;
 
         dmGraphics::HVertexStreamDeclaration stream_declaration = dmGraphics::NewVertexStreamDeclaration(context->m_GraphicsContext);
         dmGraphics::AddVertexStream(stream_declaration, "position", 3, dmGraphics::TYPE_FLOAT, false);
@@ -1159,9 +1166,22 @@ namespace dmSpine
         world->m_RenderObjectsInUse = 0;
     }
 
+    static void AppendIndices(dmArray<uint32_t>& dst, const uint32_t* src, uint32_t count)
+    {
+        if (count == 0)
+        {
+            return;
+        }
+        if (dst.Remaining() < count)
+        {
+            dst.SetCapacity(dmMath::Max(dst.Size() + count, dst.Capacity() * 2));
+        }
+        dst.PushArray(src, count);
+    }
+
     static void RenderBatch(SpineModelWorld* world, dmRender::HRenderContext render_context, dmRender::RenderListEntry *buf, uint32_t* begin, uint32_t* end)
     {
-        //DM_PROFILE(SpineModel, "RenderBatch");
+        DM_PROFILE("RenderBatch");
 
         dmArray<SpineModelComponent*>& components = world->m_Components.GetRawObjects();
 
@@ -1197,8 +1217,27 @@ namespace dmSpine
         for (uint32_t *i = begin; i != end; ++i)
         {
             component_index = (uint32_t)buf[*i].m_UserData;
-            const SpineModelComponent* component = (const SpineModelComponent*) components[component_index];
+            SpineModelComponent* component = components[component_index];
+
+            // Vertices are pass independent, so reuse what an earlier dispatch generated this frame.
+            // The cached indices are absolute into m_VertexBufferData, which persists for the whole frame.
+            // Inherit blend mode needs per-slot draw descriptors and is always generated.
+            if (!use_inherit_blend && component->m_GeneratedFrameId == world->m_FrameId)
+            {
+                AppendIndices(world->m_IndexBufferData, world->m_FrameIndexData.Begin() + component->m_FrameIndexStart, component->m_FrameIndexCount);
+                continue;
+            }
+
+            uint32_t component_index_start = world->m_IndexBufferData.Size();
             dmSpine::GenerateIndexedVertexData(world->m_VertexBufferData, world->m_IndexBufferData, component->m_SkeletonInstance, world->m_SkeletonClipper, component->m_World, Vector4(1.0f), use_inherit_blend ? &world->m_DrawDescBuffer : 0, world->m_GeometryScratch);
+
+            if (!use_inherit_blend)
+            {
+                component->m_GeneratedFrameId = world->m_FrameId;
+                component->m_FrameIndexStart = world->m_FrameIndexData.Size();
+                component->m_FrameIndexCount = world->m_IndexBufferData.Size() - component_index_start;
+                AppendIndices(world->m_FrameIndexData, world->m_IndexBufferData.Begin() + component_index_start, component->m_FrameIndexCount);
+            }
         }
 
         uint32_t index_count = world->m_IndexBufferData.Size() - index_start;
@@ -1284,8 +1323,15 @@ namespace dmSpine
         {
             case dmRender::RENDER_LIST_OPERATION_BEGIN:
             {
+                // Render objects and indices are per dispatch, while vertices are shared by all dispatches of a frame
                 PrepareRenderObjectsForFrame(world);
-                world->m_VertexBufferData.SetSize(0);
+                if (world->m_VertexBufferFrameId != world->m_FrameId)
+                {
+                    world->m_VertexBufferFrameId = world->m_FrameId;
+                    world->m_VertexBufferData.SetSize(0);
+                    world->m_FrameIndexData.SetSize(0);
+                    world->m_UploadedVertexCount = 0;
+                }
                 world->m_IndexBufferData.SetSize(0);
                 world->m_PackedIndexBufferData.SetSize(0);
                 break;
@@ -1303,8 +1349,12 @@ namespace dmSpine
                 if (vertex_data_size && index_data_size)
                 {
                     PackIndexBufferData(world);
-                    dmGraphics::SetVertexBufferData(world->m_VertexBuffer, vertex_data_size,
-                                                    world->m_VertexBufferData.Begin(), dmGraphics::BUFFER_USAGE_DYNAMIC_DRAW);
+                    // An earlier dispatch this frame already uploaded identical vertex data
+                    if (world->m_VertexBufferData.Size() != world->m_UploadedVertexCount)
+                    {
+                        dmGraphics::SetVertexBufferData(world->m_VertexBuffer, vertex_data_size,
+                                                        world->m_VertexBufferData.Begin(), dmGraphics::BUFFER_USAGE_DYNAMIC_DRAW);
+                    }
                     dmGraphics::SetIndexBufferData(world->m_IndexBuffer, index_data_size,
                                                    world->m_PackedIndexBufferData.Begin(), dmGraphics::BUFFER_USAGE_DYNAMIC_DRAW);
 
@@ -1330,8 +1380,10 @@ namespace dmSpine
                         render_objects_left -= render_objects_in_block;
                     }
 
-                    DM_PROPERTY_ADD_U32(rmtp_SpineVertexCount, world->m_VertexBufferData.Size());
-                    DM_PROPERTY_ADD_U32(rmtp_SpineVertexSize, vertex_data_size);
+                    // Only count vertices generated since the previous dispatch of this frame
+                    DM_PROPERTY_ADD_U32(rmtp_SpineVertexCount, world->m_VertexBufferData.Size() - world->m_UploadedVertexCount);
+                    DM_PROPERTY_ADD_U32(rmtp_SpineVertexSize, sizeof(dmSpine::SpineVertex) * (world->m_VertexBufferData.Size() - world->m_UploadedVertexCount));
+                    world->m_UploadedVertexCount = world->m_VertexBufferData.Size();
                     DM_PROPERTY_ADD_U32(rmtp_SpineIndexSize, index_data_size);
                 }
                 break;
@@ -1347,6 +1399,10 @@ namespace dmSpine
         SpineModelContext* context = (SpineModelContext*)params.m_Context;
         dmRender::HRenderContext render_context = context->m_RenderContext;
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
+
+        // Invalidates the per-component vertex caches. 0 is reserved for "never generated".
+        if (++world->m_FrameId == 0)
+            world->m_FrameId = 1;
 
         //UpdateTransforms(world);
 

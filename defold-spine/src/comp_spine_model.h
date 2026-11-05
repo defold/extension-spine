@@ -81,6 +81,9 @@ namespace dmSpine
         dmArray<dmSpine::IKTarget>              m_IKTargetPositions;
         uint32_t                                m_MixedHash;
         uint32_t                                m_CallbackInvocationDepth;
+        uint32_t                                m_GeneratedFrameId;     // Frame the cached vertex data was generated in (0 = never)
+        uint32_t                                m_FrameIndexStart;      // Range in SpineModelWorld::m_FrameIndexData
+        uint32_t                                m_FrameIndexCount;
         uint16_t                                m_ComponentIndex;
         uint8_t                                 m_Enabled : 1;
         uint8_t                                 m_DoRender : 1;
