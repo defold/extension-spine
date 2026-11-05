@@ -64,6 +64,7 @@ namespace dmSpine
         dmTransform::Transform                  m_Transform;
         dmVMath::Matrix4                        m_World;
         SpineModelResource*                     m_Resource;
+        uint64_t                                m_GeometryRevision;
         spSkeleton*                             m_SkeletonInstance;
         spAnimationState*                       m_AnimationStateInstance;
         dmArray<dmSpine::SpineAnimationTrack>   m_AnimationTracks;
