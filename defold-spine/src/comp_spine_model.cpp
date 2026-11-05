@@ -81,6 +81,20 @@ namespace dmSpine
     static void DestroyComponent(struct SpineModelWorld* world, uint32_t index);
     static void SpineEventListener(spAnimationState* state, spEventType type, spTrackEntry* entry, spEvent* event);
 
+    struct SpinePrefixEntry
+    {
+        SpineModelComponent* m_Component;
+        uint64_t m_Revision;
+        uint32_t m_VertexStart, m_IndexStart, m_VertexEnd, m_IndexEnd;
+    };
+    struct SpineROCheck { dmRender::RenderObject m_Expected; };
+    static uint32_t g_GeometryWorldId = 0;
+    static void InvalidateGeometryCache(SpineModelComponent* component)
+    {
+        ++component->m_GeometryRevision;
+        if (!component->m_GeometryRevision) ++component->m_GeometryRevision;
+    }
+
     struct SpineModelWorld
     {
         dmObjectPool<SpineModelComponent*>      m_Components;
@@ -99,6 +113,24 @@ namespace dmSpine
         dmResource::HFactory                    m_Factory;
         spSkeletonClipping*                     m_SkeletonClipper;
         uint32_t                                m_RenderObjectsInUse;
+        dmArray<SpinePrefixEntry>                m_ResidentComponents;
+        dmArray<SpinePrefixEntry>                m_PassComponents;
+        uint64_t                                m_GeometryEpoch, m_ResidentEpoch;
+        uint32_t                                m_ResidentVertices, m_ResidentIndices, m_ResidentPackedBytes;
+        uint32_t                                m_GeometryWorldId;
+        int32_t                                 m_GeometryCacheMode;
+        bool                                    m_PassPrefixMatch, m_PassEligible, m_PassWrote;
+        bool                                    m_GeometryCacheFailed;
+        uint64_t                                m_CacheHits, m_CacheMisses, m_CacheVerified;
+        uint64_t                                m_CacheVertices, m_CacheIndices, m_CacheDrawDescs;
+        uint64_t                                m_CacheMismatches, m_CacheUnsupported;
+        uint64_t                                m_CompletePassReuse, m_PackedChecks, m_ROChecks, m_MetadataPeak;
+        float                                   m_CacheMaxDelta;
+        dmArray<SpineVertex>                     m_CheckVertices;
+        dmArray<uint32_t>                        m_CheckIndices;
+        dmArray<SpineIndexedDrawDesc>            m_CheckDrawDescs;
+        dmArray<SpineROCheck>                    m_CheckRO;
+        SpineModelWorld*                         m_PackReference;
         uint8_t                                 m_Is16BitIndex : 1;
     };
 
@@ -112,6 +144,7 @@ namespace dmSpine
         dmRender::HRenderContext    m_RenderContext;
         dmGraphics::HContext        m_GraphicsContext;
         uint32_t                    m_MaxSpineModelCount;
+        int32_t                     m_GeometryCacheMode;
     };
 
     dmGameObject::CreateResult CompSpineModelNewWorld(const dmGameObject::ComponentNewWorldParams& params)
@@ -120,6 +153,9 @@ namespace dmSpine
         //dmRender::HRenderContext render_context = context->m_RenderContext;
         SpineModelWorld* world = new SpineModelWorld();
         world->m_Factory = context->m_Factory;
+        world->m_GeometryCacheMode = context->m_GeometryCacheMode;
+        world->m_GeometryWorldId = ++g_GeometryWorldId;
+        // new SpineModelWorld() value-initializes scalar cache state to zero.
 
         uint32_t comp_count = dmMath::Min(params.m_MaxComponentInstances, context->m_MaxSpineModelCount);
 
@@ -170,6 +206,7 @@ namespace dmSpine
 
         spSkeletonClipping_dispose(world->m_SkeletonClipper);
 
+        delete world->m_PackReference;
         delete world;
 
         return dmGameObject::CREATE_RESULT_OK;
@@ -502,6 +539,7 @@ namespace dmSpine
 
     static bool SetupComponentFromScene(SpineModelWorld* world, SpineModelComponent* component, SpineSceneResource* spine_scene, bool create_bones, bool play_default_animation)
     {
+        InvalidateGeometryCache(component);
         component->m_SkeletonInstance = spSkeleton_create(spine_scene->m_Skeleton);
         if (!component->m_SkeletonInstance)
         {
@@ -754,6 +792,7 @@ namespace dmSpine
 
         SpineModelResource* spine_model = (SpineModelResource*)params.m_Resource;
 
+        world->m_ResidentEpoch = 0; // A new instance must never alias a retained pointer.
         uint32_t index = world->m_Components.Alloc();
         SpineModelComponent* component = new SpineModelComponent;
         memset(component, 0, sizeof(SpineModelComponent));
@@ -782,6 +821,7 @@ namespace dmSpine
     static void DestroyComponent(SpineModelWorld* world, uint32_t index)
     {
         SpineModelComponent* component = world->m_Components.Get(index);
+        world->m_ResidentEpoch = 0;
         DeleteGOBones(component);
         assert(component->m_CallbackInvocationDepth == 0);
         for (uint32_t i = 0; i < component->m_AnimationTracks.Size(); ++i)
@@ -1042,8 +1082,7 @@ namespace dmSpine
     // blocks are released, and subsequent frames are contiguous again. The
     // primary array keeps that capacity and repeats this flow only after a new
     // high-water mark.
-    static void FillRenderObject(SpineModelWorld*  world,
-        dmRender::HRenderContext                   render_context,
+    static void InitRenderObject(SpineModelWorld*  world,
         dmRender::RenderObject&                    ro,
         dmGameSystem::HComponentRenderConstants    constants,
         dmGraphics::HTexture                       texture,
@@ -1098,7 +1137,14 @@ namespace dmSpine
                 assert(0);
             break;
         }
+    }
 
+    static void FillRenderObject(SpineModelWorld* world, dmRender::HRenderContext render_context,
+        dmRender::RenderObject& ro, dmGameSystem::HComponentRenderConstants constants,
+        dmGraphics::HTexture texture, dmRender::HMaterial material,
+        dmGameSystemDDF::SpineModelDesc::BlendMode blend_mode, uint32_t index_start, uint32_t index_count)
+    {
+        InitRenderObject(world, ro, constants, texture, material, blend_mode, index_start, index_count);
         // Submit in BATCH for correct sorting; END completes the retained object.
         dmRender::AddToRender(render_context, &ro);
     }
@@ -1156,6 +1202,368 @@ namespace dmSpine
         world->m_RenderObjectsInUse = 0;
     }
 
+    template <typename T>
+    static uint32_t ExtendCacheArray(dmArray<T>& array, uint32_t count)
+    {
+        uint32_t start = array.Size(), size = start + count;
+        if (size > array.Capacity()) array.SetCapacity(dmMath::Max(size, dmMath::Max(16U, array.Capacity() * 2)));
+        array.SetSize(size);
+        return start;
+    }
+
+    static uint64_t PrefixMetadataBytes(const SpineModelWorld* world)
+    {
+        return (uint64_t)(world->m_ResidentComponents.Capacity() + world->m_PassComponents.Capacity()) * sizeof(SpinePrefixEntry);
+    }
+
+    static void ReportGeometryCache(SpineModelWorld* world)
+    {
+        uint64_t scratch = (uint64_t)world->m_CheckVertices.Capacity() * sizeof(SpineVertex)
+            + (uint64_t)world->m_CheckIndices.Capacity() * sizeof(uint32_t)
+            + (uint64_t)world->m_CheckDrawDescs.Capacity() * sizeof(SpineIndexedDrawDesc)
+            + (uint64_t)world->m_CheckRO.Capacity() * sizeof(SpineROCheck);
+        if (world->m_PackReference) scratch += (uint64_t)world->m_PackReference->m_IndexBufferData.Capacity() * sizeof(uint32_t)
+            + world->m_PackReference->m_PackedIndexBufferData.Capacity();
+        uint64_t bytes = PrefixMetadataBytes(world);
+        world->m_MetadataPeak = dmMath::Max(world->m_MetadataPeak, bytes);
+        dmLogInfo("[SPINE-CACHE-CHECK] {\"mode\":%d,\"world_id\":%u,\"epoch\":%llu,\"hits\":%llu,\"misses\":%llu,"
+            "\"verified_components\":%llu,\"vertices\":%llu,\"indices\":%llu,\"draw_descs\":%llu,\"mismatches\":%llu,"
+            "\"max_delta\":%.9g,\"bytes_cached\":%llu,\"metadata_bytes\":%llu,\"peak_metadata_bytes\":%llu,"
+            "\"diagnostic_scratch_bytes\":%llu,\"cache_entries\":%u,\"complete_pass_reuse\":%llu,\"packed_checks\":%llu,"
+            "\"ro_checks\":%llu,\"unsupported\":%llu,\"failed\":%s}",
+            world->m_GeometryCacheMode, world->m_GeometryWorldId, (unsigned long long)world->m_GeometryEpoch,
+            (unsigned long long)world->m_CacheHits, (unsigned long long)world->m_CacheMisses,
+            (unsigned long long)world->m_CacheVerified, (unsigned long long)world->m_CacheVertices,
+            (unsigned long long)world->m_CacheIndices, (unsigned long long)world->m_CacheDrawDescs,
+            (unsigned long long)world->m_CacheMismatches, world->m_CacheMaxDelta,
+            (unsigned long long)bytes, (unsigned long long)bytes, (unsigned long long)world->m_MetadataPeak,
+            (unsigned long long)scratch, world->m_ResidentComponents.Size(), (unsigned long long)world->m_CompletePassReuse,
+            (unsigned long long)world->m_PackedChecks, (unsigned long long)world->m_ROChecks,
+            (unsigned long long)world->m_CacheUnsupported, world->m_GeometryCacheFailed ? "true" : "false");
+    }
+
+    static void FailPrefixCache(SpineModelWorld* world, const char* detail)
+    {
+        ++world->m_CacheMismatches;
+        world->m_GeometryCacheFailed = true;
+        world->m_PassEligible = world->m_PassPrefixMatch = false;
+        world->m_ResidentEpoch = 0;
+        dmLogError("Spine resident prefix cache mismatch: %s", detail);
+        ReportGeometryCache(world);
+    }
+
+    static bool CompareCacheVertex(const SpineVertex& a, const SpineVertex& b, float& max_delta)
+    {
+        // Compare the 13 public fields, not struct bytes/padding. NaNs fail equality.
+        const float av[] = {a.x,a.y,a.z,a.u,a.v,a.r,a.g,a.b,a.a,a.dark_r,a.dark_g,a.dark_b,a.page_index};
+        const float bv[] = {b.x,b.y,b.z,b.u,b.v,b.r,b.g,b.b,b.a,b.dark_r,b.dark_g,b.dark_b,b.page_index};
+        bool equal = true;
+        for (uint32_t i = 0; i < sizeof(av) / sizeof(av[0]); ++i)
+        {
+            if (av[i] != bv[i])
+            {
+                equal = false;
+                float delta = fabsf(av[i] - bv[i]);
+                // JSON remains valid even if the corrupt value is non-finite.
+                if (!(delta <= 3.402823466e+38F)) delta = 3.402823466e+38F;
+                max_delta = dmMath::Max(max_delta, delta);
+            }
+        }
+        return equal;
+    }
+
+    static bool VerifyAppendedGeometry(SpineModelWorld* world, const SpineModelComponent* component,
+        bool inherit, uint32_t vertex_base, uint32_t index_base, uint32_t desc_base)
+    {
+        // Independent original generator, with the same pre-append sizes/bases as
+        // the actual pass. Prefix values are never read by that generator or this
+        // comparison; only its newly generated segment is the expected output.
+        if (world->m_CheckVertices.Capacity() < vertex_base)
+            world->m_CheckVertices.SetCapacity(vertex_base);
+        if (world->m_CheckIndices.Capacity() < index_base)
+            world->m_CheckIndices.SetCapacity(index_base);
+        uint32_t desc_capacity = desc_base + (inherit ? component->m_SkeletonInstance->slotsCount : 0);
+        if (world->m_CheckDrawDescs.Capacity() < desc_capacity)
+            world->m_CheckDrawDescs.SetCapacity(desc_capacity);
+        world->m_CheckVertices.SetSize(vertex_base);
+        world->m_CheckIndices.SetSize(index_base);
+        world->m_CheckDrawDescs.SetSize(desc_base);
+        GenerateIndexedVertexData(world->m_CheckVertices, world->m_CheckIndices,
+            component->m_SkeletonInstance, world->m_SkeletonClipper, component->m_World,
+            Vector4(1.0f), inherit ? &world->m_CheckDrawDescs : 0, world->m_GeometryScratch);
+        bool equal = world->m_VertexBufferData.Size() == world->m_CheckVertices.Size()
+            && world->m_IndexBufferData.Size() == world->m_CheckIndices.Size()
+            && world->m_DrawDescBuffer.Size() == world->m_CheckDrawDescs.Size();
+        for (uint32_t i = vertex_base; i < dmMath::Min(world->m_VertexBufferData.Size(), world->m_CheckVertices.Size()); ++i)
+            equal = CompareCacheVertex(world->m_VertexBufferData[i], world->m_CheckVertices[i], world->m_CacheMaxDelta) && equal;
+        for (uint32_t i = index_base; i < dmMath::Min(world->m_IndexBufferData.Size(), world->m_CheckIndices.Size()); ++i)
+            equal = (world->m_IndexBufferData[i] == world->m_CheckIndices[i]) && equal;
+        for (uint32_t i = desc_base; i < dmMath::Min(world->m_DrawDescBuffer.Size(), world->m_CheckDrawDescs.Size()); ++i)
+        {
+            const SpineIndexedDrawDesc& a = world->m_DrawDescBuffer[i];
+            const SpineIndexedDrawDesc& b = world->m_CheckDrawDescs[i];
+            equal = (a.m_IndexStart == b.m_IndexStart && a.m_IndexCount == b.m_IndexCount && a.m_BlendMode == b.m_BlendMode) && equal;
+        }
+        ++world->m_CacheVerified;
+        if (!equal)
+        {
+            ++world->m_CacheMismatches;
+            world->m_GeometryCacheFailed = true;
+            dmLogError("Spine geometry cache mismatch at epoch %llu, component %u; upstream path enabled for this world",
+                (unsigned long long)world->m_GeometryEpoch, component->m_ComponentIndex);
+            world->m_PassEligible = world->m_PassPrefixMatch = false;
+            world->m_PassWrote = true;
+            world->m_ResidentEpoch = 0;
+            ReportGeometryCache(world);
+            // Preserve the untouched prefix. Restore only the independently
+            // generated suffix, including its absolute indices and actual sizes.
+            if (world->m_VertexBufferData.Size() < world->m_CheckVertices.Size())
+                ExtendCacheArray(world->m_VertexBufferData, world->m_CheckVertices.Size() - world->m_VertexBufferData.Size());
+            if (world->m_IndexBufferData.Size() < world->m_CheckIndices.Size())
+                ExtendCacheArray(world->m_IndexBufferData, world->m_CheckIndices.Size() - world->m_IndexBufferData.Size());
+            if (world->m_DrawDescBuffer.Size() < world->m_CheckDrawDescs.Size())
+                ExtendCacheArray(world->m_DrawDescBuffer, world->m_CheckDrawDescs.Size() - world->m_DrawDescBuffer.Size());
+            world->m_VertexBufferData.SetSize(world->m_CheckVertices.Size());
+            world->m_IndexBufferData.SetSize(world->m_CheckIndices.Size());
+            world->m_DrawDescBuffer.SetSize(world->m_CheckDrawDescs.Size());
+            uint32_t vertices = world->m_CheckVertices.Size() - vertex_base;
+            uint32_t indices = world->m_CheckIndices.Size() - index_base;
+            uint32_t descs = world->m_CheckDrawDescs.Size() - desc_base;
+            if (vertices) memcpy(world->m_VertexBufferData.Begin() + vertex_base, world->m_CheckVertices.Begin() + vertex_base, vertices * sizeof(SpineVertex));
+            if (indices) memcpy(world->m_IndexBufferData.Begin() + index_base, world->m_CheckIndices.Begin() + index_base, indices * sizeof(uint32_t));
+            if (descs) memcpy(world->m_DrawDescBuffer.Begin() + desc_base, world->m_CheckDrawDescs.Begin() + desc_base, descs * sizeof(SpineIndexedDrawDesc));
+        }
+        return equal;
+    }
+
+
+
+    static void BeginPrefixPass(SpineModelWorld* world)
+    {
+        if (!world->m_GeometryCacheMode) return;
+        world->m_PassComponents.SetSize(0);
+        world->m_PassWrote = false;
+        world->m_PassEligible = !world->m_GeometryCacheFailed;
+        world->m_PassPrefixMatch = !world->m_GeometryCacheFailed && world->m_ResidentEpoch == world->m_GeometryEpoch;
+        if (world->m_GeometryCacheMode == 2)
+        {
+            world->m_CheckVertices.SetSize(0);
+            world->m_CheckIndices.SetSize(0);
+            world->m_CheckDrawDescs.SetSize(0);
+            world->m_CheckRO.SetSize(0);
+        }
+    }
+
+    static void GenerateTrackedGeometry(SpineModelWorld* world, const SpineModelComponent* component, bool inherit)
+    {
+        uint32_t vertices = world->m_VertexBufferData.Size(), indices = world->m_IndexBufferData.Size();
+        GenerateIndexedVertexData(world->m_VertexBufferData, world->m_IndexBufferData,
+            component->m_SkeletonInstance, world->m_SkeletonClipper, component->m_World,
+            Vector4(1.0f), inherit ? &world->m_DrawDescBuffer : 0, world->m_GeometryScratch);
+        if (world->m_VertexBufferData.Size() != vertices || world->m_IndexBufferData.Size() != indices)
+        {
+            world->m_PassWrote = true;
+            // Generation may overwrite the old suffix, or SetCapacity may discard
+            // bytes beyond current Size. No old signature may survive that write.
+            world->m_ResidentEpoch = 0;
+        }
+    }
+
+    static void AppendPrefixGeometry(SpineModelWorld* world, SpineModelComponent* component)
+    {
+        uint32_t vertex_base = world->m_VertexBufferData.Size(), index_base = world->m_IndexBufferData.Size();
+        uint32_t desc_base = world->m_DrawDescBuffer.Size(), ordinal = world->m_PassComponents.Size();
+        bool hit = false;
+        if (world->m_PassPrefixMatch && ordinal < world->m_ResidentComponents.Size())
+        {
+            const SpinePrefixEntry& old = world->m_ResidentComponents.Begin()[ordinal];
+            hit = old.m_Component == component && old.m_Revision == component->m_GeometryRevision
+                && old.m_VertexStart == vertex_base && old.m_IndexStart == index_base
+                && old.m_VertexEnd >= vertex_base && old.m_IndexEnd >= index_base
+                && old.m_VertexEnd <= world->m_VertexBufferData.Capacity()
+                && old.m_IndexEnd <= world->m_IndexBufferData.Capacity();
+            if (hit)
+            {
+                world->m_VertexBufferData.SetSize(old.m_VertexEnd);
+                world->m_IndexBufferData.SetSize(old.m_IndexEnd);
+            }
+        }
+        if (!hit)
+        {
+            world->m_PassPrefixMatch = false; // Never reuse a suffix after any divergence.
+            GenerateTrackedGeometry(world, component, false);
+        }
+        SpinePrefixEntry entry = {component, component->m_GeometryRevision, vertex_base, index_base,
+            world->m_VertexBufferData.Size(), world->m_IndexBufferData.Size()};
+        uint32_t at = ExtendCacheArray(world->m_PassComponents, 1);
+        world->m_PassComponents.Begin()[at] = entry;
+        if (world->m_GeometryCacheMode == 2)
+        {
+            if (hit) ++world->m_CacheHits;
+            else
+            {
+                ++world->m_CacheMisses;
+                world->m_CacheVertices += entry.m_VertexEnd - vertex_base;
+                world->m_CacheIndices += entry.m_IndexEnd - index_base;
+            }
+            world->m_MetadataPeak = dmMath::Max(world->m_MetadataPeak, PrefixMetadataBytes(world));
+            VerifyAppendedGeometry(world, component, false, vertex_base, index_base, desc_base);
+        }
+    }
+
+    // Mode 0, unsupported passes and failed diagnostics retain the original
+    // packed-array upload. Supported 32-bit passes already own final-format data.
+    static bool UseDirectIndexUpload(const SpineModelWorld* world)
+    {
+        return world->m_GeometryCacheMode && !world->m_GeometryCacheFailed
+            && world->m_PassEligible && !world->m_Is16BitIndex;
+    }
+
+    static const uint8_t* IndexUploadData(const SpineModelWorld* world)
+    {
+        return UseDirectIndexUpload(world)
+            ? reinterpret_cast<const uint8_t*>(world->m_IndexBufferData.Begin())
+            : world->m_PackedIndexBufferData.Begin();
+    }
+
+    static uint32_t IndexUploadSize(const SpineModelWorld* world)
+    {
+        return UseDirectIndexUpload(world)
+            ? world->m_IndexBufferData.Size() * sizeof(uint32_t)
+            : world->m_PackedIndexBufferData.Size();
+    }
+
+    static uint64_t IndexUploadCapacity(const SpineModelWorld* world)
+    {
+        return UseDirectIndexUpload(world)
+            ? (uint64_t)world->m_IndexBufferData.Capacity() * sizeof(uint32_t)
+            : world->m_PackedIndexBufferData.Capacity();
+    }
+
+    static bool CanReusePrefixUpload(SpineModelWorld* world, uint32_t packed_bytes)
+    {
+        return world->m_GeometryCacheMode && !world->m_GeometryCacheFailed && world->m_PassEligible
+            && world->m_PassPrefixMatch && !world->m_PassWrote && world->m_ResidentEpoch == world->m_GeometryEpoch
+            && world->m_PassComponents.Size() == world->m_ResidentComponents.Size()
+            && world->m_VertexBufferData.Size() == world->m_ResidentVertices
+            && world->m_IndexBufferData.Size() == world->m_ResidentIndices
+            && packed_bytes == world->m_ResidentPackedBytes && packed_bytes <= IndexUploadCapacity(world);
+    }
+
+    static bool VerifyPrefixPacked(SpineModelWorld* world)
+    {
+        ++world->m_PackedChecks;
+        if (!world->m_PackReference) world->m_PackReference = new SpineModelWorld();
+        SpineModelWorld* reference = world->m_PackReference;
+        reference->m_IndexBufferData.SetSize(0);
+        uint32_t count = world->m_CheckIndices.Size();
+        ExtendCacheArray(reference->m_IndexBufferData, count);
+        if (count) memcpy(reference->m_IndexBufferData.Begin(), world->m_CheckIndices.Begin(), count * sizeof(uint32_t));
+        reference->m_Is16BitIndex = world->m_CheckVertices.Size() <= 65536;
+        PackIndexBufferData(reference); // The original packer, on independent original-generator indices.
+        bool equal = world->m_VertexBufferData.Size() == world->m_CheckVertices.Size()
+            && world->m_IndexBufferData.Size() == count && GetIndexTypeSize(world) == GetIndexTypeSize(reference)
+            && IndexUploadSize(world) == reference->m_PackedIndexBufferData.Size();
+        const uint8_t* actual = IndexUploadData(world);
+        const uint8_t* expected = reference->m_PackedIndexBufferData.Begin();
+        for (uint32_t i = 0; i < dmMath::Min(IndexUploadSize(world), reference->m_PackedIndexBufferData.Size()); ++i)
+            equal = (actual[i] == expected[i]) && equal;
+        if (!equal) FailPrefixCache(world, "retained packed bytes/index width differ from original generator + packer");
+        return equal;
+    }
+
+    template <typename T>
+    static void RestoreCacheArray(dmArray<T>& actual, const dmArray<T>& expected)
+    {
+        actual.SetSize(0);
+        ExtendCacheArray(actual, expected.Size());
+        if (expected.Size()) memcpy(actual.Begin(), expected.Begin(), expected.Size() * sizeof(T));
+    }
+
+    static void RestoreVerifiedGeometry(SpineModelWorld* world)
+    {
+        // Only called while a complete supported pass has an independent reference.
+        RestoreCacheArray(world->m_VertexBufferData, world->m_CheckVertices);
+        RestoreCacheArray(world->m_IndexBufferData, world->m_CheckIndices);
+        world->m_Is16BitIndex = world->m_VertexBufferData.Size() <= 65536;
+    }
+
+    static dmRender::RenderObject& PrefixRenderObject(SpineModelWorld* world, uint32_t index)
+    {
+        if (index < world->m_RenderObjects.Capacity()) return world->m_RenderObjects[index];
+        index -= world->m_RenderObjects.Capacity();
+        return world->m_RenderObjectOverflowBlocks[index >> RENDER_OBJECT_OVERFLOW_BLOCK_SHIFT][index & RENDER_OBJECT_OVERFLOW_BLOCK_MASK];
+    }
+
+    static void AppendROCheck(SpineModelWorld* world, const SpineModelComponent* component,
+        dmGraphics::HTexture texture, dmRender::HMaterial material,
+        dmGameSystemDDF::SpineModelDesc::BlendMode blend_mode, uint32_t index_start, uint32_t index_count)
+    {
+        uint32_t at = ExtendCacheArray(world->m_CheckRO, 1);
+        // Build from batch inputs and original-generator ranges, never snapshot
+        // the actual RenderObject: a wrong but in-bounds range must be detected.
+        InitRenderObject(world, world->m_CheckRO[at].m_Expected, component->m_RenderConstants,
+            texture, material, blend_mode, index_start, index_count);
+    }
+
+    static bool VerifyROChecks(SpineModelWorld* world)
+    {
+        bool equal = world->m_CheckRO.Size() == world->m_RenderObjectsInUse;
+        if (!equal)
+        {
+            // The render list already retains these pointers. Suppress a broken
+            // submission rather than drawing ranges with no independent reference.
+            for (uint32_t i = 0; i < world->m_RenderObjectsInUse; ++i)
+                PrefixRenderObject(world, i).m_VertexCount = 0;
+            FailPrefixCache(world, "RenderObject count differs from original-generator batches");
+            return false;
+        }
+        for (uint32_t i = 0; i < dmMath::Min(world->m_CheckRO.Size(), world->m_RenderObjectsInUse); ++i)
+        {
+            dmRender::RenderObject& ro = PrefixRenderObject(world, i);
+            dmRender::RenderObject expected = world->m_CheckRO[i].m_Expected;
+            bool in_bounds = expected.m_VertexStart <= world->m_CheckIndices.Size()
+                && expected.m_VertexCount <= world->m_CheckIndices.Size() - expected.m_VertexStart;
+            expected.m_IndexType = GetIndexType(world);
+            expected.m_VertexStart *= GetIndexTypeSize(world);
+            bool matches = in_bounds && ro.m_IndexType == expected.m_IndexType
+                && ro.m_VertexStart == expected.m_VertexStart && ro.m_VertexCount == expected.m_VertexCount
+                && ro.m_VertexDeclaration == expected.m_VertexDeclaration
+                && ro.m_VertexBuffer == expected.m_VertexBuffer && ro.m_IndexBuffer == expected.m_IndexBuffer
+                && ro.m_PrimitiveType == expected.m_PrimitiveType && ro.m_Material == expected.m_Material
+                && ro.m_Textures[0] == expected.m_Textures[0] && ro.m_ConstantBuffer == expected.m_ConstantBuffer
+                && ro.m_SetBlendFactors == expected.m_SetBlendFactors
+                && ro.m_SourceBlendFactor == expected.m_SourceBlendFactor
+                && ro.m_DestinationBlendFactor == expected.m_DestinationBlendFactor;
+            if (!matches)
+            {
+                ro = expected; // Keep the submitted address and repair this pass before drawing.
+                if (!in_bounds) ro.m_VertexCount = 0;
+                equal = false;
+            }
+        }
+        world->m_ROChecks += world->m_RenderObjectsInUse;
+        if (!equal) FailPrefixCache(world, "RenderObject range or render state differs from original-generator batch");
+        return equal;
+    }
+
+    static void CommitPrefixResident(SpineModelWorld* world, uint32_t packed_bytes)
+    {
+        if (!world->m_GeometryCacheMode) return;
+        if (!world->m_PassEligible || world->m_GeometryCacheFailed)
+        {
+            world->m_ResidentEpoch = 0;
+            return;
+        }
+        // Every nonempty END replaces the signature, including a shorter matching
+        // prefix that just uploaded a smaller GPU buffer. CPU/GPU identity stays unified.
+        world->m_ResidentComponents.Swap(world->m_PassComponents);
+        world->m_ResidentVertices = world->m_VertexBufferData.Size();
+        world->m_ResidentIndices = world->m_IndexBufferData.Size();
+        world->m_ResidentPackedBytes = packed_bytes;
+        world->m_ResidentEpoch = world->m_GeometryEpoch;
+    }
+
     static void RenderBatch(SpineModelWorld* world, dmRender::HRenderContext render_context, dmRender::RenderListEntry *buf, uint32_t* begin, uint32_t* end)
     {
         //DM_PROFILE(SpineModel, "RenderBatch");
@@ -1170,6 +1578,7 @@ namespace dmSpine
         bool use_inherit_blend = blend_mode == dmGameSystemDDF::SpineModelDesc::BLEND_MODE_INHERIT;
 
         uint32_t index_start            = world->m_IndexBufferData.Size();
+        uint32_t check_index_start      = world->m_CheckIndices.Size();
         uint32_t draw_desc_buffer_count = 0;
 
         // This is a temporary scratch buffer just used for this batch call, so we make sure to reset it.
@@ -1194,8 +1603,17 @@ namespace dmSpine
         for (uint32_t *i = begin; i != end; ++i)
         {
             component_index = (uint32_t)buf[*i].m_UserData;
-            const SpineModelComponent* component = (const SpineModelComponent*) components[component_index];
-            dmSpine::GenerateIndexedVertexData(world->m_VertexBufferData, world->m_IndexBufferData, component->m_SkeletonInstance, world->m_SkeletonClipper, component->m_World, Vector4(1.0f), use_inherit_blend ? &world->m_DrawDescBuffer : 0, world->m_GeometryScratch);
+            SpineModelComponent* component = components[component_index];
+            if (world->m_GeometryCacheMode && !world->m_GeometryCacheFailed && blend_mode == dmGameSystemDDF::SpineModelDesc::BLEND_MODE_ALPHA)
+                AppendPrefixGeometry(world, component);
+            else if (world->m_GeometryCacheMode)
+            {
+                world->m_PassEligible = world->m_PassPrefixMatch = false;
+                if (world->m_GeometryCacheMode == 2) ++world->m_CacheUnsupported;
+                GenerateTrackedGeometry(world, component, use_inherit_blend);
+            }
+            else
+                dmSpine::GenerateIndexedVertexData(world->m_VertexBufferData, world->m_IndexBufferData, component->m_SkeletonInstance, world->m_SkeletonClipper, component->m_World, Vector4(1.0f), use_inherit_blend ? &world->m_DrawDescBuffer : 0, world->m_GeometryScratch);
         }
 
         uint32_t index_count = world->m_IndexBufferData.Size() - index_start;
@@ -1229,6 +1647,9 @@ namespace dmSpine
         {
             dmRender::RenderObject& ro = AcquireRenderObject(world);
             FillRenderObject(world, render_context, ro, first->m_RenderConstants, texture, material, blend_mode, index_start, index_count);
+            if (world->m_GeometryCacheMode == 2 && world->m_PassEligible)
+                AppendROCheck(world, first, texture, material, blend_mode, check_index_start,
+                    world->m_CheckIndices.Size() - check_index_start);
         }
     }
 
@@ -1281,6 +1702,7 @@ namespace dmSpine
         {
             case dmRender::RENDER_LIST_OPERATION_BEGIN:
             {
+                BeginPrefixPass(world);
                 PrepareRenderObjectsForFrame(world);
                 world->m_VertexBufferData.SetSize(0);
                 world->m_IndexBufferData.SetSize(0);
@@ -1299,11 +1721,26 @@ namespace dmSpine
                 uint32_t index_data_size = GetIndexTypeSize(world) * world->m_IndexBufferData.Size();
                 if (vertex_data_size && index_data_size)
                 {
-                    PackIndexBufferData(world);
-                    dmGraphics::SetVertexBufferData(world->m_VertexBuffer, vertex_data_size,
-                                                    world->m_VertexBufferData.Begin(), dmGraphics::BUFFER_USAGE_DYNAMIC_DRAW);
-                    dmGraphics::SetIndexBufferData(world->m_IndexBuffer, index_data_size,
-                                                   world->m_PackedIndexBufferData.Begin(), dmGraphics::BUFFER_USAGE_DYNAMIC_DRAW);
+                    bool reuse_upload = CanReusePrefixUpload(world, index_data_size);
+                    bool verify_pass = world->m_GeometryCacheMode == 2 && world->m_PassEligible;
+                    bool packed_ready = !UseDirectIndexUpload(world);
+                    if (packed_ready)
+                    {
+                        if (reuse_upload) world->m_PackedIndexBufferData.SetSize(index_data_size);
+                        else PackIndexBufferData(world);
+                    }
+                    // Validate before either retaining or uploading GPU contents.
+                    // Failure changes the upload path, so rebuild from the independent
+                    // reference and use the original packer for this same pass.
+                    if (verify_pass && !VerifyPrefixPacked(world))
+                    {
+                        RestoreVerifiedGeometry(world);
+                        PackIndexBufferData(world);
+                        packed_ready = true;
+                        reuse_upload = false;
+                        vertex_data_size = sizeof(dmSpine::SpineVertex) * world->m_VertexBufferData.Size();
+                        index_data_size = GetIndexTypeSize(world) * world->m_IndexBufferData.Size();
+                    }
 
                     uint32_t index_type_size = GetIndexTypeSize(world);
                     dmGraphics::Type index_type = GetIndexType(world);
@@ -1327,6 +1764,19 @@ namespace dmSpine
                         render_objects_left -= render_objects_in_block;
                     }
 
+                    if (verify_pass && !VerifyROChecks(world))
+                        reuse_upload = false;
+                    if (!reuse_upload)
+                    {
+                        // An RO failure can switch a direct 32-bit pass back to packing.
+                        if (!UseDirectIndexUpload(world) && !packed_ready) PackIndexBufferData(world);
+                        dmGraphics::SetVertexBufferData(world->m_VertexBuffer, vertex_data_size,
+                            world->m_VertexBufferData.Begin(), dmGraphics::BUFFER_USAGE_DYNAMIC_DRAW);
+                        dmGraphics::SetIndexBufferData(world->m_IndexBuffer, index_data_size,
+                            IndexUploadData(world), dmGraphics::BUFFER_USAGE_DYNAMIC_DRAW);
+                    }
+                    else if (world->m_GeometryCacheMode == 2) ++world->m_CompletePassReuse;
+                    CommitPrefixResident(world, index_data_size);
                     DM_PROPERTY_ADD_U32(rmtp_SpineVertexCount, world->m_VertexBufferData.Size());
                     DM_PROPERTY_ADD_U32(rmtp_SpineVertexSize, vertex_data_size);
                     DM_PROPERTY_ADD_U32(rmtp_SpineIndexSize, index_data_size);
@@ -1345,6 +1795,10 @@ namespace dmSpine
         dmRender::HRenderContext render_context = context->m_RenderContext;
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
 
+        if (world->m_GeometryCacheMode == 2 && world->m_GeometryEpoch && world->m_GeometryEpoch % 60 == 0)
+            ReportGeometryCache(world);
+        ++world->m_GeometryEpoch;
+        if (!world->m_GeometryEpoch) { world->m_ResidentEpoch = 0; ++world->m_GeometryEpoch; }
         //UpdateTransforms(world);
 
         dmArray<SpineModelComponent*>& components = world->m_Components.GetRawObjects();
@@ -1403,6 +1857,7 @@ namespace dmSpine
 
     bool CompSpineModelPlayAnimation(SpineModelComponent* component, dmGameSystemDDF::SpinePlayAnimation* message, dmMessage::URL* sender, dmScript::LuaCallbackInfo* callback_info, lua_State* L)
     {
+        InvalidateGeometryCache(component);
         bool result = PlayAnimation(component, message->m_AnimationId, (dmGameObject::Playback)message->m_Playback, message->m_BlendDuration,
                                                 message->m_Offset, message->m_PlaybackRate, message->m_Track - 1, message->m_MixBlend, message->m_Alpha);
         if (result)
@@ -1418,6 +1873,7 @@ namespace dmSpine
 
     bool CompSpineModelCancelAnimation(SpineModelComponent* component, dmGameSystemDDF::SpineCancelAnimation* message)
     {
+        InvalidateGeometryCache(component);
         if (message->m_Track == ALL_TRACKS)
         {
             CancelAllAnimations(component);
@@ -1440,6 +1896,7 @@ namespace dmSpine
     {
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
         SpineModelComponent* component = GetComponentFromIndex(world, *params.m_UserData);
+        InvalidateGeometryCache(component);
         if (params.m_Message->m_Id == dmGameObjectDDF::Enable::m_DDFDescriptor->m_NameHash)
         {
             component->m_Enabled = 1;
@@ -1469,6 +1926,7 @@ namespace dmSpine
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
         int index = *params.m_UserData;
         SpineModelComponent* component = GetComponentFromIndex(world, index);
+        InvalidateGeometryCache(component);
         component->m_Resource = (SpineModelResource*)params.m_Resource;
         (void)OnResourceReloaded(world, component, index);
     }
@@ -1580,6 +2038,7 @@ namespace dmSpine
         SpineModelContext* context = (SpineModelContext*)params.m_Context;
         SpineModelWorld* world = (SpineModelWorld*)params.m_World;
         SpineModelComponent* component = GetComponentFromIndex(world, *params.m_UserData);
+        InvalidateGeometryCache(component);
         if (params.m_PropertyId == PROP_SKIN)
         {
             if (params.m_Value.m_Type != dmGameObject::PROPERTY_TYPE_HASH)
@@ -1693,6 +2152,10 @@ namespace dmSpine
 
     static void ResourceReloadedCallback(const dmResource::ResourceReloadedParams* params)
     {
+        SpineModelWorld* world = (SpineModelWorld*)params->m_UserData;
+        world->m_ResidentEpoch = 0;
+        dmArray<SpineModelComponent*>& components = world->m_Components.GetRawObjects();
+        for (uint32_t i = 0; i < components.Size(); ++i) InvalidateGeometryCache(components[i]);
         // E.g. if the Spine json or atlas has changed, we may need to update things here
 
         // SpineModelWorld* world = (SpineModelWorld*) params.m_UserData;
@@ -1710,6 +2173,9 @@ namespace dmSpine
     {
         SpineModelContext* spinemodelctx = new SpineModelContext;
         spinemodelctx->m_Factory = ctx->m_Factory;
+        spinemodelctx->m_GeometryCacheMode = dmConfigFile::GetInt(ctx->m_Config, "spine.geometry_cache", 0);
+        if (spinemodelctx->m_GeometryCacheMode < 0 || spinemodelctx->m_GeometryCacheMode > 2)
+            spinemodelctx->m_GeometryCacheMode = 0;
         spinemodelctx->m_GraphicsContext = *(dmGraphics::HContext*)ctx->m_Contexts.Get(dmHashString64("graphics"));
         spinemodelctx->m_RenderContext = *(dmRender::HRenderContext*)ctx->m_Contexts.Get(dmHashString64("render"));
 
@@ -1772,6 +2238,7 @@ namespace dmSpine
 
     bool CompSpineModelSetIKTargetInstance(SpineModelComponent* component, dmhash_t constraint_id, float mix, dmhash_t instance_id)
     {
+        InvalidateGeometryCache(component);
         if (instance_id == 0)
         {
             return CompSpineModelResetIKTarget(component, constraint_id);
@@ -1804,6 +2271,7 @@ namespace dmSpine
 
     bool CompSpineModelSetIKTargetPosition(SpineModelComponent* component, dmhash_t constraint_id, float mix, Point3 position)
     {
+        InvalidateGeometryCache(component);
         SpineModelResource* spine_model = component->m_Resource;
         SpineSceneResource* spine_scene = GetSpineScene(component);
         uint32_t* index = spine_scene->m_IKNameToIndex.Get(constraint_id);
@@ -1830,6 +2298,7 @@ namespace dmSpine
 
     bool CompSpineModelResetIKTarget(SpineModelComponent* component, dmhash_t constraint_id)
     {
+        InvalidateGeometryCache(component);
         // Remove the constraint
         for (uint32_t i = 0; i < component->m_IKTargets.Size(); ++i)
         {
@@ -1844,6 +2313,7 @@ namespace dmSpine
 
     bool CompSpineModelSetSkin(SpineModelComponent* component, dmhash_t skin_id)
     {
+        InvalidateGeometryCache(component);
         SpineModelResource* spine_model = component->m_Resource;
         SpineSceneResource* spine_scene = GetSpineScene(component);
 
@@ -1868,6 +2338,7 @@ namespace dmSpine
 
     bool CompSpineModelClearSkin(SpineModelComponent* component, dmhash_t skin_id)
     {
+        InvalidateGeometryCache(component);
         SpineModelResource* spine_model = component->m_Resource;
         SpineSceneResource* spine_scene = GetSpineScene(component);
         spSkin* skin = spine_scene->m_Skeleton->defaultSkin;;
@@ -1891,6 +2362,7 @@ namespace dmSpine
 
     bool CompSpineModelAddSkin(SpineModelComponent* component, dmhash_t skin_id_a, dmhash_t skin_id_b)
     {
+        InvalidateGeometryCache(component);
         SpineModelResource* spine_model = component->m_Resource;
         SpineSceneResource* spine_scene = spine_model->m_SpineScene;
         spSkin* skin_a = spine_scene->m_Skeleton->defaultSkin;
@@ -1926,6 +2398,7 @@ namespace dmSpine
 
     bool CompSpineModelCopySkin(SpineModelComponent* component, dmhash_t skin_id_a, dmhash_t skin_id_b)
     {
+        InvalidateGeometryCache(component);
         SpineModelResource* spine_model = component->m_Resource;
         SpineSceneResource* spine_scene = spine_model->m_SpineScene;
         spSkin* skin_a = spine_scene->m_Skeleton->defaultSkin;;
@@ -1961,6 +2434,7 @@ namespace dmSpine
 
     bool CompSpineModelSetSlotColor(SpineModelComponent* component, dmhash_t slot_id,  Vectormath::Aos::Vector4* color)
     {
+        InvalidateGeometryCache(component);
         SpineModelResource* spine_model = component->m_Resource;
         SpineSceneResource* spine_scene = spine_model->m_SpineScene;
 
@@ -1979,6 +2453,7 @@ namespace dmSpine
 
     bool CompSpineModelSetAttachment(SpineModelComponent* component, dmhash_t slot_id, dmhash_t attachment_id)
     {
+        InvalidateGeometryCache(component);
         SpineModelResource* spine_model = component->m_Resource;
         SpineSceneResource* spine_scene = spine_model->m_SpineScene;
 
@@ -2020,11 +2495,13 @@ namespace dmSpine
 
     void CompSpineModelPhysicsTranslate(SpineModelComponent* component, Point3 translation)
     {
+        InvalidateGeometryCache(component);
         spSkeleton_physicsTranslate(component->m_SkeletonInstance, translation.getX(), translation.getY());
     }
 
     void CompSpineModelPhysicsRotate(SpineModelComponent* component, Point3 center, float degrees)
     {
+        InvalidateGeometryCache(component);
         spSkeleton_physicsRotate(component->m_SkeletonInstance, center.getX(), center.getY(), degrees);
     }
 }
