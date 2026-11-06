@@ -4,11 +4,14 @@
 
 #include <common/spine_loader.h>
 
+#include <dmsdk/dlib/hash.h>
 #include <dmsdk/dlib/log.h>
 #include <dmsdk/dlib/math.h>
 #include <dmsdk/resource/resource.h>
 
 #include <spine/AnimationStateData.h>
+#include <spine/Skin.h>
+#include <spine/extension.h>
 #include <dmsdk/gamesys/resources/res_textureset.h>
 
 // Also see the guide http://esotericsoftware.com/spine-c#Loading-skeleton-data
@@ -119,8 +122,41 @@ namespace dmSpine
         return dmResource::RESULT_OK;
     }
 
+    bool CreateSkin(SpineSceneResource* resource, const char* skin_name)
+    {
+        dmhash_t skin_id = dmHashString64(skin_name);
+        if (resource->m_SkinNameToIndex.Get(skin_id))
+            return false;
+
+        // The skeleton data owns its skins, so spSkeletonData_dispose frees the new skin too
+        spSkeletonData* skeleton = resource->m_Skeleton;
+        uint32_t index = skeleton->skinsCount++;
+        skeleton->skins = REALLOC(skeleton->skins, spSkin*, skeleton->skinsCount);
+        skeleton->skins[index] = spSkin_create(skin_name);
+
+        if (resource->m_SkinNameToIndex.Full())
+            resource->m_SkinNameToIndex.OffsetCapacity(8);
+        resource->m_SkinNameToIndex.Put(skin_id, index);
+        return true;
+    }
+
+    template <typename T>
+    static void ResetTable(dmHashTable64<T>& table)
+    {
+        dmHashTable64<T> empty;
+        table.Swap(empty); // frees the old entries when `empty` goes out of scope
+    }
+
     static void ReleaseResources(dmResource::HFactory factory, SpineSceneResource* resource)
     {
+        // The tables refer to the skeleton data, and must be rebuilt from scratch on reload
+        // (SetCapacity can't shrink a table)
+        ResetTable(resource->m_AnimationNameToIndex);
+        ResetTable(resource->m_SkinNameToIndex);
+        ResetTable(resource->m_SlotNameToIndex);
+        ResetTable(resource->m_IKNameToIndex);
+        ResetTable(resource->m_AttachmentHashToName);
+
         if (resource->m_Ddf)
             dmDDF::FreeMessage(resource->m_Ddf);
         if (resource->m_TextureSet)
