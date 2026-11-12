@@ -12,10 +12,10 @@
 -- CONDITIONS OF ANY KIND, either express or implied. See the License for the
 -- specific language governing permissions and limitations under the License.
 
--- Copy of /builtins/render/default.render_script. The only change: the "tile" predicate (which Spine models use)
--- can be drawn into several side-by-side views, set by examples/draw_passes. With one view it renders exactly like
--- the builtin script.
-local draw_views = require "examples.draw_passes.draw_views"
+-- Copy of /builtins/render/default.render_script. The only change: the Spine models of examples/draw_passes (materials
+-- tagged "spine_bench") are drawn with the render.draw() calls that example asks for. Everything else renders exactly
+-- like the builtin script.
+local bench = require "examples.draw_passes.bench_state"
 
 --
 -- message constants
@@ -176,6 +176,10 @@ end
 
 function init(self)
     self.predicates = create_predicates("tile", "gui", "particle", "model", "debug_text")
+    self.bench_predicates = {
+        all = render.predicate({ "spine_bench" }),
+        groups = { render.predicate({ "spine_bench_a" }), render.predicate({ "spine_bench_b" }), render.predicate({ "spine_bench_c" }) },
+    }
 
     -- default is stretch projection. copy from builtins and change for different projection
     -- or send a message to the render script to change projection:
@@ -231,15 +235,18 @@ function update(self)
     -- render the other components: sprites, tilemaps, particles etc
     --
     render.enable_state(graphics.STATE_BLEND)
-    local view_count = draw_views.count
-    if view_count <= 1 then
-        render.draw(predicates.tile, draw_options_world)
-    else
-        -- One render.draw() per view, each drawing the same models (like split screen or a minimap)
-        local view_width = math.floor(state.window_width / view_count)
-        for i = 0, view_count - 1 do
+    render.draw(predicates.tile, draw_options_world)
+    if bench.mode == bench.DISJOINT then
+        -- One render.draw() per model group, each drawing different models
+        for _, predicate in ipairs(self.bench_predicates.groups) do
+            render.draw(predicate, draw_options_world)
+        end
+    elseif bench.mode == bench.VIEWS then
+        -- One render.draw() per side-by-side view, each drawing the same models (like split screen or a minimap)
+        local view_width = math.floor(state.window_width / bench.view_count)
+        for i = 0, bench.view_count - 1 do
             render.set_viewport(i * view_width, 0, view_width, state.window_height)
-            render.draw(predicates.tile, draw_options_world)
+            render.draw(self.bench_predicates.all, draw_options_world)
         end
         render.set_viewport(0, 0, state.window_width, state.window_height)
     end
