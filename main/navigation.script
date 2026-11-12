@@ -16,7 +16,8 @@ local examples = {
 	{ name = "Bone Scene Swap Test", proxy_id = "bone_scene_swap_test_proxy", description = "Regression checks for scene swaps and bone ownership in factory-created game objects" },
 	{ name = "Instances", proxy_id = "instances", description = "Two models drawn using components and GUIs" },
 	{ name = "Bones", proxy_id = "bones", description = "Objects with bones and without bones switches" },
-	{ name = "Performance Test", proxy_id = "performance_test_proxy", description = "Spawns a 20x10 grid of Spineboy instances and reports FPS" }
+	{ name = "Performance Test", proxy_id = "performance_test_proxy", description = "Spawns a 20x10 grid of Spineboy instances and reports FPS" },
+	{ name = "Draw Passes", proxy_id = "draw_passes_proxy", description = "Draws 1000 Spineboys in 1, 2 or 3 views and compares the frame time" }
 }
 
 local current_example = 1

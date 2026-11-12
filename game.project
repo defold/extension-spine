@@ -1,5 +1,6 @@
 [bootstrap]
 main_collection = /main/main.collectionc
+render = /examples/draw_passes/draw_passes.renderc
 
 [script]
 shared_state = 1

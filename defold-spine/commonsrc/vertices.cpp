@@ -81,20 +81,6 @@ static uint32_t EnsureArrayFitsNumber(dmArray<T>& array, uint32_t num_to_add)
 }
 
 template <typename T>
-static uint32_t EnsureArrayFitsNumberGeometric(dmArray<T>& array, uint32_t num_to_add)
-{
-    if (array.Remaining() < num_to_add)
-    {
-        uint32_t required_capacity = array.Size() + num_to_add;
-        uint32_t grown_capacity = array.Capacity() ? array.Capacity() * 2 : 16;
-        array.SetCapacity(dmMath::Max(required_capacity, grown_capacity));
-    }
-    uint32_t prev_size = array.Size();
-    array.SetSize(prev_size + num_to_add);
-    return prev_size;
-}
-
-template <typename T>
 static void EnsureArraySize(dmArray<T>& array, uint32_t size)
 {
     if (array.Capacity() < size)

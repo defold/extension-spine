@@ -1,0 +1,16 @@
+name: "draw_passes"
+scale_along_z: 0
+embedded_instances {
+  id: "controller"
+  data: "components {\n"
+  "  id: \"draw_passes\"\n"
+  "  component: \"/examples/draw_passes/draw_passes.script\"\n"
+  "}\n"
+  "embedded_components {\n"
+  "  id: \"spine_factory\"\n"
+  "  type: \"factory\"\n"
+  "  data: \"prototype: \\\"/examples/draw_passes/spineboy.go\\\"\\n"
+  "\"\n"
+  "}\n"
+  ""
+}

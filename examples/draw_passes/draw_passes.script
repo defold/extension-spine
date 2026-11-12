@@ -1,0 +1,126 @@
+-- Draws the same Spine models with 1, 2 or 3 render.draw() calls per frame (side-by-side views) and measures the
+-- frame time of each. Run it on two engine builds and compare:
+--   1 view:   the usual single draw. Both builds should show the same frame time.
+--   2+ views: every extra view draws the same models again. Without the per-frame geometry cache, each extra view
+--             regenerates and re-uploads every model's vertices; with it, the extra views reuse the first one's.
+
+local draw_views = require "examples.draw_passes.draw_views"
+
+local COLUMNS = 40
+local ROWS = 25
+local MODEL_COUNT = COLUMNS * ROWS
+
+local VIEW_COUNTS = { 1, 2, 3 }
+local WARMUP_SECONDS = 1
+local MEASURE_SECONDS = 4
+
+local function set_view_count(self, count)
+	draw_views.count = count
+	self.live_frames = 0
+	self.live_time = 0
+end
+
+local function start_benchmark(self)
+	self.results = {}
+	self.bench = { index = 1, measuring = false, time = 0, frames = 0 }
+	set_view_count(self, VIEW_COUNTS[1])
+end
+
+local function update_benchmark(self, dt)
+	local bench = self.bench
+	bench.time = bench.time + dt
+	if not bench.measuring then
+		if bench.time >= WARMUP_SECONDS then
+			bench.measuring = true
+			bench.time = 0
+			bench.frames = 0
+		end
+		return
+	end
+
+	bench.frames = bench.frames + 1
+	if bench.time < MEASURE_SECONDS then
+		return
+	end
+
+	local count = VIEW_COUNTS[bench.index]
+	local ms = bench.time / bench.frames * 1000
+	self.results[#self.results + 1] = { views = count, ms = ms }
+	print(string.format("draw_passes: models=%d views=%d frame_ms=%.3f", MODEL_COUNT, count, ms))
+
+	bench.index = bench.index + 1
+	if bench.index > #VIEW_COUNTS then
+		self.bench = nil
+		set_view_count(self, 1)
+	else
+		bench.measuring = false
+		bench.time = 0
+		set_view_count(self, VIEW_COUNTS[bench.index])
+	end
+end
+
+function init(self)
+	for row = 0, ROWS - 1 do
+		for column = 0, COLUMNS - 1 do
+			local id = factory.create("#spine_factory", vmath.vector3(12 + column * 24, 8 + row * 25, 0))
+			local url = msg.url(nil, id, "spinemodel")
+			spine.play_anim(url, "walk", go.PLAYBACK_LOOP_FORWARD, { offset = (row * COLUMNS + column) / MODEL_COUNT })
+		end
+	end
+
+	self.results = {}
+	self.live_ms = 0
+	set_view_count(self, 1)
+end
+
+function update(self, dt)
+	-- Frame time averaged over the last half second
+	self.live_frames = self.live_frames + 1
+	self.live_time = self.live_time + dt
+	if self.live_time >= 0.5 then
+		self.live_ms = self.live_time / self.live_frames * 1000
+		self.live_frames = 0
+		self.live_time = 0
+	end
+
+	if self.bench then
+		update_benchmark(self, dt)
+	end
+
+	imgui.begin_window("Draw passes", nil, 0)
+	imgui.text(string.format("%d Spine models, drawn in %d view(s)", MODEL_COUNT, draw_views.count))
+	imgui.text(string.format("Frame time: %.2f ms", self.live_ms))
+
+	if self.bench then
+		imgui.text_colored("Benchmark running...", 1.0, 1.0, 0.0, 1.0)
+	else
+		for i, count in ipairs(VIEW_COUNTS) do
+			if imgui.button(count == 1 and "1 view" or (count .. " views")) then
+				set_view_count(self, count)
+			end
+			if i < #VIEW_COUNTS then
+				imgui.same_line()
+			end
+		end
+		if imgui.button("Run benchmark") then
+			start_benchmark(self)
+		end
+	end
+
+	if #self.results > 0 then
+		imgui.separator()
+		local base = self.results[1].ms
+		for _, result in ipairs(self.results) do
+			if result.views == 1 then
+				imgui.text(string.format("1 view:  %.2f ms", result.ms))
+			else
+				imgui.text(string.format("%d views: %.2f ms  (+%.2f ms per extra view)", result.views, result.ms, (result.ms - base) / (result.views - 1)))
+			end
+		end
+	end
+	imgui.end_window()
+end
+
+function final(self)
+	draw_views.count = 1
+end
