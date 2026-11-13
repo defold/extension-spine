@@ -35,6 +35,10 @@ namespace dmSpine
         dmHashTable64<uint32_t>             m_IKNameToIndex;
         dmHashTable64<const char*>          m_AttachmentHashToName; // makes it easy for us to do a reverse hash for attachments
     };
+
+    // Adds an empty skin, shared by everything using this spine scene. Returns false if the name is taken.
+    // Created skins are lost when the resource is reloaded.
+    bool CreateSkin(SpineSceneResource* resource, const char* skin_name);
 }
 
 #endif // DM_RES_SPINE_SCENE_H

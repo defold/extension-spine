@@ -86,6 +86,7 @@ function gui.get_spine_scene(node) end
 function gui.set_spine_skin(node, spine_skin) end
 
 ---Add a spine skin on a spine node to another skin on the same node.
+---Skins are shared by everything using the same spine scene.
 ---@param node node node having both skins
 ---@param spine_skin_a string|hash spine skin id that recieves other skin
 ---@param spine_skin_b string|hash spine skin id that will be added
@@ -98,6 +99,7 @@ function gui.set_spine_skin(node, spine_skin) end
 function gui.add_spine_skin(node, spine_skin_a, spine_skin_b) end
 
 ---Copy a spine skin on a spine node to another skin on the same node.
+---Skins are shared by everything using the same spine scene.
 ---@param node node node having both skins
 ---@param spine_skin_a string|hash spine skin id that copies other skin
 ---@param spine_skin_b string|hash spine skin id that will be copied
@@ -109,7 +111,23 @@ function gui.add_spine_skin(node, spine_skin_a, spine_skin_b) end
 ---```
 function gui.copy_spine_skin(node, spine_skin_a, spine_skin_b) end
 
+---Creates an empty skin.
+---Skins are shared by everything using the same spine scene. Errors if the skin already exists.
+---@param node node spine node
+---@param spine_skin string name of the new skin
+---@example
+---```
+---function init(self)
+---  local node = gui.get_node("spine_node")
+---  gui.create_spine_skin(node, "custom")
+---  gui.copy_spine_skin(node, "custom", "monster_body")
+---  gui.set_spine_skin(node, "custom")
+---end
+---```
+function gui.create_spine_skin(node, spine_skin) end
+
 ---Clear a spine skin on a spine node of all attachments and constraints
+---Skins are shared by everything using the same spine scene.
 ---@param node node node having both skins
 ---@param spine_skin string|hash spine skin id
 ---@example

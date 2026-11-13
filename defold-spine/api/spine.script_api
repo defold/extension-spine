@@ -176,6 +176,7 @@
   - name: add_skin
     type: function
     desc: Adds one spine skin on a spine model to another on the same model.
+          Skins are shared by everything using the same spine scene.
 
     parameters:
       - name: url
@@ -195,6 +196,7 @@
   - name: copy_skin
     type: function
     desc: Copies one spine skin on a spine model to another on the same model.
+          Skins are shared by everything using the same spine scene.
 
     parameters:
       - name: url
@@ -211,9 +213,26 @@
 
 #*****************************************************************************************************
 
+  - name: create_skin
+    type: function
+    desc: Creates an empty skin.
+          Skins are shared by everything using the same spine scene. Errors if the skin already exists.
+
+    parameters:
+      - name: url
+        type: string|hash|url
+        desc: The Spine model
+
+      - name: skin
+        type: string
+        desc: Name of the new skin
+
+#*****************************************************************************************************
+
   - name: clear_skin
     type: function
     desc: Clear all attachments and constraints from a skin on a spine model
+          Skins are shared by everything using the same spine scene.
 
     parameters:
       - name: url

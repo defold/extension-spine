@@ -2178,8 +2178,7 @@ namespace dmSpine
 
     bool CompSpineModelAddSkin(SpineModelComponent* component, dmhash_t skin_id_a, dmhash_t skin_id_b)
     {
-        SpineModelResource* spine_model = component->m_Resource;
-        SpineSceneResource* spine_scene = spine_model->m_SpineScene;
+        SpineSceneResource* spine_scene = GetSpineScene(component);
         spSkin* skin_a = spine_scene->m_Skeleton->defaultSkin;
         spSkin* skin_b = spine_scene->m_Skeleton->defaultSkin;
 
@@ -2213,8 +2212,7 @@ namespace dmSpine
 
     bool CompSpineModelCopySkin(SpineModelComponent* component, dmhash_t skin_id_a, dmhash_t skin_id_b)
     {
-        SpineModelResource* spine_model = component->m_Resource;
-        SpineSceneResource* spine_scene = spine_model->m_SpineScene;
+        SpineSceneResource* spine_scene = GetSpineScene(component);
         spSkin* skin_a = spine_scene->m_Skeleton->defaultSkin;;
         spSkin* skin_b = spine_scene->m_Skeleton->defaultSkin;;
 
@@ -2246,10 +2244,14 @@ namespace dmSpine
         return true;
     }
 
+    bool CompSpineModelCreateSkin(SpineModelComponent* component, const char* skin_name)
+    {
+        return CreateSkin(GetSpineScene(component), skin_name);
+    }
+
     bool CompSpineModelSetSlotColor(SpineModelComponent* component, dmhash_t slot_id,  Vectormath::Aos::Vector4* color)
     {
-        SpineModelResource* spine_model = component->m_Resource;
-        SpineSceneResource* spine_scene = spine_model->m_SpineScene;
+        SpineSceneResource* spine_scene = GetSpineScene(component);
 
         uint32_t* index = spine_scene->m_SlotNameToIndex.Get(slot_id);
         if (!index)
@@ -2266,8 +2268,7 @@ namespace dmSpine
 
     bool CompSpineModelSetAttachment(SpineModelComponent* component, dmhash_t slot_id, dmhash_t attachment_id)
     {
-        SpineModelResource* spine_model = component->m_Resource;
-        SpineSceneResource* spine_scene = spine_model->m_SpineScene;
+        SpineSceneResource* spine_scene = GetSpineScene(component);
 
         uint32_t* index = spine_scene->m_SlotNameToIndex.Get(slot_id);
         if (!index)
