@@ -179,6 +179,7 @@ function init(self)
     self.bench_predicates = {
         all = render.predicate({ "spine_bench" }),
         groups = { render.predicate({ "spine_bench_a" }), render.predicate({ "spine_bench_b" }), render.predicate({ "spine_bench_c" }) },
+        overlapping = { render.predicate({ "spine_bench_ab" }), render.predicate({ "spine_bench_bc" }) },
     }
 
     -- default is stretch projection. copy from builtins and change for different projection
@@ -239,6 +240,11 @@ function update(self)
     if bench.mode == bench.DISJOINT then
         -- One render.draw() per model group, each drawing different models
         for _, predicate in ipairs(self.bench_predicates.groups) do
+            render.draw(predicate, draw_options_world)
+        end
+    elseif bench.mode == bench.OVERLAP then
+        -- Two render.draw() calls sharing one of the three model groups
+        for _, predicate in ipairs(self.bench_predicates.overlapping) do
             render.draw(predicate, draw_options_world)
         end
     elseif bench.mode == bench.VIEWS then

@@ -1,6 +1,7 @@
 name: "spine_bench_a"
 tags: "spine_bench"
 tags: "spine_bench_a"
+tags: "spine_bench_ab"
 vertex_program: "/defold-spine/assets/spine.vp"
 fragment_program: "/defold-spine/assets/spine.fp"
 vertex_constants {
