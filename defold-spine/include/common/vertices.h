@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <dmsdk/dlib/array.h>
+#include <dmsdk/dlib/math.h>
 #include <dmsdk/dlib/vmath.h>
 
 struct spSkeleton;
@@ -50,6 +51,21 @@ struct SpineIndexedDrawDesc
     uint32_t m_IndexCount;
     uint32_t m_BlendMode; // spBlendMode
 };
+
+// Grows the array by num_to_add elements, doubling the capacity when it runs out. Returns the previous size.
+template <typename T>
+inline uint32_t EnsureArrayFitsNumberGeometric(dmArray<T>& array, uint32_t num_to_add)
+{
+    if (array.Remaining() < num_to_add)
+    {
+        uint32_t required_capacity = array.Size() + num_to_add;
+        uint32_t grown_capacity = array.Capacity() ? array.Capacity() * 2 : 16;
+        array.SetCapacity(dmMath::Max(required_capacity, grown_capacity));
+    }
+    uint32_t prev_size = array.Size();
+    array.SetSize(prev_size + num_to_add);
+    return prev_size;
+}
 
 uint32_t CalcVertexBufferSize(const spSkeleton* skeleton, spSkeletonClipping* skeleton_clipper, uint32_t* out_max_triangle_count);
 uint32_t CalcDrawDescCount(const spSkeleton* skeleton);

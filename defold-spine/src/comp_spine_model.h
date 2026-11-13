@@ -81,6 +81,7 @@ namespace dmSpine
         dmArray<dmSpine::IKTarget>              m_IKTargetPositions;
         uint32_t                                m_MixedHash;
         uint32_t                                m_CallbackInvocationDepth;
+        uint32_t                                m_DrawnFrameId;         // Last frame a dispatch drew this component (0 = never)
         uint16_t                                m_ComponentIndex;
         uint8_t                                 m_Enabled : 1;
         uint8_t                                 m_DoRender : 1;

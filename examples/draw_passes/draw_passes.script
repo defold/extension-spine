@@ -1,0 +1,234 @@
+-- Benchmarks how Spine rendering scales with the number of render.draw() calls per frame. Scenarios:
+--   1 draw:              all models drawn by one render.draw().
+--   3 disjoint draws:    three render.draw() calls, each drawing a different third of the models.
+--   2 overlapping draws: two render.draw() calls, each drawing two thirds of the models (one third is drawn twice).
+--   Same models xN:      N render.draw() calls (side-by-side views), each drawing all models.
+-- Each scenario runs with alpha and with inherit blend mode models.
+--
+-- The benchmark starts when the example loads. It measures the wall-clock frame time of every scenario ROUNDS times,
+-- in turn. The result is a table with the median round and the lowest and highest one per scenario, shown in the
+-- window and printed to the console. "Stop benchmark" stops it, to look at single scenarios instead.
+-- Close the web profiler while measuring: a connected profiler adds several ms per frame.
+-- To compare two engine builds, run them alternately.
+--
+-- Uploaded vertex/index bytes are the Spine counters of the profiler ("size of vertices in bytes",
+-- "size of indices in bytes"), see the web profiler at http://localhost:17815.
+
+local bench = require "examples.draw_passes.bench_state"
+
+local COLUMNS = 40
+local ROWS = 25
+local MODEL_COUNT = COLUMNS * ROWS
+
+local ROUNDS = 5
+local WARMUP_SECONDS = 1
+local MEASURE_SECONDS = 2
+
+local SCENARIOS = {
+	{ name = "1 draw",              mode = bench.VIEWS,    view_count = 1 },
+	{ name = "3 disjoint draws",    mode = bench.DISJOINT, view_count = 1 },
+	{ name = "2 overlapping draws", mode = bench.OVERLAP,  view_count = 1 },
+	{ name = "Same models x2",      mode = bench.VIEWS,    view_count = 2 },
+	{ name = "Same models x3",      mode = bench.VIEWS,    view_count = 3 },
+}
+
+local BLENDS = { "alpha", "inherit" }
+
+local FACTORIES = {
+	alpha   = { "#factory_a_alpha", "#factory_b_alpha", "#factory_c_alpha" },
+	inherit = { "#factory_a_inherit", "#factory_b_inherit", "#factory_c_inherit" },
+}
+
+-- Rows are split between the three model groups, which the disjoint and overlapping scenarios draw separately
+local function spawn_models(self, blend)
+	if self.ids then
+		go.delete(self.ids)
+	end
+	self.ids = {}
+	self.blend = blend
+	for row = 0, ROWS - 1 do
+		local factory_url = FACTORIES[blend][row % 3 + 1]
+		for column = 0, COLUMNS - 1 do
+			local id = factory.create(factory_url, vmath.vector3(12 + column * 24, 8 + row * 25, 0))
+			self.ids[#self.ids + 1] = id
+			spine.play_anim(msg.url(nil, id, "spinemodel"), "walk", go.PLAYBACK_LOOP_FORWARD, { offset = (row * COLUMNS + column) / MODEL_COUNT })
+		end
+	end
+end
+
+local function set_scenario(self, index)
+	local scenario = SCENARIOS[index]
+	self.scenario = index
+	bench.mode = scenario.mode
+	bench.view_count = scenario.view_count
+	self.live_frames = 0
+	self.live_time = 0
+end
+
+local function start_step(self)
+	local step = self.run.steps[self.run.index]
+	if step.blend ~= self.blend then
+		spawn_models(self, step.blend)
+	end
+	set_scenario(self, step.scenario)
+	self.run.measuring = false
+	self.run.time = 0
+	self.run.frames = 0
+end
+
+local function start_benchmark(self)
+	local steps = {}
+	for round = 1, ROUNDS do
+		for _, blend in ipairs(BLENDS) do
+			for index = 1, #SCENARIOS do
+				steps[#steps + 1] = { round = round, blend = blend, scenario = index }
+			end
+		end
+	end
+	-- samples[blend][scenario] is the list of frame times measured for it, one per round
+	local samples = {}
+	for _, blend in ipairs(BLENDS) do
+		samples[blend] = {}
+		for index = 1, #SCENARIOS do
+			samples[blend][index] = {}
+		end
+	end
+	self.results = nil
+	self.run = { steps = steps, index = 1, samples = samples }
+	start_step(self)
+end
+
+-- Median, lowest and highest of the rounds
+local function summarize(samples)
+	local sorted = {}
+	for i, ms in ipairs(samples) do
+		sorted[i] = ms
+	end
+	table.sort(sorted)
+	local middle = math.floor((#sorted + 1) / 2)
+	local median = sorted[middle]
+	if #sorted % 2 == 0 then
+		median = (sorted[middle] + sorted[middle + 1]) / 2
+	end
+	return median, sorted[1], sorted[#sorted]
+end
+
+-- The results table of a finished benchmark, one string per line
+local function results_lines(samples)
+	local lines = {
+		string.format("Frame time in ms, %d models: median of %d rounds (lowest-highest)", MODEL_COUNT, ROUNDS),
+		string.format("%-20s %-20s %s", "", "alpha", "inherit"),
+	}
+	for index, scenario in ipairs(SCENARIOS) do
+		local columns = {}
+		for _, blend in ipairs(BLENDS) do
+			columns[#columns + 1] = string.format("%6.2f (%5.2f-%5.2f)", summarize(samples[blend][index]))
+		end
+		lines[#lines + 1] = string.format("%-20s %-20s %s", scenario.name, columns[1], columns[2])
+	end
+	return lines
+end
+
+-- frame_time is the wall-clock duration of the last frame
+local function update_benchmark(self, frame_time)
+	local run = self.run
+	run.time = run.time + frame_time
+	if not run.measuring then
+		if run.time >= WARMUP_SECONDS then
+			run.measuring = true
+			run.time = 0
+			run.frames = 0
+		end
+		return
+	end
+
+	run.frames = run.frames + 1
+	if run.time < MEASURE_SECONDS then
+		return
+	end
+
+	-- One sample: the average frame time of this step
+	local step = run.steps[run.index]
+	local samples = run.samples[step.blend][step.scenario]
+	samples[#samples + 1] = run.time / run.frames * 1000
+
+	run.index = run.index + 1
+	if run.index > #run.steps then
+		self.run = nil
+		self.results = results_lines(run.samples)
+		for _, line in ipairs(self.results) do
+			print("draw_passes: " .. line)
+		end
+	else
+		start_step(self)
+	end
+end
+
+function init(self)
+	self.live_ms = 0
+	self.last_time = socket.gettime()
+	start_benchmark(self)
+end
+
+function update(self, dt)
+	-- Wall-clock time since the previous frame: dt is clamped by engine.max_time_step and so hides slow frames
+	local now = socket.gettime()
+	local frame_time = now - self.last_time
+	self.last_time = now
+
+	-- Frame time averaged over the last half second
+	self.live_frames = self.live_frames + 1
+	self.live_time = self.live_time + frame_time
+	if self.live_time >= 0.5 then
+		self.live_ms = self.live_time / self.live_frames * 1000
+		self.live_frames = 0
+		self.live_time = 0
+	end
+
+	if self.run then
+		update_benchmark(self, frame_time)
+	end
+
+	imgui.begin_window("Draw passes", nil, 0)
+	imgui.text(string.format("%d Spine models, %s blend: %s", MODEL_COUNT, self.blend, SCENARIOS[self.scenario].name))
+	imgui.text(string.format("Frame time: %.2f ms", self.live_ms))
+
+	if self.run then
+		local step = self.run.steps[self.run.index]
+		imgui.text_colored(string.format("Benchmark running: round %d/%d, step %d/%d...", step.round, ROUNDS, self.run.index, #self.run.steps), 1.0, 1.0, 0.0, 1.0)
+		if imgui.button("Stop benchmark") then
+			self.run = nil
+		end
+	else
+		for index, scenario in ipairs(SCENARIOS) do
+			if imgui.button(scenario.name) then
+				set_scenario(self, index)
+			end
+			if index < #SCENARIOS then
+				imgui.same_line()
+			end
+		end
+		for index, blend in ipairs(BLENDS) do
+			if imgui.button(blend .. " blend") and blend ~= self.blend then
+				spawn_models(self, blend)
+			end
+			imgui.same_line()
+		end
+		if imgui.button("Run benchmark") then
+			start_benchmark(self)
+		end
+	end
+
+	if self.results then
+		imgui.separator()
+		for _, line in ipairs(self.results) do
+			imgui.text(line)
+		end
+	end
+	imgui.text("Uploaded bytes: Spine counters in the profiler (http://localhost:17815)")
+	imgui.end_window()
+end
+
+function final(self)
+	bench.mode = bench.OFF
+end
